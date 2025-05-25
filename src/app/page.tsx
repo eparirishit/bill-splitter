@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { UploadStep } from "@/views/upload-step";
-import { GroupSelectionStep } from "@/views/group-selection-step";
-import { ItemSplittingStep } from "@/views/item-splitting-step";
-import { ReviewStep } from "@/views/review-step";
+import { UploadStep } from "@/components/bill-splitter/upload-step";
+import { GroupSelectionStep } from "@/components/bill-splitter/group-selection-step";
+import { ItemSplittingStep } from "@/components/bill-splitter/item-splitting-step";
+import { ReviewStep } from "@/components/bill-splitter/review-step";
 import { CheckCircle, Loader2 } from "lucide-react";
 import type { ExtractReceiptDataOutput, SplitwiseUser, ItemSplit } from "@/types";
 import { useAuth } from "@/hooks/use-auth";

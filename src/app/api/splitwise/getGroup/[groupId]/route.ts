@@ -13,7 +13,7 @@ export async function GET(
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  const { groupId } = params;
+  const { groupId } = await params;
 
   if (!groupId) {
     return NextResponse.json({ error: 'Group ID is required' }, { status: 400 });

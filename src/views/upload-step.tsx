@@ -1,15 +1,14 @@
-
 "use client";
 
 import * as React from "react";
-import { Upload, Loader2, AlertTriangle, ImagePlus } from "lucide-react"; // Added ImagePlus
+import { Upload, Loader2, AlertTriangle, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { extractReceiptData } from "@/ai/flows/extract-receipt-data";
 import type { ExtractReceiptDataOutput } from "@/types";
-import { cn } from "@/lib/utils"; // Import cn
+import { cn } from "@/lib/utils";
 
 interface UploadStepProps {
   onDataExtracted: (data: ExtractReceiptDataOutput) => void;
@@ -113,16 +112,15 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
   }
 
   return (
-     // Added pb-24 to the main container to ensure space for the sticky footer button
-    <div className="flex flex-col h-full space-y-6 animate-fade-in pt-2 pb-24">
+    <div className="flex flex-col min-h-full space-y-6 animate-fade-in pt-2">
         {/* Step Title */}
         <div className="px-1">
           <h2 className="text-2xl font-semibold mb-1">Upload Receipt</h2>
           <p className="text-muted-foreground text-sm">Take a photo or upload an image of your bill.</p>
         </div>
 
-        {/* Upload Area - Removed flex-grow as pb-24 on parent handles spacing */}
-        <div className="flex flex-col items-center justify-center space-y-4 px-1">
+        {/* Upload Area with proper spacing */}
+        <div className="flex-1 flex flex-col items-center justify-center space-y-4 px-1 pb-20">
              <Label
                   htmlFor="dropzone-file"
                   className={cn(
@@ -154,24 +152,26 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
              )}
         </div>
 
-         {/* Sticky Footer Button */}
-        <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-background border-t border-border z-10">
-            <Button
-                onClick={handleUpload}
-                disabled={!selectedFile || isLoading}
-                className="w-full tap-scale"
-                size="lg"
-            >
-                {isLoading ? (
-                 <>
-                   <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
-                 </>
-                ) : (
-                  <>
-                   <Upload className="mr-2 h-5 w-5" /> Extract Bill Data
-                  </>
-                )}
-            </Button>
+         {/* Sticky Footer Button - Fixed positioning */}
+        <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-4 mt-auto">
+            <div className="max-w-md mx-auto">
+                <Button
+                    onClick={handleUpload}
+                    disabled={!selectedFile || isLoading}
+                    className="w-full tap-scale"
+                    size="lg"
+                >
+                    {isLoading ? (
+                     <>
+                       <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
+                     </>
+                    ) : (
+                      <>
+                       <Upload className="mr-2 h-5 w-5" /> Extract Bill Data
+                      </>
+                    )}
+                </Button>
+            </div>
        </div>
     </div>
   );

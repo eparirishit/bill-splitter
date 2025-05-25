@@ -1,17 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle, AlertTriangle, Send, Loader2, Edit, ArrowLeft, UserCircle } from "lucide-react"; // Added UserCircle
+import { CheckCircle, AlertTriangle, Send, Loader2, Edit, ArrowLeft, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { createExpense } from "@/services/splitwise"; // Import the actual API function
+import { createExpense } from "@/services/splitwise";
 import type { ExtractReceiptDataOutput, SplitwiseUser, ItemSplit, FinalSplit, CreateExpense } from "@/types";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-// Assuming you have these Select components from shadcn/ui
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
@@ -112,8 +111,8 @@ export function ReviewStep({
               });
           });
 
-          if (billData.taxes !== undefined && billData.taxes > 0 && taxSplitMembers.length > 0) {
-              const taxPerMember = billData.taxes / taxSplitMembers.length;
+          if ((billData.taxes ?? 0) > 0 && taxSplitMembers.length > 0) {
+              const taxPerMember = (billData.taxes ?? 0) / taxSplitMembers.length;
               taxSplitMembers.forEach(memberId => {
                  if (memberGrossTotals[memberId] !== undefined) {
                     memberGrossTotals[memberId] += taxPerMember;
@@ -121,8 +120,8 @@ export function ReviewStep({
               });
           }
 
-          if (billData.otherCharges !== undefined && billData.otherCharges > 0 && otherChargesSplitMembers.length > 0) {
-              const chargePerMember = billData.otherCharges / otherChargesSplitMembers.length;
+          if ((billData.otherCharges ?? 0) > 0 && otherChargesSplitMembers.length > 0) {
+              const chargePerMember = (billData.otherCharges ?? 0) / otherChargesSplitMembers.length;
               otherChargesSplitMembers.forEach(memberId => {
                  if (memberGrossTotals[memberId] !== undefined) {
                     memberGrossTotals[memberId] += chargePerMember;
@@ -206,14 +205,14 @@ export function ReviewStep({
               notes += `- ${item.name}: ${formatCurrency(item.price)}\n`;
           });
 
-          if (billData.taxes !== undefined && billData.taxes > 0) {
-              notes += `Tax: ${formatCurrency(billData.taxes)}\n`;
+          if ((billData.taxes ?? 0) > 0) {
+              notes += `Tax: ${formatCurrency(billData.taxes ?? 0)}\n`;
           }
-           if (billData.otherCharges !== undefined && billData.otherCharges > 0) {
-              notes += `Other Charges: ${formatCurrency(billData.otherCharges)}\n`;
+           if ((billData.otherCharges ?? 0) > 0) {
+              notes += `Other Charges: ${formatCurrency(billData.otherCharges ?? 0)}\n`;
           }
-           if (billData.discount !== undefined && billData.discount > 0) {
-              notes += `Discount Applied: -${formatCurrency(billData.discount)}\n`;
+           if ((billData.discount ?? 0) > 0) {
+              notes += `Discount Applied: -${formatCurrency(billData.discount ?? 0)}\n`;
           }
           notes += `\nGrand Total (on receipt): ${formatCurrency(billData.totalCost)}`; // This is the key total
           if (billData.discrepancyFlag) {
@@ -314,16 +313,15 @@ export function ReviewStep({
 
 
   return (
-    <div className="flex flex-col h-full space-y-6 animate-fade-in pt-2">
+    <div className="flex flex-col min-h-full space-y-6 animate-fade-in pt-2">
         {/* Step Title */}
         <div className="px-1">
            <h2 className="text-2xl font-semibold mb-1">Review & Finalize</h2>
            <p className="text-muted-foreground text-sm">Confirm the details before adding to Splitwise.</p>
         </div>
 
-        {/* Scrollable Content Area - Added padding-bottom */}
-        <div className="flex-grow space-y-4 overflow-y-auto pb-24"> {/* Add padding-bottom for button */}
-
+        {/* Scrollable Content Area with proper bottom padding */}
+        <div className="flex-1 space-y-4 overflow-y-auto pb-20">
             {/* Discrepancy Alerts */}
             {billData.discrepancyFlag && (
                <div className="flex items-start gap-2 rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 text-sm text-orange-700 dark:text-orange-400 mx-1">
@@ -340,19 +338,16 @@ export function ReviewStep({
 
             {/* Summary Card */}
             <Card className="card-modern">
-              <CardHeader className="flex-row items-center justify-between pb-3">
+              <CardHeader className="pb-3">
                 <CardTitle className="text-base font-medium">Expense Summary</CardTitle>
-                <Button variant="ghost" size="sm" className="h-auto p-1 text-xs text-primary hover:bg-primary/10" onClick={() => onEdit(1)} disabled={isLoading}>
-                      <Edit className="mr-1 h-3 w-3" /> Edit Bill
-                </Button>
               </CardHeader>
               <CardContent className="text-sm space-y-2 text-muted-foreground">
                   <div className="flex justify-between"><span>Store:</span> <strong className="text-foreground">{billData.storeName}</strong></div>
                   <div className="flex justify-between"><span>Date:</span> <strong className="text-foreground">{formatToLocalDateString(billData.date)}</strong></div>
                   <div className="flex justify-between"><span>Items Subtotal:</span> <strong className="text-foreground">{formatCurrency(billData.items.reduce((s, i) => s + i.price, 0))}</strong></div>
-                   {(billData.taxes !== undefined && billData.taxes > 0) && <div className="flex justify-between"><span>Tax:</span> <strong className="text-foreground">{formatCurrency(billData.taxes)}</strong></div>}
-                   {(billData.otherCharges !== undefined && billData.otherCharges > 0) && <div className="flex justify-between"><span>Other Charges:</span> <strong className="text-foreground">{formatCurrency(billData.otherCharges)}</strong></div>}
-                   {(billData.discount !== undefined && billData.discount > 0) && <div className="flex justify-between"><span>Discount:</span> <strong className="text-green-600">-{formatCurrency(billData.discount)}</strong></div>}
+                   {(billData.taxes ?? 0) > 0 && <div className="flex justify-between"><span>Tax:</span> <strong className="text-foreground">{formatCurrency(billData.taxes ?? 0)}</strong></div>}
+                   {(billData.otherCharges ?? 0) > 0 && <div className="flex justify-between"><span>Other Charges:</span> <strong className="text-foreground">{formatCurrency(billData.otherCharges ?? 0)}</strong></div>}
+                   {(billData.discount ?? 0) > 0 && <div className="flex justify-between"><span>Discount:</span> <strong className="text-green-600">-{formatCurrency(billData.discount ?? 0)}</strong></div>}
                    <Separator className="my-3"/>
                   <div className="flex justify-between text-base font-semibold">
                       <span>Total Bill:</span>
@@ -380,9 +375,9 @@ export function ReviewStep({
                       <SelectValue placeholder="Select who paid" />
                     </SelectTrigger>
                     <SelectContent>
-                      {selectedMembers.map(member => (
+                      {selectedMembers.map((member) => (
                         <SelectItem key={member.id} value={member.id}>
-                          {member.first_name} {member.last_name || ''}
+                          {member.first_name} {member.last_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -402,74 +397,84 @@ export function ReviewStep({
                     </Button>
                 </CardHeader>
               <CardContent>
-                  <ScrollArea className="max-h-60"> {/* Adjust max height as needed */}
+                  <ScrollArea className="max-h-60">
                       <div className="space-y-1 pr-2">
-                        {finalSplits.map(split => (
-                          <div key={split.userId} className="flex justify-between items-center text-sm p-2.5 rounded-md hover:bg-muted/50">
-                            <span className="text-foreground">{memberMap[split.userId]?.first_name || 'Unknown'} {memberMap[split.userId]?.last_name || ''}</span>
-                            <span className="font-medium text-foreground">{formatCurrency(split.amountOwed)}</span>
-                          </div>
-                        ))}
+                        {finalSplits.map(split => {
+                          const member = memberMap[split.userId];
+                          return (
+                            <div key={split.userId} className="flex justify-between items-center p-2 rounded-lg bg-muted/30">
+                              <div className="flex items-center gap-2">
+                                <UserCircle className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">
+                                  {member ? `${member.first_name} ${member.last_name}` : `User ${split.userId}`}
+                                </span>
+                              </div>
+                              <span className="text-sm font-semibold text-primary">
+                                {formatCurrency(split.amountOwed)}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                   </ScrollArea>
-                   <p className="text-xs text-muted-foreground text-right pt-2 pr-1">Calculated Split Total: {formatCurrency(calculatedTotalFromSplits)}</p>
+                   <p className="text-xs text-muted-foreground text-right pt-2 pr-1">
+                     Calculated Split Total: <strong className={cn(totalMatches ? "text-primary" : "text-destructive")}>
+                       {formatCurrency(calculatedTotalFromSplits)}
+                     </strong>
+                   </p>
               </CardContent>
             </Card>
-
 
              {/* Notes Card */}
              <Card className="card-modern">
                <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-medium">Expense Notes</CardTitle>
-                    <CardDescription className="text-xs">This will be added to the Splitwise expense details.</CardDescription>
-                </CardHeader>
+                 <CardTitle className="text-base font-medium">Expense Notes</CardTitle>
+               </CardHeader>
                <CardContent>
-                    <ScrollArea className="h-28 rounded-md border bg-muted/30">
-                     <pre className="text-xs whitespace-pre-wrap font-mono p-3">{expenseNotes}</pre>
-                   </ScrollArea>
+                 <ScrollArea className="max-h-32">
+                   <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">{expenseNotes}</pre>
+                 </ScrollArea>
                </CardContent>
              </Card>
         </div>
 
 
-        {/* Sticky Footer Buttons */}
-        <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-background border-t border-border z-10">
-             <div className="flex gap-3">
-                 <Button onClick={() => onEdit(3)} variant="outline" disabled={isLoading} className="w-1/3 hover:bg-primary/10 hover:text-primary">
-                      <ArrowLeft className="mr-2 h-4 w-4" /> Edit
-                 </Button>
-                 <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                           {/* Wrap button in a span when disabled for Tooltip to work */}
-                          <span tabIndex={isFinalizeDisabled ? 0 : -1}>
-                            <Button
-                                onClick={handleFinalizeExpense}
-                                disabled={isFinalizeDisabled}
-                                className="w-full tap-scale" // Use w-full within the span
-                                aria-disabled={isFinalizeDisabled}
-                              >
-                                {isLoading ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Send className="mr-2 h-4 w-4" />
-                                )}
-                                Add to Splitwise
-                              </Button>
-                          </span>
-                        </TooltipTrigger>
-                         {isFinalizeDisabled && (
-                             <TooltipContent>
-                               <p>{finalizeDisabledReason}</p>
-                             </TooltipContent>
+        {/* Sticky Footer Buttons - Fixed positioning */}
+        <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-4 mt-auto">
+             <div className="flex gap-3 max-w-md mx-auto">
+               <Button onClick={() => onEdit(3)} variant="outline" disabled={isLoading} className="w-1/3 hover:bg-primary/10 hover:text-primary">
+                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
+               </Button>
+               <TooltipProvider>
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <div className="w-2/3">
+                       <Button
+                         onClick={handleFinalizeExpense}
+                         disabled={isFinalizeDisabled}
+                         className="w-full hover:bg-primary/10 hover:text-primary"
+                         size="lg"
+                       >
+                         {isLoading ? (
+                           <>
+                             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing...
+                           </>
+                         ) : (
+                           <>
+                             <Send className="mr-2 h-4 w-4" /> Add to Splitwise
+                           </>
                          )}
-                    </Tooltip>
-                 </TooltipProvider>
-
+                       </Button>
+                     </div>
+                   </TooltipTrigger>
+                   {finalizeDisabledReason && (
+                     <TooltipContent>
+                       <p>{finalizeDisabledReason}</p>
+                     </TooltipContent>
+                   )}
+                 </Tooltip>
+               </TooltipProvider>
              </div>
-             {isFinalizeDisabled && !isLoading && (
-                 <p className="text-xs text-destructive text-center pt-2">{finalizeDisabledReason}</p>
-             )}
         </div>
     </div>
   );

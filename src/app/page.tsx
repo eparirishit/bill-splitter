@@ -1,12 +1,11 @@
-
 "use client";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { UploadStep } from "@/views/bill-splitter/upload-step";
-import { GroupSelectionStep } from "@/views/bill-splitter/group-selection-step";
-import { ItemSplittingStep } from "@/views/bill-splitter/item-splitting-step";
-import { ReviewStep } from "@/views/bill-splitter/review-step";
+import { UploadStep } from "@/views/upload-step";
+import { GroupSelectionStep } from "@/views/group-selection-step";
+import { ItemSplittingStep } from "@/views/item-splitting-step";
+import { ReviewStep } from "@/views/review-step";
 import { CheckCircle, Loader2 } from "lucide-react";
 import type { ExtractReceiptDataOutput, SplitwiseUser, ItemSplit } from "@/types";
 import { useAuth } from "@/hooks/use-auth";

@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Using system font stack for modern feel */
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+@layer base {
+  :root {
+    /* Uizard Template Inspired Theme */
+    /* Background: Very light gray/off-white */
+    --background-h: 220; --background-s: 15%; --background-l: 98%;
+    /* Foreground: Dark gray/near black */
+    --foreground-h: 220; --foreground-s: 10%; --foreground-l: 10%;
+
+    /* Card: White with slight offset */
+    --card-h: 0; --card-s: 0%; --card-l: 100%;
+    --card-foreground-h: 220; --card-foreground-s: 10%; --card-foreground-l: 10%;
+
+    /* Popover: White */
+    --popover-h: 0; --popover-s: 0%; --popover-l: 100%;
+    --popover-foreground-h: 220; --popover-s: 10%; --popover-foreground-l: 10%;
+
+    /* Primary: Purple */
+    --primary-h: 260; --primary-s: 70%; --primary-l: 60%;
+    /* Primary Foreground: White */
+    --primary-foreground-h: 0; --primary-foreground-s: 0%; --primary-foreground-l: 100%;
+
+    /* Secondary: Lighter Gray */
+    --secondary-h: 220; --secondary-s: 10%; --secondary-l: 94%;
+    --secondary-foreground-h: 220; --secondary-foreground-s: 5%; --secondary-foreground-l: 30%;
+
+    /* Muted: Light Gray */
+    --muted-h: 220; --muted-s: 10%; --muted-l: 94%;
+    /* Muted Foreground: Grayish */
+    --muted-foreground-h: 220; --muted-foreground-s: 5%; --muted-foreground-l: 45%;
+
+    /* Accent: Green */
+    --accent-h: 140; --accent-s: 60%; --accent-l: 50%;
+    /* Accent Foreground: White */
+    --accent-foreground-h: 0; --accent-foreground-s: 0%; --accent-foreground-l: 100%;
+
+    /* Destructive: Red */
+    --destructive-h: 0; --destructive-s: 72%; --destructive-l: 51%;
+    --destructive-foreground-h: 0; --destructive-foreground-s: 0%; --destructive-foreground-l: 98%;
+
+    /* Border: Light gray */
+    --border-h: 220; --border-s: 10%; --border-l: 90%;
+    /* Input: Slightly darker border */
+    --input-h: 220; --input-s: 10%; --input-l: 88%;
+    /* Ring: Primary Purple */
+    --ring-h: 260; --ring-s: 70%; --ring-l: 60%;
+
+    /* Chart Colors (can keep or adjust based on new theme) */
+    --chart-1-h: 260; --chart-1-s: 70%; --chart-1-l: 60%; /* Primary Purple */
+    --chart-2-h: 140; --chart-2-s: 60%; --chart-2-l: 50%; /* Accent Green */
+    --chart-3-h: 40; --chart-3-s: 70%; --chart-3-l: 60%; /* Yellowish */
+    --chart-4-h: 200; --chart-4-s: 70%; --chart-4-l: 60%; /* Blueish */
+    --chart-5-h: 0; --chart-5-s: 70%; --chart-5-l: 60%;   /* Redish */
+
+    /* Radius */
+    --radius: 0.75rem; /* Slightly larger radius for softer look */
+
+    /* HSL variable construction */
+    --background: hsl(var(--background-h) var(--background-s) var(--background-l));
+    --foreground: hsl(var(--foreground-h) var(--foreground-s) var(--foreground-l));
+    --card: hsl(var(--card-h) var(--card-s) var(--card-l));
+    --card-foreground: hsl(var(--card-foreground-h) var(--card-foreground-s) var(--card-foreground-l));
+    --popover: hsl(var(--popover-h) var(--popover-s) var(--popover-l));
+    --popover-foreground: hsl(var(--popover-foreground-h) var(--popover-foreground-s) var(--popover-foreground-l));
+    --primary: hsl(var(--primary-h) var(--primary-s) var(--primary-l));
+    --primary-foreground: hsl(var(--primary-foreground-h) var(--primary-foreground-s) var(--primary-foreground-l));
+    --secondary: hsl(var(--secondary-h) var(--secondary-s) var(--secondary-l));
+    --secondary-foreground: hsl(var(--secondary-foreground-h) var(--secondary-foreground-s) var(--secondary-foreground-l));
+    --muted: hsl(var(--muted-h) var(--muted-s) var(--muted-l));
+    --muted-foreground: hsl(var(--muted-foreground-h) var(--muted-foreground-s) var(--muted-foreground-l));
+    --accent: hsl(var(--accent-h) var(--accent-s) var(--accent-l));
+    --accent-foreground: hsl(var(--accent-foreground-h) var(--accent-foreground-s) var(--accent-foreground-l));
+    --destructive: hsl(var(--destructive-h) var(--destructive-s) var(--destructive-l));
+    --destructive-foreground: hsl(var(--destructive-foreground-h) var(--destructive-foreground-s) var(--destructive-foreground-l));
+    --border: hsl(var(--border-h) var(--border-s) var(--border-l));
+    --input: hsl(var(--input-h) var(--input-s) var(--input-l));
+    --ring: hsl(var(--ring-h) var(--ring-s) var(--ring-l));
+
+    --chart-1: hsl(var(--chart-1-h) var(--chart-1-s) var(--chart-1-l));
+    --chart-2: hsl(var(--chart-2-h) var(--chart-2-s) var(--chart-2-l));
+    --chart-3: hsl(var(--chart-3-h) var(--chart-3-s) var(--chart-3-l));
+    --chart-4: hsl(var(--chart-4-h) var(--chart-4-s) var(--chart-4-l));
+    --chart-5: hsl(var(--chart-5-h) var(--chart-5-s) var(--chart-5-l));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    /* Use the new background color */
+    @apply bg-background text-foreground;
+    /* Ensure smooth scrolling */
+    scroll-behavior: smooth;
+    /* Improve text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  /* Ensure inputs and buttons have a slightly larger tap target on mobile */
+  input, button, select, textarea {
+     min-height: 48px; /* Increase min height for better touch */
+     @apply px-4 py-2 rounded-lg; /* Adjust padding & use larger radius */
+     @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2; /* Consistent focus rings */
+  }
+  /* Specific adjustments for Shadcn components */
+  .h-10 { @apply min-h-[2.5rem] } /* Shadcn default height */
+  .h-9 { @apply min-h-[2.25rem] }
+  .h-11 { @apply min-h-[2.75rem] }
+  .h-12 { @apply min-h-[3rem] } /* Ensure larger buttons respect min-height */
+
+  /* Card styling to match Uizard */
+  .card-modern {
+     @apply bg-card rounded-xl shadow-md border border-border/50;
+     /* Use slightly softer shadow */
+     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+   /* Apply global styles for better mobile layout */
+   main {
+    @apply w-full max-w-md mx-auto; /* Center content on larger screens, full width on mobile */
+   }
+}
+
+
+/* Add animation */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+   /* Add subtle scale on tap for interactive elements */
+  .tap-scale {
+    @apply transition-transform duration-100 ease-in-out active:scale-95;
+  }
+}
+
+.dropdownItem:focus{
+background-color: #f2edfc !important;
+}
+
+.dropdownItem:focus span{
+  color: #8152e1 !important;
+}
+
+.scrollArea{
+  overflow-y: scroll !important;
+}
+
+.logo-img{
+  width: auto;
+  height: 35px;
+  object-fit: contain;
+}

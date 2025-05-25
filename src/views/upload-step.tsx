@@ -81,7 +81,15 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
           throw new Error("Received invalid data structure from extraction.");
       }
 
-      onDataExtracted(result);
+      // Convert null values to undefined to match ExtractReceiptDataOutput type
+      const processedResult: ExtractReceiptDataOutput = {
+        ...result,
+        taxes: result.taxes === null ? undefined : result.taxes,
+        otherCharges: result.otherCharges === null ? undefined : result.otherCharges,
+        discount: result.discount === null ? undefined : result.discount
+      };
+
+      onDataExtracted(processedResult);
       toast({
         title: "Extraction Complete",
         description: "Bill data processed successfully.",

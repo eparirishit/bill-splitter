@@ -15,6 +15,18 @@ export const APP_CONFIG = {
   OAUTH_STATE_COOKIE_NAME: 'oauth_state',
 } as const;
 
+// AI Configuration
+export const AI_CONFIG = {
+  MAX_RETRIES: 3,
+  RETRY_DELAY_MS: 1000,
+  MAX_IMAGE_SIZE_MB: 10,
+  SUPPORTED_FORMATS: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'],
+  DISCREPANCY_TOLERANCE: 0.02, // 2 cents tolerance for receipt total vs calculated total
+  MODEL_NAME: 'gemini-2.0-flash',
+  TEMPERATURE: 0.1,
+  MAX_OUTPUT_TOKENS: 8192,
+} as const;
+
 // Validate required environment variables
 const requiredEnvVars = ['SPLITWISE_CLIENT_ID', 'SPLITWISE_CLIENT_SECRET', 'SPLITWISE_REDIRECT_URI'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);

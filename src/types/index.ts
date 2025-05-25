@@ -1,5 +1,5 @@
 // Re-export AI flow types
-export type { ExtractReceiptDataOutput } from "@/ai/flows/extract-receipt-data";
+export type { ExtractReceiptDataOutput } from "@/ai/extract-receipt-data";
 
 // Splitwise API types
 export interface SplitwiseGroup {

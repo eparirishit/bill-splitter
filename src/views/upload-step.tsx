@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { extractReceiptData } from "@/ai/flows/extract-receipt-data";
+import { extractReceiptData } from "@/ai/extract-receipt-data";
 import type { ExtractReceiptDataOutput } from "@/types";
 import { cn } from "@/lib/utils";
 

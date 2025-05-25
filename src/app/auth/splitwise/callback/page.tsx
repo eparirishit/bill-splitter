@@ -1,9 +1,7 @@
-// filepath: /Users/rishit.epari/Documents/repos/studio-36iw9/src/app/auth/splitwise/callback/page.tsx
 "use client";
 
 import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { handleSplitwiseOAuthCallback } from '@/services/splitwise'; // Adjust path as needed
 
 function CallbackContent() {
   const router = useRouter();
@@ -11,25 +9,19 @@ function CallbackContent() {
 
   useEffect(() => {
     const code = searchParams.get('code');
-    // const state = searchParams.get('state'); // If you used a state parameter
+    const error = searchParams.get('error');
+
+    if (error) {
+      console.error("Splitwise authentication error:", error);
+      router.push('/login?error=splitwise_auth_failed');
+      return;
+    }
 
     if (code) {
-      handleSplitwiseOAuthCallback(code)
-        .then((success) => {
-          if (success) {
-            // Redirect to a protected page or dashboard
-            router.push('/dashboard'); // Or wherever appropriate
-          } else {
-            // Handle auth failure - redirect to login or show error
-            router.push('/login?error=splitwise_auth_failed');
-          }
-        })
-        .catch(error => {
-          console.error("Splitwise callback error:", error);
-          router.push('/login?error=splitwise_callback_error');
-        });
+      // Since the auth server handles the callback directly,
+      // this page should redirect to home after successful auth
+      router.push('/');
     } else {
-      // No code found, redirect or show error
       console.error("No authorization code found in callback.");
       router.push('/login?error=splitwise_no_code');
     }

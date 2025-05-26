@@ -380,7 +380,7 @@ export function ReviewStep({
                     </SelectTrigger>
                     <SelectContent>
                       {selectedMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
+                        <SelectItem key={member.id} value={member.id} className="dropdownItem">
                           {member.first_name} {member.last_name}
                         </SelectItem>
                       ))}
@@ -401,7 +401,7 @@ export function ReviewStep({
                     </Button>
                 </CardHeader>
               <CardContent>
-                  <ScrollArea className="max-h-60">
+                  <ScrollArea className="max-h-60 scrollArea">
                       <div className="space-y-1 pr-2">
                         {finalSplits.map(split => {
                           const member = memberMap[split.userId];

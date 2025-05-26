@@ -1,4 +1,3 @@
-// Re-export AI flow types
 export type { ExtractReceiptDataOutput } from "@/ai/extract-receipt-data";
 
 // Splitwise API types
@@ -40,18 +39,6 @@ export interface ReceiptItem {
   quantity?: number;
 }
 
-export interface ExtractReceiptDataOutput {
-  storeName: string;
-  date: string;
-  items: ReceiptItem[];
-  taxes?: number;
-  otherCharges?: number;
-  discount?: number;
-  totalCost: number;
-  discrepancyFlag?: boolean;
-  discrepancyMessage?: string;
-}
-
 // Split Types
 export interface ItemSplit {
   itemId: string;
@@ -68,21 +55,21 @@ export interface FinalSplit {
 // Splitwise Expense Creation
 export interface CreateExpenseUser {
   user_id: number;
-  paid_share: number;
-  owed_share: number;
+  paid_share: string;
+  owed_share: string;
 }
 
 export interface CreateExpense {
-  cost: number;
+  cost: string;
   description: string;
   details?: string;
-  payment: boolean;
+  currency_code?: string;
   category_id?: number;
-  date: string;
-  group_id: number;
-  users: CreateExpenseUser[];
-  split_equally: boolean;
+  date?: string;
+  group_id?: number;
+  split_equally?: boolean;
+  // Dynamic user fields - will be populated based on actual users
+  [key: `users__${number}__user_id`]: number;
+  [key: `users__${number}__paid_share`]: string;
+  [key: `users__${number}__owed_share`]: string;
 }
-
-// Legacy type alias for backward compatibility
-export type CreateExpenseProxyPayload = CreateExpense;

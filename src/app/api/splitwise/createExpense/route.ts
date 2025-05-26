@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const expenseData = await request.json();
 
   // Core fields validation
-  if (!expenseData || typeof expenseData.cost !== 'number' || !expenseData.description || expenseData.group_id == null) {
+  if (!expenseData || !expenseData.cost || !expenseData.description || expenseData.group_id == null) {
     return NextResponse.json(
       { error: 'Invalid expense data payload: missing cost, description, or group_id' },
       { status: 400 }

@@ -248,33 +248,37 @@ export function ReviewStep({
        const totalCostForPayload = billData.totalCost;
 
        const expensePayload: CreateExpense = {
-           cost: totalCostForPayload,
+           cost: totalCostForPayload.toFixed(2),
            description: billData.storeName,
            group_id: groupId,
-           date: formatToLocalDateString(billData.date), // Ensure date format matches YYYY-MM-DD if needed by Splitwise
-           users: finalSplits.map(split => ({
-               user_id: parseInt(split.userId),
-               paid_share: parseInt(split.userId) === numericPayerId ? totalCostForPayload : 0.00,
-               owed_share: parseFloat(split.amountOwed.toFixed(2)),
-           })),
+           date: formatToLocalDateString(billData.date),
            details: expenseNotes,
-           payment: false,
-           category_id: 18, // Groceries
+           currency_code: 'USD',
+           category_id: 18,
            split_equally: false,
        };
 
+       finalSplits.forEach((split, index) => {
+           const paidShare = parseInt(split.userId) === numericPayerId ? totalCostForPayload.toFixed(2) : '0.00';
+           const owedShare = split.amountOwed.toFixed(2);
+           
+           expensePayload[`users__${index}__user_id`] = parseInt(split.userId);
+           expensePayload[`users__${index}__paid_share`] = paidShare;
+           expensePayload[`users__${index}__owed_share`] = owedShare;
+       });
+
        // Final Validation: Sum of owed shares must exactly match total cost
-       const totalOwed = parseFloat(expensePayload.users.reduce((sum: any, user: { owed_share: any; }) => sum + user.owed_share, 0).toFixed(2));
+       const totalOwed = parseFloat(finalSplits.reduce((sum, split) => sum + split.amountOwed, 0).toFixed(2));
 
        if (Math.abs(totalOwed - totalCostForPayload) > 0.01) { // Allow for tiny floating point differences
            console.error("Final Validation Error:", { totalOwed, totalCostForPayload, expensePayload });
            throw new Error(`Validation Error: Split total (${formatCurrency(totalOwed)}) doesn't match bill total (${formatCurrency(totalCostForPayload)}).`);
        }
 
-       // --- Actual API Call ---
-       await createExpense(expensePayload); // Use the imported API function
        console.log("Expense Payload :", JSON.stringify(expensePayload, null, 2));
-       // await new Promise(resolve => setTimeout(resolve, 1500)); // Remove Simulate API call
+
+       // --- Actual API Call ---
+       await createExpense(expensePayload);
        // ----------------------
 
        toast({

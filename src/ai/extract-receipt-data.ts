@@ -66,7 +66,7 @@ export async function extractReceiptData(input: ExtractReceiptDataInput): Promis
   ];
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash-preview-04-17",
     safetySettings,
     generationConfig: {
       temperature: 0.1, // Lower temperature for more consistent extraction
@@ -140,7 +140,7 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanations):
 
 Analyze the receipt image now:`;
 
-  let aiOutput: AIOutput;
+  let aiOutput!: AIOutput;
   const maxRetries = 3;
   let lastError: Error | null = null;
 

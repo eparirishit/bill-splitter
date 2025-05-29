@@ -188,7 +188,7 @@ export function ItemSplittingStep({
         const item = billData.items[itemIndex];
         toast({
           title: "Incomplete Split",
-          description: `Please select members for the unequal split of: ${item?.name || split.itemId}.`,
+          description: `Please select members for the custom split of: ${item?.name || split.itemId}.`,
           variant: "destructive",
         });
         onLoadingChange(false);
@@ -264,12 +264,12 @@ export function ItemSplittingStep({
                           <span className="text-xs font-medium">Equally</span>
                         </ToggleGroupItem>
                          <ToggleGroupItem
-                            value="unequal"
-                            aria-label="Split unequally"
+                            value="custom"
+                            aria-label="Split custom"
                            className="flex flex-col items-center justify-center h-auto p-3 rounded-lg border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-md tap-scale"
                          >
                             <UserCheck className="h-5 w-5 mb-1"/>
-                            <span className="text-xs font-medium">Unequally</span>
+                            <span className="text-xs font-medium">Custom</span>
                         </ToggleGroupItem>
                       </ToggleGroup>
 

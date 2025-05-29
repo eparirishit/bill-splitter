@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { SPLITWISE_CONFIG, APP_CONFIG } from '@/lib/config';
 

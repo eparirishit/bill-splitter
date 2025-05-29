@@ -12,7 +12,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-// Main Bill Splitter component content
 function BillSplitterFlow() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -36,20 +35,18 @@ function BillSplitterFlow() {
   }, [isAuthenticated, isAuthLoading, router]);
 
 
-  // Define step logic handlers
   const handleDataExtracted = (data: ExtractReceiptDataOutput) => {
     setBillData(data);
     setCurrentStep(2);
-    setIsLoading(false); // Stop step loading
+    setIsLoading(false);
   };
 
   const handleGroupAndMembersSelected = (groupId: string, members: SplitwiseUser[]) => {
     setSelectedGroupId(groupId);
-    // Ensure group details are attached if needed later (might not be necessary now)
     const membersWithGroup = members.map(m => ({ ...m, _groupDetails: { id: groupId, name: "Selected Group" } }));
     setSelectedMembers(membersWithGroup);
     setCurrentStep(3);
-    setIsLoading(false); // Stop step loading
+    setIsLoading(false);
   };
 
   const handleSplitsDefined = (
@@ -61,11 +58,11 @@ function BillSplitterFlow() {
     setTaxSplitMembers(definedTaxSplit);
     setOtherChargesSplitMembers(definedOtherChargesSplit);
     setCurrentStep(4);
-    setIsLoading(false); // Stop step loading
+    setIsLoading(false);
   };
 
    const handleEditStep = (step: number) => {
-     if (step >= 1 && step < currentStep && !isComplete) { // Prevent editing after completion
+     if (step >= 1 && step < currentStep && !isComplete) {
        setCurrentStep(step);
      }
    };
@@ -75,8 +72,8 @@ function BillSplitterFlow() {
     setIsLoading(true);
     setTimeout(() => {
         setIsComplete(true);
-        setIsLoading(false); // Ensure loading is off
-    }, 500); // 0.5 second delay
+        setIsLoading(false);
+    }, 500);
   };
 
   const handleRestart = () => {
@@ -94,10 +91,9 @@ function BillSplitterFlow() {
 
 
   const handleLoadingChange = (loading: boolean) => {
-    setIsLoading(loading); // Manage loading state for steps
+    setIsLoading(loading);
   };
 
-  // Show loading indicator while checking authentication
   if (isAuthLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100dvh-8rem)]">
@@ -106,7 +102,6 @@ function BillSplitterFlow() {
     );
   }
 
-  // Render nothing if not authenticated yet (will be redirected by useEffect)
   if (!isAuthenticated) {
       return null;
   }
@@ -148,22 +143,20 @@ function BillSplitterFlow() {
       }
   };
 
-  // Render the main flow if authenticated
   return (
     <div className={cn(
         "w-full h-full flex flex-col",
-        // Add transition classes for smoother step changes
         "transition-opacity duration-300 ease-in-out",
-        isLoading && "opacity-75 pointer-events-none" // Dim background when loading
+        isLoading && "opacity-75 pointer-events-none"
      )}>
         {/* Conditional Rendering of Steps or Completion Message */}
         {isComplete ? (
           <div className="flex flex-col items-center justify-center text-center py-10 flex-grow animate-fade-in">
-            <CheckCircle className="h-16 w-16 text-accent mb-4" /> {/* Use accent color */}
+            <CheckCircle className="h-16 w-16 text-accent mb-4" />
             <h2 className="text-2xl font-semibold mb-2">Expense Added!</h2>
             <p className="text-muted-foreground mb-6 px-4">The expense has been successfully added to your Splitwise group.</p>
             <Button
-              onClick={handleRestart} // Use restart function
+              onClick={handleRestart}
               size="lg"
               className="w-full max-w-xs tap-scale"
             >
@@ -179,9 +172,6 @@ function BillSplitterFlow() {
   );
 }
 
-
-// Wrap the main component with AuthProvider - No need to wrap again if RootLayout already does
 export default function BillSplitterPage() {
-    // AuthProvider is already in RootLayout, no need to wrap here again.
     return <BillSplitterFlow />;
 }

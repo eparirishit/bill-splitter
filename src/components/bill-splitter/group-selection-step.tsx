@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Users, Loader2, ArrowLeft, Check } from "lucide-react"; // Added Check
+import { Users, Loader2, ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { Checkbox } from "@/components/ui/checkbox"; // Replace Checkbox with custom list item
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +11,7 @@ import { getGroups, getGroupMembers } from "@/services/splitwise";
 import type { SplitwiseGroup, SplitwiseUser } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card"; // Use Card for structure
+import { Card } from "@/components/ui/card";
 
 interface GroupSelectionStepProps {
   onGroupAndMembersSelected: (groupId: string, members: SplitwiseUser[]) => void;
@@ -33,8 +32,8 @@ const MemberListItem = ({ member, isSelected, onSelect, disabled }: {
       onClick={() => !disabled && onSelect(member.id)}
       className={cn(
         "flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-150",
-        "border border-transparent", // Base border
-        isSelected ? "bg-primary/10 border-primary/30" : "hover:bg-muted/60", // Selected and hover states
+        "border border-transparent",
+        isSelected ? "bg-primary/10 border-primary/30" : "hover:bg-muted/60",
         disabled ? "opacity-60 cursor-not-allowed" : "tap-scale"
       )}
     >
@@ -54,7 +53,7 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
   const [isFetchingMembers, setIsFetchingMembers] = React.useState(false);
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
-  // Fetch groups on component mount if authenticated
+
   React.useEffect(() => {
     const fetchGroups = async () => {
       if (!isAuthenticated) return;
@@ -63,7 +62,7 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
       setIsFetchingGroups(true);
       try {
         const fetchedGroups = await getGroups();
-        console.log("Fetched groups:", fetchedGroups); // DEBUG
+        console.log("Fetched groups:", fetchedGroups);
         setGroups(fetchedGroups);
         if (fetchedGroups.length === 0) {
              toast({ title: "No Groups Found", description: "No Splitwise groups were found.", variant: "default" });
@@ -84,20 +83,19 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
      // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
-  // Fetch group members when a group is selected and user is authenticated
+
   React.useEffect(() => {
     const fetchMembers = async () => {
       if (selectedGroupId && isAuthenticated) {
-        console.log("Selected groupId:", selectedGroupId); // DEBUG
+        console.log("Selected groupId:", selectedGroupId);
         onLoadingChange(true);
         setIsFetchingMembers(true);
         setGroupMembers([]);
         setSelectedMembers([]);
         try {
           const members = await getGroupMembers(selectedGroupId);
-          console.log("Fetched members for group", selectedGroupId, ":", members); // DEBUG
+          console.log("Fetched members for group", selectedGroupId, ":", members);
           setGroupMembers(members);
-          // Automatically select all members by default
           setSelectedMembers(members.map(m => m.id));
         } catch (error) {
           console.error("Error fetching group members:", error);
@@ -143,8 +141,6 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
   };
 
   const isProceedDisabled = isLoading || !selectedGroupId || selectedMembers.length === 0 || isFetchingGroups || isFetchingMembers;
-
-  // Combined Loading state for UI disabling
   const isCurrentlyLoading = isLoading || isFetchingGroups || isFetchingMembers;
 
   return (
@@ -155,7 +151,7 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
             <p className="text-muted-foreground text-sm">Choose the Splitwise group and who shared this bill.</p>
         </div>
 
-        <div className="flex-grow space-y-4 overflow-y-auto pb-24"> {/* Add padding-bottom for button */}
+        <div className="flex-grow space-y-4 overflow-y-auto pb-24">
            {/* Group Selection */}
             <div className="px-1">
               <Label htmlFor="splitwise-group" className="text-sm font-medium text-muted-foreground block mb-1.5">Splitwise Group</Label>
@@ -199,7 +195,7 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
                  {isFetchingMembers ? (
                       <div className="flex items-center justify-center p-4 h-48"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                  ) : (
-                    <ScrollArea className="h-[calc(100dvh-400px)] sm:h-60"> {/* Adjust height based on viewport/design */}
+                    <ScrollArea className="h-[calc(100dvh-400px)] sm:h-60">
                       <div className="p-2 space-y-1.5">
                         {groupMembers.length > 0 ? groupMembers.map((member) => (
                             <MemberListItem

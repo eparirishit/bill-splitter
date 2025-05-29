@@ -18,8 +18,6 @@ function CallbackContent() {
     }
 
     if (code) {
-      // Since the auth server handles the callback directly,
-      // this page should redirect to home after successful auth
       router.push('/');
     } else {
       console.error("No authorization code found in callback.");

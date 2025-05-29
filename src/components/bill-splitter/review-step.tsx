@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle, AlertTriangle, Send, Loader2, Edit, ArrowLeft, UserCircle } from "lucide-react";
+import { AlertTriangle, Send, Loader2, Edit, ArrowLeft, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 
 interface ReviewStepProps {
@@ -22,7 +23,7 @@ interface ReviewStepProps {
   taxSplitMembers: string[];
   otherChargesSplitMembers: string[];
   onFinalize: () => void;
-  onEdit: (step: number) => void; // Function to go back to a specific step
+  onEdit: (step: number) => void;
   onLoadingChange: (isLoading: boolean) => void;
   isLoading: boolean;
 }
@@ -42,6 +43,8 @@ export function ReviewStep({
   const [finalSplits, setFinalSplits] = React.useState<FinalSplit[]>([]);
   const [expenseNotes, setExpenseNotes] = React.useState<string>("");
   const [payerId, setPayerId] = React.useState<string | undefined>(undefined);
+  const [storeName, setStoreName] = React.useState<string>(billData.storeName);
+  const [date, setDate] = React.useState<string>(billData.date);
 
   const memberMap = React.useMemo(() => {
     return selectedMembers.reduce((acc, member) => {
@@ -51,31 +54,20 @@ export function ReviewStep({
   }, [selectedMembers]);
 
   React.useEffect(() => {
-    // Initialize payerId
-    // const loggedInUserId = getLoggedInUserId(); // Placeholder for auth context
-    // if (loggedInUserId && selectedMembers.some(m => m.id === loggedInUserId)) {
-    //   setPayerId(loggedInUserId);
-    // } else 
     if (selectedMembers.length > 0 && !payerId) { // Set initial payer only if not already set
       setPayerId(selectedMembers[0].id);
     }
-  }, [selectedMembers, payerId]); // Added payerId to dependencies to prevent re-running if already set by user
+  }, [selectedMembers, payerId]);
 
     // Helper function to format a date string or Date object to "YYYY-MM-DD"
   const formatToLocalDateString = (dateInput: string | Date): string => {
-    // If dateInput is already "YYYY-MM-DD", new Date() parses it as UTC midnight.
-    // To avoid timezone shifts when extracting day/month/year, parse carefully or use as is if format is guaranteed.
-    // Assuming dateInput from billData.date is "YYYY-MM-DD" string.
     if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
-        // If it's already in the correct format, and we trust it represents the intended local date.
         return dateInput;
     }
     const date = new Date(dateInput);
     // Adjust for timezone offset to get "local" date parts if new Date() parsed as UTC
     const userTimezoneOffset = date.getTimezoneOffset() * 60000;
     const localDate = new Date(date.getTime() + userTimezoneOffset);
-    
-    // Fallback for Date objects or other string formats - attempt to format
     const year = localDate.getFullYear();
     const month = (localDate.getMonth() + 1).toString().padStart(2, '0');
     const day = (localDate.getDate() + 1).toString().padStart(2, '0');
@@ -98,7 +90,7 @@ export function ReviewStep({
               return acc;
           }, {} as Record<string, number>);
 
-          // 1. Calculate gross share for each member (sum of their parts of items, taxes, other charges)
+          // Calculate gross share for each member (sum of their parts of items, taxes, other charges)
           billData.items.forEach((item, index) => {
               const itemId = `item-${index}`;
               const splitInfo = itemSplits.find(s => s.itemId === itemId);
@@ -129,16 +121,13 @@ export function ReviewStep({
               });
           }
 
-          // 2. Calculate overall gross total
+          // Calculate overall gross total
           const overallGrossTotal = Object.values(memberGrossTotals).reduce((sum, val) => sum + val, 0);
-
-          // Target total is billData.totalCost (which should be net of discount)
           const targetTotal = billData.totalCost;
-
           let finalMemberShares: Record<string, number> = {};
 
-          if (overallGrossTotal === 0) { // Handle case where no items/charges are split or sum to zero
-              if (targetTotal !== 0 && selectedMembers.length > 0) { // If there's a bill total but no one shared items/tax/charges
+          if (overallGrossTotal === 0) {
+              if (targetTotal !== 0 && selectedMembers.length > 0) {
                   // Distribute targetTotal equally among all selected members as a fallback
                   const amountPerMember = targetTotal / selectedMembers.length;
                   selectedMembers.forEach(member => {
@@ -150,14 +139,14 @@ export function ReviewStep({
                   });
               }
           } else {
-              // 3. Calculate final share for each member based on their proportion of gross total, applied to targetTotal
+              // Calculate final share for each member based on their proportion of gross total, applied to targetTotal
               selectedMembers.forEach(member => {
                   const proportion = (memberGrossTotals[member.id] ?? 0) / overallGrossTotal;
                   finalMemberShares[member.id] = proportion * targetTotal;
               });
           }
           
-          // 4. Round shares and distribute pennies to match targetTotal
+          // Round shares and distribute pennies to match targetTotal
           let roundedMemberShares: Record<string, number> = {};
           let sumOfRoundedShares = 0;
           selectedMembers.forEach(member => {
@@ -177,14 +166,14 @@ export function ReviewStep({
 
               let remainingDiscrepancyCents = Math.round(discrepancy * 100);
               let i = 0;
-              while (remainingDiscrepancyCents !== 0 && i < memberIdsToAdjust.length * 2) { // Safety break
+              while (remainingDiscrepancyCents !== 0 && i < memberIdsToAdjust.length * 2) {
                   const memberId = memberIdsToAdjust[i % memberIdsToAdjust.length];
                   const adjustment = remainingDiscrepancyCents > 0 ? 0.01 : -0.01;
                   roundedMemberShares[memberId] = parseFloat(((roundedMemberShares[memberId] ?? 0) + adjustment).toFixed(2));
                   remainingDiscrepancyCents -= Math.round(adjustment * 100);
                   i++;
               }
-              // If discrepancy still exists, assign to the first member (rare)
+              // If discrepancy still exists, assign to the first member
               if (remainingDiscrepancyCents !== 0 && memberIdsToAdjust.length > 0) {
                   const firstMemberId = memberIdsToAdjust[0];
                   roundedMemberShares[firstMemberId] = parseFloat(((roundedMemberShares[firstMemberId] ?? 0) + (remainingDiscrepancyCents / 100)).toFixed(2));
@@ -199,9 +188,9 @@ export function ReviewStep({
 
       const generateNotes = (): string => {
           const subtotal = billData.items.reduce((sum, item) => sum + item.price, 0);
-          let notes = `Store: ${billData.storeName}\nDate: ${formatToLocalDateString(billData.date)}\n\nItems Subtotal: ${formatCurrency(subtotal)}\n`;
+          let notes = `Store: ${storeName}\nDate: ${formatToLocalDateString(date)}\n\nItems Subtotal: ${formatCurrency(subtotal)}\n`;
           
-          billData.items.forEach(item => { // List items for clarity, though subtotal is main
+          billData.items.forEach(item => {
               notes += `- ${item.name}: ${formatCurrency(item.price)}\n`;
           });
 
@@ -214,7 +203,7 @@ export function ReviewStep({
            if ((billData.discount ?? 0) > 0) {
               notes += `Discount Applied: -${formatCurrency(billData.discount ?? 0)}\n`;
           }
-          notes += `\nGrand Total (on receipt): ${formatCurrency(billData.totalCost)}`; // This is the key total
+          notes += `\nGrand Total (on receipt): ${formatCurrency(billData.totalCost)}`;
           if (billData.discrepancyFlag) {
               notes += `\n\nNote: Original bill data discrepancy: ${billData.discrepancyMessage}`;
           }
@@ -225,7 +214,7 @@ export function ReviewStep({
       setFinalSplits(calculateSplits());
       setExpenseNotes(generateNotes());
 
-  }, [billData, itemSplits, selectedMembers, taxSplitMembers, otherChargesSplitMembers]); // Recalculate when these change
+  }, [billData, itemSplits, selectedMembers, taxSplitMembers, otherChargesSplitMembers, storeName, date]);
 
 
   const handleFinalizeExpense = async () => {
@@ -249,9 +238,9 @@ export function ReviewStep({
 
        const expensePayload: CreateExpense = {
            cost: totalCostForPayload.toFixed(2),
-           description: billData.storeName,
+           description: storeName,
            group_id: groupId,
-           date: formatToLocalDateString(billData.date),
+           date: formatToLocalDateString(date),
            details: expenseNotes,
            currency_code: 'USD',
            category_id: 18,
@@ -276,14 +265,11 @@ export function ReviewStep({
        }
 
        console.log("Expense Payload :", JSON.stringify(expensePayload, null, 2));
-
-       // --- Actual API Call ---
        await createExpense(expensePayload);
-       // ----------------------
 
        toast({
            title: "Expense Created Successfully",
-           description: `Expense for ${billData.storeName} has been added to Splitwise.`,
+           description: `Expense for ${storeName} has been added to Splitwise.`,
            variant: "default",
        });
        onFinalize();
@@ -304,7 +290,7 @@ export function ReviewStep({
   const billTotalForComparison = billData.totalCost;
   const calculatedTotalFromSplits = parseFloat(finalSplits.reduce((sum, split) => sum + split.amountOwed, 0).toFixed(2));
   // Use a small tolerance for floating point comparisons
-  const totalMatches = Math.abs(calculatedTotalFromSplits - billTotalForComparison) < 0.015; // Allow tolerance up to 1.5 cents
+  const totalMatches = Math.abs(calculatedTotalFromSplits - billTotalForComparison) < 0.015;
 
   const isFinalizeDisabled = isLoading || !totalMatches || billData.discrepancyFlag || !payerId;
   const finalizeDisabledReason = billData.discrepancyFlag
@@ -333,7 +319,7 @@ export function ReviewStep({
                  <span><strong>Bill Discrepancy:</strong> {billData.discrepancyMessage || 'Item total vs bill total mismatch found in original data.'}</span>
                </div>
             )}
-             {!totalMatches && !isLoading && ( // Show only if not loading and totals don't match (within tolerance)
+             {!totalMatches && !isLoading && (
                  <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive mx-1">
                    <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                    <span><strong>Calculation Warning:</strong> Final split total ({formatCurrency(calculatedTotalFromSplits)}) doesn't exactly match bill total ({formatCurrency(billTotalForComparison)}). Check splits if difference is large.</span>
@@ -345,13 +331,40 @@ export function ReviewStep({
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-medium">Expense Summary</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm space-y-2 text-muted-foreground">
-                  <div className="flex justify-between"><span>Store:</span> <strong className="text-foreground">{billData.storeName}</strong></div>
-                  <div className="flex justify-between"><span>Date:</span> <strong className="text-foreground">{formatToLocalDateString(billData.date)}</strong></div>
-                  <div className="flex justify-between"><span>Items Subtotal:</span> <strong className="text-foreground">{formatCurrency(billData.items.reduce((s, i) => s + i.price, 0))}</strong></div>
-                   {(billData.taxes ?? 0) > 0 && <div className="flex justify-between"><span>Tax:</span> <strong className="text-foreground">{formatCurrency(billData.taxes ?? 0)}</strong></div>}
-                   {(billData.otherCharges ?? 0) > 0 && <div className="flex justify-between"><span>Other Charges:</span> <strong className="text-foreground">{formatCurrency(billData.otherCharges ?? 0)}</strong></div>}
-                   {(billData.discount ?? 0) > 0 && <div className="flex justify-between"><span>Discount:</span> <strong className="text-green-600">-{formatCurrency(billData.discount ?? 0)}</strong></div>}
+              <CardContent className="text-sm space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor="store-name" className="text-xs text-muted-foreground">Store</Label>
+                      <Edit className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <Input
+                      id="store-name"
+                      value={storeName}
+                      onChange={(e) => setStoreName(e.target.value)}
+                      disabled={isLoading}
+                      className="text-sm font-medium"
+                      placeholder="Enter store name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor="expense-date" className="text-xs text-muted-foreground">Date</Label>
+                      <Edit className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <Input
+                      id="expense-date"
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      disabled={isLoading}
+                      className="text-sm font-medium"
+                    />
+                  </div>
+                  <Separator className="my-3"/>
+                  <div className="flex justify-between text-muted-foreground"><span>Items Subtotal:</span> <strong className="text-foreground">{formatCurrency(billData.items.reduce((s, i) => s + i.price, 0))}</strong></div>
+                   {(billData.taxes ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Tax:</span> <strong className="text-foreground">{formatCurrency(billData.taxes ?? 0)}</strong></div>}
+                   {(billData.otherCharges ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Other Charges:</span> <strong className="text-foreground">{formatCurrency(billData.otherCharges ?? 0)}</strong></div>}
+                   {(billData.discount ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Discount:</span> <strong className="text-green-600">-{formatCurrency(billData.discount ?? 0)}</strong></div>}
                    <Separator className="my-3"/>
                   <div className="flex justify-between text-base font-semibold">
                       <span>Total Bill:</span>

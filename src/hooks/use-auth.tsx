@@ -2,7 +2,6 @@
     
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { APP_CONFIG } from '@/lib/config';
 
 interface AuthContextType {
   isAuthenticated: boolean;

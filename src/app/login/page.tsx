@@ -9,7 +9,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { AppIcon } from "@/components/icons/app-icon";
 import { SplitwiseLogoIcon } from "@/components/icons/SplitwiseLogoIcon";
 
-// This component will contain the logic that uses useSearchParams
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,7 +55,6 @@ function LoginContent() {
       <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)] px-4 py-8 animate-fade-in">
         <div className="mb-8 text-center">
           <AppIcon className="h-16 w-16 text-primary mx-auto mb-3" />
-          {/* Replace h1 text with BillSplitterTextLogo component */}
           <img className="hidden sm:block"  src="/assets/bill-splitter-logo.svg" width={300}/>
           <p className="text-muted-foreground mt-1">Simplify shared expenses.</p>
         </div>
@@ -71,7 +69,6 @@ function LoginContent() {
             {isRedirecting ? ( 
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
-              // Use the new SplitwiseLogoIcon component
               <SplitwiseLogoIcon className="mr-2 h-5 w-5" />
             )}
             Continue with Splitwise
@@ -87,7 +84,6 @@ function LoginContent() {
 }
 
 export default function LoginPage() {
-  // Fallback UI for Suspense
   const fallbackUI = (
     <div className="flex justify-center items-center min-h-[calc(100dvh-8rem)]">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />

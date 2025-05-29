@@ -24,10 +24,9 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
   const { toast } = useToast();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setError(null); // Reset error on new file selection
+    setError(null);
     const file = event.target.files?.[0];
     if (file) {
-      // Simple size check (e.g., 10MB) - Increased limit slightly
       if (file.size > 10 * 1024 * 1024) {
           setError("File size exceeds 10MB limit.");
           setSelectedFile(null);
@@ -43,7 +42,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
         setSelectedFile(null);
         setPreviewUrl(null);
         if (fileInputRef.current) {
-          fileInputRef.current.value = ""; // Reset input field
+          fileInputRef.current.value = "";
         }
         return;
       }
@@ -74,7 +73,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
 
     try {
       const result = await extractReceiptData({ photoDataUri: previewUrl });
-      console.log("Extraction Result:", result); // Log for debugging
+      console.log("Extraction Result:", result);
 
        // Basic validation of result structure
       if (!result || typeof result !== 'object' || !Array.isArray(result.items) || typeof result.totalCost !== 'number') {
@@ -93,9 +92,8 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
       toast({
         title: "Extraction Complete",
         description: "Bill data processed successfully.",
-        variant: 'default' // Use default or success variant
+        variant: 'default'
       });
-       // No need to set loading false here, page transition handles it
     } catch (err: any) {
       console.error("Error extracting data:", err);
       let userMessage = "Failed to extract data from the bill. Please try again or use a clearer image.";
@@ -110,9 +108,8 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
         description: userMessage,
         variant: "destructive",
       });
-      onLoadingChange(false); // Set loading false only on error
+      onLoadingChange(false);
     }
-    // No finally block setting loading false, as success triggers navigation
   };
 
   const handleUploadClick = () => {
@@ -134,7 +131,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
                   className={cn(
                     "flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl cursor-pointer transition-colors duration-200 ease-in-out",
                     previewUrl ? "border-primary/50 bg-primary/5 hover:bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/60",
-                    error ? "border-destructive bg-destructive/5" : "" // Error state styling
+                    error ? "border-destructive bg-destructive/5" : ""
                    )}
               >
                   {previewUrl ? (
@@ -148,7 +145,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
                   )}
                   <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileChange} accept="image/*,.heic,.heif" ref={fileInputRef} disabled={isLoading} />
               </Label>
-              {selectedFile && !previewUrl && !isLoading && ( // Show file name if preview isn't ready
+              {selectedFile && !previewUrl && !isLoading && (
                   <p className="text-sm text-muted-foreground mt-2 text-center">Selected: {selectedFile.name}</p>
               )}
 
@@ -160,7 +157,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
              )}
         </div>
 
-         {/* Sticky Footer Button - Fixed positioning */}
+         {/* Sticky Footer Button */}
         <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-4 mt-auto">
             <div className="max-w-md mx-auto">
                 <Button

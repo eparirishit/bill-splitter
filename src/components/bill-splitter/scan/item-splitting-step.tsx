@@ -27,7 +27,6 @@ interface ItemSplitState extends ItemSplit {
   splitType: SplitType;
 }
 
-// Reusable component for rendering member list items (modernized)
 const MemberListItemSelect = ({
     member,
     isSelected,
@@ -67,7 +66,6 @@ const MemberListItemSelect = ({
     );
 };
 
-// Reusable Member List Container
 const MemberSelectionList = ({
     members,
     selectedIds,
@@ -98,7 +96,6 @@ const MemberSelectionList = ({
         </div>
     </ScrollArea>
 );
-
 
 export function ItemSplittingStep({
   billData,
@@ -162,21 +159,18 @@ export function ItemSplittingStep({
   };
 
   const handleChargeMemberSelection = (chargeType: 'tax' | 'other', memberId: string) => {
-    console.log("handleChargeMemberSelection Data:", chargeType, memberId);
     if (chargeType === 'tax') {
       setTaxSplitMembers(prev =>
         prev.includes(memberId)
           ? prev.filter(id => id !== memberId)
           : [...prev, memberId]
       );
-      console.log("setOtherChargesSplitMembers Data:", chargeType, memberId);
     } else {
       setOtherChargesSplitMembers(prev =>
         prev.includes(memberId)
           ? prev.filter(id => id !== memberId)
           : [...prev, memberId]
       );
-      console.log("setOtherChargesSplitMembers Data:", chargeType, memberId);
     }
   };
 
@@ -224,16 +218,12 @@ export function ItemSplittingStep({
 
   return (
     <div className="flex flex-col h-full space-y-6 animate-fade-in pt-2">
-        {/* Step Title */}
         <div className="px-1">
             <h2 className="text-2xl font-semibold mb-1">Split Items & Charges</h2>
             <p className="text-muted-foreground text-sm">How should each item be divided?</p>
         </div>
 
-         {/* Scrollable Content Area */}
         <div className="flex-grow space-y-4 overflow-y-auto pb-24">
-
-            {/* Item Splitting Accordion */}
             <Accordion type="multiple" className="w-full space-y-3">
               {billData.items.map((item, index) => {
                 const itemId = `item-${index}`;
@@ -273,7 +263,6 @@ export function ItemSplittingStep({
                         </ToggleGroupItem>
                       </ToggleGroup>
 
-                      {/* Conditional Member Selection for Unequal Split */}
                       {currentSplit?.splitType === 'custom' && (
                         <div className="space-y-2 pt-2 flex flex-col">
                           <Label className="text-xs font-medium text-muted-foreground block mb-1.5">Select who shared this item:</Label>
@@ -298,8 +287,6 @@ export function ItemSplittingStep({
                 );
               })}
             </Accordion>
-
-            {/* Tax & Charges Splitting Cards */}
              {(typeof billData.taxes === 'number' && billData.taxes > 0) && (
                 <Card className="card-modern">
                     <CardHeader className="flex-row items-center justify-between pb-2">
@@ -346,7 +333,6 @@ export function ItemSplittingStep({
                  </Card>
              )}
 
-            {/* Discount Display Card (Informational) */}
             {(typeof billData.discount === 'number' && billData.discount > 0) && (
                 <Card className="card-modern">
                     <CardHeader className="flex-row items-center justify-between pb-2">
@@ -363,8 +349,6 @@ export function ItemSplittingStep({
 
         </div>
 
-
-        {/* Sticky Footer Buttons */}
         <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-background border-t border-border z-10">
              <div className="flex gap-3">
                  <Button onClick={onBack} variant="outline" disabled={isLoading} className="w-1/3 hover:bg-primary/10 hover:text-primary">

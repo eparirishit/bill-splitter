@@ -73,3 +73,22 @@ export interface CreateExpense {
   [key: `users__${number}__paid_share`]: string;
   [key: `users__${number}__owed_share`]: string;
 }
+
+// Manual Expense Types
+export interface ManualExpense {
+  title: string;
+  amount: number;
+  date: string;
+  splitType: 'equal' | 'custom';
+  customAmounts?: Record<string, number>;
+}
+
+export interface ManualExpenseData {
+  title: string;
+  amount: number;
+  date: string;
+  groupId: string;
+  members: SplitwiseUser[];
+  splitType: 'equal' | 'custom';
+  customAmounts?: Record<string, number>;
+}

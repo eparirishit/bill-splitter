@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
-
 interface ReviewStepProps {
   billData: ExtractReceiptDataOutput;
   selectedMembers: SplitwiseUser[];
@@ -54,18 +53,17 @@ export function ReviewStep({
   }, [selectedMembers]);
 
   React.useEffect(() => {
-    if (selectedMembers.length > 0 && !payerId) { // Set initial payer only if not already set
+    if (selectedMembers.length > 0 && !payerId) {
       setPayerId(selectedMembers[0].id);
     }
   }, [selectedMembers, payerId]);
 
-    // Helper function to format a date string or Date object to "YYYY-MM-DD"
+// Helper function to format a date string or Date object to "YYYY-MM-DD"
   const formatToLocalDateString = (dateInput: string | Date): string => {
     if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
         return dateInput;
     }
     const date = new Date(dateInput);
-    // Adjust for timezone offset to get "local" date parts if new Date() parsed as UTC
     const userTimezoneOffset = date.getTimezoneOffset() * 60000;
     const localDate = new Date(date.getTime() + userTimezoneOffset);
     const year = localDate.getFullYear();
@@ -74,10 +72,8 @@ export function ReviewStep({
     return `${year}-${month}-${day}`;
   };
 
-  // Function to format currency
   const formatCurrency = (amount: number | undefined) => {
      if (amount === undefined) return '-';
-     // Ensure taxes and other charges are included if they exist and are non-zero
      const value = (typeof amount === 'number' && !isNaN(amount)) ? amount : 0;
      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
@@ -90,7 +86,7 @@ export function ReviewStep({
               return acc;
           }, {} as Record<string, number>);
 
-          // Calculate gross share for each member (sum of their parts of items, taxes, other charges)
+          // Calculate gross share for each member
           billData.items.forEach((item, index) => {
               const itemId = `item-${index}`;
               const splitInfo = itemSplits.find(s => s.itemId === itemId);
@@ -121,32 +117,29 @@ export function ReviewStep({
               });
           }
 
-          // Calculate overall gross total
           const overallGrossTotal = Object.values(memberGrossTotals).reduce((sum, val) => sum + val, 0);
           const targetTotal = billData.totalCost;
           let finalMemberShares: Record<string, number> = {};
 
           if (overallGrossTotal === 0) {
               if (targetTotal !== 0 && selectedMembers.length > 0) {
-                  // Distribute targetTotal equally among all selected members as a fallback
                   const amountPerMember = targetTotal / selectedMembers.length;
                   selectedMembers.forEach(member => {
                       finalMemberShares[member.id] = amountPerMember;
                   });
-              } else { // If target is also 0, or no members, shares are 0
+              } else {
                   selectedMembers.forEach(member => {
                       finalMemberShares[member.id] = 0;
                   });
               }
           } else {
-              // Calculate final share for each member based on their proportion of gross total, applied to targetTotal
               selectedMembers.forEach(member => {
                   const proportion = (memberGrossTotals[member.id] ?? 0) / overallGrossTotal;
                   finalMemberShares[member.id] = proportion * targetTotal;
               });
           }
           
-          // Round shares and distribute pennies to match targetTotal
+          // Round shares and distribute pennies
           let roundedMemberShares: Record<string, number> = {};
           let sumOfRoundedShares = 0;
           selectedMembers.forEach(member => {
@@ -157,11 +150,9 @@ export function ReviewStep({
 
           let discrepancy = parseFloat((targetTotal - sumOfRoundedShares).toFixed(2));
           
-          // Distribute discrepancy (pennies)
           if (Math.abs(discrepancy) > 0.005 && selectedMembers.length > 0) {
               const memberIdsToAdjust = selectedMembers
                   .map(m => m.id)
-                  // Prioritize members with larger shares or simply cycle through
                   .sort((a, b) => (roundedMemberShares[b] ?? 0) - (roundedMemberShares[a] ?? 0)); 
 
               let remainingDiscrepancyCents = Math.round(discrepancy * 100);
@@ -173,7 +164,6 @@ export function ReviewStep({
                   remainingDiscrepancyCents -= Math.round(adjustment * 100);
                   i++;
               }
-              // If discrepancy still exists, assign to the first member
               if (remainingDiscrepancyCents !== 0 && memberIdsToAdjust.length > 0) {
                   const firstMemberId = memberIdsToAdjust[0];
                   roundedMemberShares[firstMemberId] = parseFloat(((roundedMemberShares[firstMemberId] ?? 0) + (remainingDiscrepancyCents / 100)).toFixed(2));
@@ -210,12 +200,10 @@ export function ReviewStep({
           return notes;
       };
 
-
       setFinalSplits(calculateSplits());
       setExpenseNotes(generateNotes());
 
   }, [billData, itemSplits, selectedMembers, taxSplitMembers, otherChargesSplitMembers, storeName, date]);
-
 
   const handleFinalizeExpense = async () => {
     onLoadingChange(true);
@@ -232,9 +220,22 @@ export function ReviewStep({
        const groupId = parseInt(groupIdStr);
 
        const numericPayerId = parseInt(payerId);
-
-       // The total cost for the expense payload is billData.totalCost (net amount from receipt)
        const totalCostForPayload = billData.totalCost;
+
+       // Adjust final splits to ensure exact total match
+       const adjustedSplits = [...finalSplits];
+       let totalOwedSoFar = 0;
+       
+       // Calculate all but the last split normally
+       for (let i = 0; i < adjustedSplits.length - 1; i++) {
+         adjustedSplits[i].amountOwed = Math.round(adjustedSplits[i].amountOwed * 100) / 100;
+         totalOwedSoFar += adjustedSplits[i].amountOwed;
+       }
+       
+       // Last person gets the remainder to ensure exact total
+       if (adjustedSplits.length > 0) {
+         adjustedSplits[adjustedSplits.length - 1].amountOwed = totalCostForPayload - totalOwedSoFar;
+       }
 
        const expensePayload: CreateExpense = {
            cost: totalCostForPayload.toFixed(2),
@@ -247,7 +248,7 @@ export function ReviewStep({
            split_equally: false,
        };
 
-       finalSplits.forEach((split, index) => {
+       adjustedSplits.forEach((split, index) => {
            const paidShare = parseInt(split.userId) === numericPayerId ? totalCostForPayload.toFixed(2) : '0.00';
            const owedShare = split.amountOwed.toFixed(2);
            
@@ -256,17 +257,36 @@ export function ReviewStep({
            expensePayload[`users__${index}__owed_share`] = owedShare;
        });
 
-       // Final Validation: Sum of owed shares must exactly match total cost
-       const totalOwed = parseFloat(finalSplits.reduce((sum, split) => sum + split.amountOwed, 0).toFixed(2));
-
-       if (Math.abs(totalOwed - totalCostForPayload) > 0.01) { // Allow for tiny floating point differences
+       // Final validation
+       const totalOwed = parseFloat(adjustedSplits.reduce((sum, split) => sum + split.amountOwed, 0).toFixed(2));
+       if (Math.abs(totalOwed - totalCostForPayload) > 0.005) {
            console.error("Final Validation Error:", { totalOwed, totalCostForPayload, expensePayload });
            throw new Error(`Validation Error: Split total (${formatCurrency(totalOwed)}) doesn't match bill total (${formatCurrency(totalCostForPayload)}).`);
        }
 
        console.log("Expense Payload :", JSON.stringify(expensePayload, null, 2));
-       await createExpense(expensePayload);
+       const result = await createExpense(expensePayload);
 
+       // Check for API errors in the response - only check if result exists and has errors property
+       if (result && typeof result === 'object' && 'errors' in result && result.errors) {
+         const errorMessages = [];
+         if (result.errors.base && Array.isArray(result.errors.base)) {
+           errorMessages.push(...result.errors.base);
+         }
+         // Handle other error types if they exist
+         Object.entries(result.errors).forEach(([key, value]) => {
+           if (key !== 'base' && Array.isArray(value)) {
+             errorMessages.push(...value);
+           }
+         });
+         
+         if (errorMessages.length > 0) {
+           const errorMessage = errorMessages.join('; ');
+           throw new Error(errorMessage);
+         }
+       }
+
+       // If we get here, the expense was created successfully
        toast({
            title: "Expense Created Successfully",
            description: `Expense for ${storeName} has been added to Splitwise.`,
@@ -286,10 +306,8 @@ export function ReviewStep({
     }
   };
 
-  // Calculate total based on billData.totalCost (net amount from receipt)
   const billTotalForComparison = billData.totalCost;
   const calculatedTotalFromSplits = parseFloat(finalSplits.reduce((sum, split) => sum + split.amountOwed, 0).toFixed(2));
-  // Use a small tolerance for floating point comparisons
   const totalMatches = Math.abs(calculatedTotalFromSplits - billTotalForComparison) < 0.015;
 
   const isFinalizeDisabled = isLoading || !totalMatches || billData.discrepancyFlag || !payerId;
@@ -300,7 +318,6 @@ export function ReviewStep({
                                   : !payerId
                                   ? "Please select who paid the bill."
                                   : undefined;
-
 
   return (
     <div className="flex flex-col min-h-full space-y-6 animate-fade-in pt-2">
@@ -373,7 +390,6 @@ export function ReviewStep({
               </CardContent>
             </Card>
 
-
             {/* Payment Details Card */}
             <Card className="card-modern">
               <CardHeader className="pb-3">
@@ -403,7 +419,6 @@ export function ReviewStep({
                 {selectedMembers.length === 0 && <p className="text-xs text-destructive pt-1">No members available to select as payer.</p>}
               </CardContent>
             </Card>
-
 
             {/* Final Splits Card */}
             <Card className="card-modern">
@@ -454,7 +469,6 @@ export function ReviewStep({
                </CardContent>
              </Card>
         </div>
-
 
         {/* Sticky Footer Buttons - Fixed positioning */}
         <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-4 mt-auto">

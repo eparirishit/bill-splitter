@@ -20,7 +20,6 @@ interface GroupSelectionStepProps {
   onBack: () => void;
 }
 
-// Custom Member List Item Component
 const MemberListItem = ({ member, isSelected, onSelect, disabled }: {
     member: SplitwiseUser;
     isSelected: boolean;
@@ -83,7 +82,6 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
      // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
-
   React.useEffect(() => {
     const fetchMembers = async () => {
       if (selectedGroupId && isAuthenticated) {
@@ -145,14 +143,12 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
 
   return (
     <div className="flex flex-col h-full space-y-6 animate-fade-in pt-2">
-        {/* Step Title */}
         <div className="px-1">
             <h2 className="text-2xl font-semibold mb-1">Select Group & Members</h2>
             <p className="text-muted-foreground text-sm">Choose the Splitwise group and who shared this bill.</p>
         </div>
 
         <div className="flex-grow space-y-4 overflow-y-auto pb-24">
-           {/* Group Selection */}
             <div className="px-1">
               <Label htmlFor="splitwise-group" className="text-sm font-medium text-muted-foreground block mb-1.5">Splitwise Group</Label>
               {isFetchingGroups ? (
@@ -186,7 +182,6 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
               )}
             </div>
 
-             {/* Member Selection Card */}
             {selectedGroupId && (
                 <Card className="card-modern overflow-hidden">
                   <div className="p-4 border-b">
@@ -213,7 +208,6 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
             )}
         </div>
 
-        {/* Sticky Footer Buttons */}
          <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-background border-t border-border z-10">
              <div className="flex gap-3">
                 <Button onClick={onBack} variant="outline" disabled={isCurrentlyLoading} className="w-1/3 hover:bg-primary/10 hover:text-primary">

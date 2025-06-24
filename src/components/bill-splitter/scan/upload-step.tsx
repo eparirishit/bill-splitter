@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Upload, Loader2, AlertTriangle, ImagePlus } from "lucide-react";
+import { Upload, Loader2, AlertTriangle, ImagePlus, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +14,10 @@ interface UploadStepProps {
   onDataExtracted: (data: ExtractReceiptDataOutput) => void;
   onLoadingChange: (isLoading: boolean) => void;
   isLoading: boolean;
+  onBack?: () => void;
 }
 
-export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: UploadStepProps) {
+export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack }: UploadStepProps) {
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -112,10 +113,6 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
     }
   };
 
-  const handleUploadClick = () => {
-      fileInputRef.current?.click();
-  }
-
   return (
     <div className="flex flex-col min-h-full space-y-6 animate-fade-in pt-2">
         {/* Step Title */}
@@ -160,22 +157,46 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading }: Uplo
          {/* Sticky Footer Button */}
         <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-4 mt-auto">
             <div className="max-w-md mx-auto">
-                <Button
-                    onClick={handleUpload}
-                    disabled={!selectedFile || isLoading}
-                    className="w-full tap-scale"
-                    size="lg"
-                >
-                    {isLoading ? (
-                     <>
-                       <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
-                     </>
-                    ) : (
-                      <>
-                       <Upload className="mr-2 h-5 w-5" /> Extract Bill Data
-                      </>
-                    )}
-                </Button>
+                {onBack ? (
+                  <div className="flex gap-3">
+                    <Button onClick={onBack} variant="outline" disabled={isLoading} className="w-1/3 hover:bg-primary/10 hover:text-primary">
+                      <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                    </Button>
+                    <Button
+                        onClick={handleUpload}
+                        disabled={!selectedFile || isLoading}
+                        className="w-2/3 tap-scale"
+                        size="lg"
+                    >
+                        {isLoading ? (
+                         <>
+                           <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
+                         </>
+                        ) : (
+                          <>
+                           <Upload className="mr-2 h-5 w-5" /> Extract Bill Data
+                          </>
+                        )}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                      onClick={handleUpload}
+                      disabled={!selectedFile || isLoading}
+                      className="w-full tap-scale"
+                      size="lg"
+                  >
+                      {isLoading ? (
+                       <>
+                         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
+                       </>
+                      ) : (
+                        <>
+                         <Upload className="mr-2 h-5 w-5" /> Extract Bill Data
+                        </>
+                      )}
+                  </Button>
+                )}
             </div>
        </div>
     </div>

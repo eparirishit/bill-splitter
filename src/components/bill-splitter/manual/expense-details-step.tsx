@@ -165,7 +165,7 @@ export function ManualExpenseDetailsStep({
             </div>
             {amount && selectedMembers.length > 0 && (
               <p className="text-xs text-muted-foreground mt-2">
-                Each person: {formatCurrency((parseFloat(amount) / selectedMembers.length).toFixed(2))}
+                Each person: {formatCurrency((parseFloat(amount) / selectedMembers.length).toString())}
               </p>
             )}
           </CardContent>

@@ -45,11 +45,17 @@ export function ManualExpenseReviewStep({
     }).format(amount);
   };
 
-  const getMemberAmount = (memberId: string): number => {
+  const getMemberAmount = (memberId: string, memberIndex: number): number => {
     if (expenseData.splitType === 'custom' && customAmounts) {
       return customAmounts[memberId] || 0;
     }
-    return expenseData.amount / expenseData.members.length;
+    // Calculate proper equal amounts with cent distribution
+    const totalCents = Math.round(expenseData.amount * 100);
+    const memberCount = expenseData.members.length;
+    const baseCents = Math.floor(totalCents / memberCount);
+    const remainderCents = totalCents % memberCount;
+    const extraCent = memberIndex < remainderCents ? 1 : 0;
+    return (baseCents + extraCent) / 100;
   };
 
   const handleFinalizeExpense = async () => {
@@ -69,20 +75,22 @@ export function ManualExpenseReviewStep({
 
       // Calculate individual amounts with proper rounding
       let memberAmounts: Record<string, number> = {};
-      let totalOwedSoFar = 0;
 
       if (expenseData.splitType === 'equal') {
-        // For equal splits, distribute pennies to avoid rounding errors
-        const baseAmount = Math.floor((expenseData.amount * 100) / expenseData.members.length) / 100;
-        const remainder = Math.round((expenseData.amount - (baseAmount * expenseData.members.length)) * 100);
+        // For equal splits, calculate base amount and distribute remaining cents
+        const totalCents = Math.round(expenseData.amount * 100);
+        const memberCount = expenseData.members.length;
+        const baseCents = Math.floor(totalCents / memberCount);
+        const remainderCents = totalCents % memberCount;
         
         expenseData.members.forEach((member, index) => {
-          const extraPenny = index < remainder ? 0.01 : 0;
-          memberAmounts[member.id] = baseAmount + extraPenny;
-          totalOwedSoFar += memberAmounts[member.id];
+          // First 'remainderCents' members get an extra cent
+          const extraCent = index < remainderCents ? 1 : 0;
+          memberAmounts[member.id] = (baseCents + extraCent) / 100;
         });
       } else if (customAmounts) {
         // For custom splits, adjust the last member to match exact total
+        let totalOwedSoFar = 0;
         expenseData.members.forEach((member, index) => {
           if (index === expenseData.members.length - 1) {
             // Last member gets the remainder to ensure exact total
@@ -230,8 +238,8 @@ export function ManualExpenseReviewStep({
           <CardContent>
             <ScrollArea className="max-h-60">
               <div className="space-y-2 pr-2">
-                {expenseData.members.map((member) => {
-                  const memberAmount = getMemberAmount(member.id);
+                {expenseData.members.map((member, index) => {
+                  const memberAmount = getMemberAmount(member.id, index);
                   return (
                     <div key={member.id} className="flex justify-between items-center p-2 rounded-lg bg-muted/30">
                       <div className="flex items-center gap-2">

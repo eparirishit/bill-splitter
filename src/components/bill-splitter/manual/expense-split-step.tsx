@@ -79,7 +79,16 @@ export function ManualExpenseSplitStep({
   };
 
   const totalCustomAmount = Object.values(customAmounts).reduce((sum, val) => sum + val, 0);
-  const equalAmount = expenseData.amount / expenseData.members.length;
+  
+  // Calculate proper equal amounts with cent distribution
+  const getEqualAmount = (memberIndex: number): number => {
+    const totalCents = Math.round(expenseData.amount * 100);
+    const memberCount = expenseData.members.length;
+    const baseCents = Math.floor(totalCents / memberCount);
+    const remainderCents = totalCents % memberCount;
+    const extraCent = memberIndex < remainderCents ? 1 : 0;
+    return (baseCents + extraCent) / 100;
+  };
 
   return (
     <div className="flex flex-col min-h-full space-y-6 animate-fade-in pt-2">
@@ -102,7 +111,7 @@ export function ManualExpenseSplitStep({
           >
             <Users className="h-6 w-6 mb-2" />
             <span className="text-sm font-medium">Split Equally</span>
-            <span className="text-xs opacity-80">{formatCurrency(equalAmount)} each</span>
+            <span className="text-xs opacity-80">Amounts may vary by ¢1</span>
           </ToggleGroupItem>
           <ToggleGroupItem
             value="custom"
@@ -123,13 +132,13 @@ export function ManualExpenseSplitStep({
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {expenseData.members.map((member) => (
+                {expenseData.members.map((member, index) => (
                   <div key={member.id} className="flex justify-between items-center p-3 rounded-lg bg-muted/30">
                     <span className="font-medium">
                       {member.first_name} {member.last_name}
                     </span>
                     <span className="font-semibold text-primary">
-                      {formatCurrency(equalAmount)}
+                      {formatCurrency(getEqualAmount(index))}
                     </span>
                   </div>
                 ))}

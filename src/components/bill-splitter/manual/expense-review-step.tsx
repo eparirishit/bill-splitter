@@ -116,6 +116,7 @@ export function ManualExpenseReviewStep({
         currency_code: 'USD',
         category_id: 18,
         split_equally: expenseData.splitType === 'equal',
+        details: expenseData.notes || undefined,
       };
 
       expenseData.members.forEach((member, index) => {
@@ -200,6 +201,12 @@ export function ManualExpenseReviewStep({
               <span className="text-muted-foreground">Split Type:</span>
               <span className="font-medium capitalize">{expenseData.splitType}</span>
             </div>
+            {expenseData.notes && (
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground">Notes:</span>
+                <span className="text-sm">{expenseData.notes}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

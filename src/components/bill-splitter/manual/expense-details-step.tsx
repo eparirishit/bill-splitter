@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { SplitwiseUser, ManualExpenseData } from "@/types";
 
@@ -24,6 +25,7 @@ export function ManualExpenseDetailsStep({
 }: ManualExpenseDetailsStepProps) {
   const [title, setTitle] = React.useState("");
   const [amount, setAmount] = React.useState("");
+  const [notes, setNotes] = React.useState("");
   const [date, setDate] = React.useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -65,7 +67,8 @@ export function ManualExpenseDetailsStep({
       date,
       groupId,
       members: selectedMembers,
-      splitType: 'equal'
+      splitType: 'equal',
+      notes: notes.trim() || undefined
     };
 
     onExpenseDetailsSet(expenseData);
@@ -143,6 +146,23 @@ export function ManualExpenseDetailsStep({
                 onChange={(e) => setDate(e.target.value)}
                 className="text-base"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="expense-notes" className="text-sm font-medium">
+                Notes <span className="text-muted-foreground font-normal">(Optional)</span>
+              </Label>
+              <Textarea
+                id="expense-notes"
+                placeholder="e.g., Split for dinner with friends"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="text-base min-h-[80px] resize-none"
+                maxLength={500}
+              />
+              <p className="text-xs text-muted-foreground">
+                {notes.length}/500 characters
+              </p>
             </div>
           </CardContent>
         </Card>

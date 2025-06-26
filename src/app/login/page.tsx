@@ -55,7 +55,7 @@ function LoginContent() {
       <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)] px-4 py-8 animate-fade-in">
         <div className="mb-8 text-center">
           <AppIcon className="h-16 w-16 text-primary mx-auto mb-3" />
-          <img className="hidden sm:block"  src="/assets/bill-splitter-logo.svg" width={300}/>
+          <img src="/assets/bill-splitter-logo.svg" className="w-64 sm:w-50 max-w-full mx-auto"/>
           <p className="text-muted-foreground mt-1">Simplify shared expenses.</p>
         </div>
 

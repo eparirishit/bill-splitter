@@ -91,4 +91,5 @@ export interface ManualExpenseData {
   members: SplitwiseUser[];
   splitType: 'equal' | 'custom';
   customAmounts?: Record<string, number>;
+  notes?: string;
 }

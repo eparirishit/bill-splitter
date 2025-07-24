@@ -66,7 +66,7 @@ export async function extractReceiptData(input: ExtractReceiptDataInput): Promis
   ];
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-preview-04-17",
+    model: "gemini-2.5-flash-lite",
     safetySettings,
     generationConfig: {
       temperature: 0.1, // Lower temperature for more consistent extraction

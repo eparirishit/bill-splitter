@@ -231,9 +231,9 @@ export function ItemSplittingStep({
                 return (
                   <AccordionItem value={itemId} key={itemId} className="border rounded-lg overflow-hidden bg-card shadow-sm">
                     <AccordionTrigger className="text-sm px-4 py-3 hover:bg-muted/50 transition-colors [&[data-state=open]]:bg-muted/50">
-                        <div className="flex justify-between w-full items-center">
-                            <span className="font-medium text-foreground truncate mr-4">{item.name}</span>
-                            <span className="text-muted-foreground whitespace-nowrap">{formatCurrency(item.price)}</span>
+                        <div className="flex justify-between w-full items-start gap-3">
+                            <span className="font-medium text-foreground flex-1 text-left leading-tight">{item.name}</span>
+                            <span className="text-muted-foreground whitespace-nowrap flex-shrink-0 ml-auto">{formatCurrency(item.price)}</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 p-4 bg-background border-t">

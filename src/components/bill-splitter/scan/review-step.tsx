@@ -463,8 +463,10 @@ export function ReviewStep({
                  <CardTitle className="text-base font-medium">Expense Notes</CardTitle>
                </CardHeader>
                <CardContent>
-                 <ScrollArea className="max-h-32">
-                   <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">{expenseNotes}</pre>
+                 <ScrollArea className="h-32 w-full rounded-md">
+                   <div className="p-1">
+                     <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{expenseNotes}</pre>
+                   </div>
                  </ScrollArea>
                </CardContent>
              </Card>

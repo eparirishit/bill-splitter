@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { extractReceiptData } from "@/ai/extract-receipt-data";
 import type { ExtractReceiptDataOutput } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, compressImage, getImageSizeKB } from "@/lib/utils";
 
 interface UploadStepProps {
   onDataExtracted: (data: ExtractReceiptDataOutput) => void;
@@ -48,11 +48,25 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
         return;
       }
       setSelectedFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      
+      // Compress image for preview and processing
+      compressImage(file, {
+        maxWidth: 1024,
+        maxHeight: 1024,
+        quality: 0.8,
+        maxSizeKB: 2048
+      }).then((compressedDataUri) => {
+        setPreviewUrl(compressedDataUri);
+        console.log(`Image compressed to ${getImageSizeKB(compressedDataUri).toFixed(1)}KB`);
+      }).catch((compressionError) => {
+        console.error('Image compression failed:', compressionError);
+        // Fallback to original file
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreviewUrl(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      });
     } else {
       setSelectedFile(null);
       setPreviewUrl(null);

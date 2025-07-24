@@ -106,7 +106,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
       onDataExtracted(processedResult);
       toast({
         title: "Extraction Complete",
-        description: "Bill data processed successfully.",
+        description: "Bill data processed successfully. Please review the extracted information for accuracy.",
         variant: 'default'
       });
     } catch (err: any) {

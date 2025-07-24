@@ -28,6 +28,7 @@ function BillSplitterFlow() {
   
   // Receipt scanning flow state
   const [billData, setBillData] = React.useState<ExtractReceiptDataOutput | null>(null);
+  const [updatedBillData, setUpdatedBillData] = React.useState<ExtractReceiptDataOutput | undefined>(undefined);
   const [itemSplits, setItemSplits] = React.useState<ItemSplit[]>([]);
   const [taxSplitMembers, setTaxSplitMembers] = React.useState<string[]>([]);
   const [otherChargesSplitMembers, setOtherChargesSplitMembers] = React.useState<string[]>([]);
@@ -75,11 +76,15 @@ function BillSplitterFlow() {
   const handleSplitsDefined = (
     definedItemSplits: ItemSplit[],
     definedTaxSplit: string[],
-    definedOtherChargesSplit: string[]
+    definedOtherChargesSplit: string[],
+    editedBillData?: ExtractReceiptDataOutput
   ) => {
     setItemSplits(definedItemSplits);
     setTaxSplitMembers(definedTaxSplit);
     setOtherChargesSplitMembers(definedOtherChargesSplit);
+    if (editedBillData) {
+      setUpdatedBillData(editedBillData);
+    }
     setCurrentStep(4);
     setIsLoading(false);
   };
@@ -119,6 +124,7 @@ function BillSplitterFlow() {
     setCurrentStep(0);
     setIsLoading(false);
     setBillData(null);
+    setUpdatedBillData(undefined);
     setSelectedGroupId(null);
     setSelectedMembers([]);
     setItemSplits([]);
@@ -198,6 +204,7 @@ function BillSplitterFlow() {
         return expenseType === 'scan' && billData && selectedMembers.length > 0 && itemSplits.length > 0 && (
           <ReviewStep
             billData={billData}
+            updatedBillData={updatedBillData}
             selectedMembers={selectedMembers}
             itemSplits={itemSplits}
             taxSplitMembers={taxSplitMembers}

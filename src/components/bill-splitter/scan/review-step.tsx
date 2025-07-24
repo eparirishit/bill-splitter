@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Send, Loader2, Edit, ArrowLeft, UserCircle } from "lucide-react";
+import { AlertTriangle, Send, Loader2, Edit, ArrowLeft, UserCircle, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +25,7 @@ interface ReviewStepProps {
   onEdit: (step: number) => void;
   onLoadingChange: (isLoading: boolean) => void;
   isLoading: boolean;
+  updatedBillData?: ExtractReceiptDataOutput; // New optional prop for edited data
 }
 
 export function ReviewStep({
@@ -36,8 +37,11 @@ export function ReviewStep({
   onFinalize,
   onEdit,
   onLoadingChange,
-  isLoading
+  isLoading,
+  updatedBillData
 }: ReviewStepProps) {
+  // Use updated bill data if available, otherwise use original
+  const activeBillData = updatedBillData || billData;
   const { toast } = useToast();
   const [finalSplits, setFinalSplits] = React.useState<FinalSplit[]>([]);
   const [expenseNotes, setExpenseNotes] = React.useState<string>("");
@@ -86,8 +90,8 @@ export function ReviewStep({
               return acc;
           }, {} as Record<string, number>);
 
-          // Calculate gross share for each member
-          billData.items.forEach((item, index) => {
+          // Calculate gross share for each member using activeBillData
+          activeBillData.items.forEach((item, index) => {
               const itemId = `item-${index}`;
               const splitInfo = itemSplits.find(s => s.itemId === itemId);
               if (!splitInfo || splitInfo.sharedBy.length === 0) return;
@@ -99,8 +103,8 @@ export function ReviewStep({
               });
           });
 
-          if ((billData.taxes ?? 0) > 0 && taxSplitMembers.length > 0) {
-              const taxPerMember = (billData.taxes ?? 0) / taxSplitMembers.length;
+          if ((activeBillData.taxes ?? 0) > 0 && taxSplitMembers.length > 0) {
+              const taxPerMember = (activeBillData.taxes ?? 0) / taxSplitMembers.length;
               taxSplitMembers.forEach(memberId => {
                  if (memberGrossTotals[memberId] !== undefined) {
                     memberGrossTotals[memberId] += taxPerMember;
@@ -108,8 +112,8 @@ export function ReviewStep({
               });
           }
 
-          if ((billData.otherCharges ?? 0) > 0 && otherChargesSplitMembers.length > 0) {
-              const chargePerMember = (billData.otherCharges ?? 0) / otherChargesSplitMembers.length;
+          if ((activeBillData.otherCharges ?? 0) > 0 && otherChargesSplitMembers.length > 0) {
+              const chargePerMember = (activeBillData.otherCharges ?? 0) / otherChargesSplitMembers.length;
               otherChargesSplitMembers.forEach(memberId => {
                  if (memberGrossTotals[memberId] !== undefined) {
                     memberGrossTotals[memberId] += chargePerMember;
@@ -118,7 +122,7 @@ export function ReviewStep({
           }
 
           const overallGrossTotal = Object.values(memberGrossTotals).reduce((sum, val) => sum + val, 0);
-          const targetTotal = billData.totalCost;
+          const targetTotal = activeBillData.totalCost;
           let finalMemberShares: Record<string, number> = {};
 
           if (overallGrossTotal === 0) {
@@ -177,25 +181,25 @@ export function ReviewStep({
       };
 
       const generateNotes = (): string => {
-          const subtotal = billData.items.reduce((sum, item) => sum + item.price, 0);
+          const subtotal = activeBillData.items.reduce((sum, item) => sum + item.price, 0);
           let notes = `Store: ${storeName}\nDate: ${formatToLocalDateString(date)}\n\nItems Subtotal: ${formatCurrency(subtotal)}\n`;
           
-          billData.items.forEach(item => {
+          activeBillData.items.forEach(item => {
               notes += `- ${item.name}: ${formatCurrency(item.price)}\n`;
           });
 
-          if ((billData.taxes ?? 0) > 0) {
-              notes += `Tax: ${formatCurrency(billData.taxes ?? 0)}\n`;
+          if ((activeBillData.taxes ?? 0) > 0) {
+              notes += `Tax: ${formatCurrency(activeBillData.taxes ?? 0)}\n`;
           }
-           if ((billData.otherCharges ?? 0) > 0) {
-              notes += `Other Charges: ${formatCurrency(billData.otherCharges ?? 0)}\n`;
+           if ((activeBillData.otherCharges ?? 0) > 0) {
+              notes += `Other Charges: ${formatCurrency(activeBillData.otherCharges ?? 0)}\n`;
           }
-           if ((billData.discount ?? 0) > 0) {
-              notes += `Discount Applied: -${formatCurrency(billData.discount ?? 0)}\n`;
+           if ((activeBillData.discount ?? 0) > 0) {
+              notes += `Discount Applied: -${formatCurrency(activeBillData.discount ?? 0)}\n`;
           }
-          notes += `\nGrand Total (on receipt): ${formatCurrency(billData.totalCost)}`;
-          if (billData.discrepancyFlag) {
-              notes += `\n\nNote: Original bill data discrepancy: ${billData.discrepancyMessage}`;
+          notes += `\nGrand Total (on receipt): ${formatCurrency(activeBillData.totalCost)}`;
+          if (activeBillData.discrepancyFlag) {
+              notes += `\n\nNote: Original bill data discrepancy: ${activeBillData.discrepancyMessage}`;
           }
           return notes;
       };
@@ -203,7 +207,7 @@ export function ReviewStep({
       setFinalSplits(calculateSplits());
       setExpenseNotes(generateNotes());
 
-  }, [billData, itemSplits, selectedMembers, taxSplitMembers, otherChargesSplitMembers, storeName, date]);
+  }, [activeBillData, itemSplits, selectedMembers, taxSplitMembers, otherChargesSplitMembers, storeName, date]);
 
   const handleFinalizeExpense = async () => {
     onLoadingChange(true);
@@ -220,7 +224,7 @@ export function ReviewStep({
        const groupId = parseInt(groupIdStr);
 
        const numericPayerId = parseInt(payerId);
-       const totalCostForPayload = billData.totalCost;
+       const totalCostForPayload = activeBillData.totalCost;
 
        // Adjust final splits to ensure exact total match
        const adjustedSplits = [...finalSplits];
@@ -306,13 +310,13 @@ export function ReviewStep({
     }
   };
 
-  const billTotalForComparison = billData.totalCost;
+  const billTotalForComparison = activeBillData.totalCost;
   const calculatedTotalFromSplits = parseFloat(finalSplits.reduce((sum, split) => sum + split.amountOwed, 0).toFixed(2));
   const totalMatches = Math.abs(calculatedTotalFromSplits - billTotalForComparison) < 0.015;
 
-  const isFinalizeDisabled = isLoading || !totalMatches || billData.discrepancyFlag || !payerId;
-  const finalizeDisabledReason = billData.discrepancyFlag
-                                  ? "Cannot finalize due to original bill discrepancy."
+  const isFinalizeDisabled = isLoading || !totalMatches || activeBillData.discrepancyFlag || !payerId;
+  const finalizeDisabledReason = activeBillData.discrepancyFlag
+                                  ? "Cannot finalize due to bill discrepancy. Please edit item prices to fix the discrepancy."
                                   : !totalMatches
                                   ? "Cannot finalize due to calculation mismatch."
                                   : !payerId
@@ -329,11 +333,20 @@ export function ReviewStep({
 
         {/* Scrollable Content Area with proper bottom padding */}
         <div className="flex-1 space-y-4 overflow-y-auto pb-20">
+            {/* AI Warning */}
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400 mx-1">
+              <Bot className="h-5 w-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">AI-Extracted Data</p>
+                <p className="text-xs mt-1">Please verify all amounts and details before finalizing the expense.</p>
+              </div>
+            </div>
+
             {/* Discrepancy Alerts */}
-            {billData.discrepancyFlag && (
+            {activeBillData.discrepancyFlag && (
                <div className="flex items-start gap-2 rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 text-sm text-orange-700 dark:text-orange-400 mx-1">
                  <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                 <span><strong>Bill Discrepancy:</strong> {billData.discrepancyMessage || 'Item total vs bill total mismatch found in original data.'}</span>
+                 <span><strong>Bill Discrepancy:</strong> {activeBillData.discrepancyMessage}</span>
                </div>
             )}
              {!totalMatches && !isLoading && (
@@ -378,10 +391,10 @@ export function ReviewStep({
                     />
                   </div>
                   <Separator className="my-3"/>
-                  <div className="flex justify-between text-muted-foreground"><span>Items Subtotal:</span> <strong className="text-foreground">{formatCurrency(billData.items.reduce((s, i) => s + i.price, 0))}</strong></div>
-                   {(billData.taxes ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Tax:</span> <strong className="text-foreground">{formatCurrency(billData.taxes ?? 0)}</strong></div>}
-                   {(billData.otherCharges ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Other Charges:</span> <strong className="text-foreground">{formatCurrency(billData.otherCharges ?? 0)}</strong></div>}
-                   {(billData.discount ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Discount:</span> <strong className="text-green-600">-{formatCurrency(billData.discount ?? 0)}</strong></div>}
+                  <div className="flex justify-between text-muted-foreground"><span>Items Subtotal:</span> <strong className="text-foreground">{formatCurrency(activeBillData.items.reduce((s, i) => s + i.price, 0))}</strong></div>
+                   {(activeBillData.taxes ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Tax:</span> <strong className="text-foreground">{formatCurrency(activeBillData.taxes ?? 0)}</strong></div>}
+                   {(activeBillData.otherCharges ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Other Charges:</span> <strong className="text-foreground">{formatCurrency(activeBillData.otherCharges ?? 0)}</strong></div>}
+                   {(activeBillData.discount ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Discount:</span> <strong className="text-green-600">-{formatCurrency(activeBillData.discount ?? 0)}</strong></div>}
                    <Separator className="my-3"/>
                   <div className="flex justify-between text-base font-semibold">
                       <span>Total Bill:</span>

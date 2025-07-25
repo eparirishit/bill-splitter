@@ -1,104 +1,59 @@
-"use client";
 import * as React from "react";
-import { usePathname, useRouter } from 'next/navigation';
+import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/toaster";
-import { Button } from "@/components/ui/button";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Header } from "@/components/layout/header";
+import { ErrorBoundary } from "@/components/layout/error-boundary";
 import { cn } from '@/lib/utils';
-import { LogOut, Loader2, ArrowLeft } from 'lucide-react';
-import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AppIcon } from "@/components/icons/app-icon";
+
 const inter = Inter({
   variable: '--font-inter',
   subsets: ['latin'],
+  display: 'swap',
 });
 
-function Header() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { isAuthenticated, logout, isLoading: isAuthLoading } = useAuth(); // Get auth state and logout function
-  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await logout();
-      router.replace('/login');
-    } catch (error) {
-      console.error("Logout failed in layout:", error);
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
-  const showBackButton = pathname !== '/login' && pathname !== '/';
-  const showLogoutButton = isAuthenticated && pathname !== '/login';
-
-  return (
-    <header className="sticky top-0 z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
-      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-2">
-          {showBackButton ? (
-            <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <AppIcon className="h-7 w-7 text-primary" />
-              <img className="hidden sm:block logo-img"  src="/assets/bill-splitter-logo.svg" />
-            </div>
-          )}
-        </div>
-
-        {showLogoutButton && (
-          <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleLogout}
-                  disabled={isLoggingOut || isAuthLoading}
-                  aria-label="Log out"
-                  className={cn(
-                    "tap-scale",
-                    "hover:bg-primary/10 hover:text-primary"
-                  )}
-                >
-                  {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Log out</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-        )}
-        {!showLogoutButton && pathname !== '/login' && <div className="w-10 h-10"></div>}
-      </div>
-    </header>
-  );
-}
-
+export const metadata: Metadata = {
+  title: {
+    default: 'Bill Splitter',
+    template: '%s | Bill Splitter'
+  },
+  description: 'Simplify shared expenses with AI-powered receipt scanning and seamless Splitwise integration.',
+  keywords: ['bill splitting', 'expense sharing', 'splitwise', 'receipt scanning', 'AI'],
+  authors: [{ name: 'Bill Splitter Team' }],
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' }
+  ],
+};
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en">
-      <body className={cn(inter.variable, 'font-sans antialiased bg-background min-h-dvh flex flex-col')}>
-        <AuthProvider>
-          <Header />
-          <main className="flex-1 w-full max-w-md mx-auto p-4 md:p-6">
-            {children}
-          </main>
-          <Toaster />
-        </AuthProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body 
+        className={cn(
+          inter.variable, 
+          'font-sans antialiased bg-background min-h-dvh flex flex-col'
+        )}
+      >
+        <ErrorBoundary>
+          <AuthProvider>
+            <TooltipProvider delayDuration={100}>
+              <Header />
+              <main className="flex-1 w-full max-w-md mx-auto p-4 md:p-6">
+                {children}
+              </main>
+              <Toaster />
+            </TooltipProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

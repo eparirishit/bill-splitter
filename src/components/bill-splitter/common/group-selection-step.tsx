@@ -7,11 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { getGroups, getGroupMembers } from "@/services/splitwise";
 import type { SplitwiseGroup, SplitwiseUser } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { GroupService } from "@/services/group-service";
 
 interface GroupSelectionStepProps {
   onGroupAndMembersSelected: (groupId: string, members: SplitwiseUser[]) => void;
@@ -55,13 +55,12 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
 
   React.useEffect(() => {
     const fetchGroups = async () => {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated) {return;}
 
       onLoadingChange(true);
       setIsFetchingGroups(true);
       try {
-        const fetchedGroups = await getGroups();
-        console.log("Fetched groups:", fetchedGroups);
+        const fetchedGroups = await GroupService.fetchGroups();
         setGroups(fetchedGroups);
         if (fetchedGroups.length === 0) {
              toast({ title: "No Groups Found", description: "No Splitwise groups were found.", variant: "default" });
@@ -70,7 +69,7 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
         console.error("Splitwise fetch groups failed:", error);
         toast({
           title: "Fetch Failed",
-          description: "Could not fetch Splitwise groups.",
+          description: error instanceof Error ? error.message : "Could not fetch Splitwise groups.",
           variant: "destructive",
         });
       } finally {
@@ -85,21 +84,19 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
   React.useEffect(() => {
     const fetchMembers = async () => {
       if (selectedGroupId && isAuthenticated) {
-        console.log("Selected groupId:", selectedGroupId);
         onLoadingChange(true);
         setIsFetchingMembers(true);
         setGroupMembers([]);
         setSelectedMembers([]);
         try {
-          const members = await getGroupMembers(selectedGroupId);
-          console.log("Fetched members for group", selectedGroupId, ":", members);
+          const members = await GroupService.fetchGroupMembers(selectedGroupId);
           setGroupMembers(members);
           setSelectedMembers(members.map(m => m.id));
         } catch (error) {
           console.error("Error fetching group members:", error);
           toast({
             title: "Fetch Failed",
-            description: "Could not fetch group members.",
+            description: error instanceof Error ? error.message : "Could not fetch group members.",
             variant: "destructive",
           });
           setGroupMembers([]);
@@ -126,16 +123,30 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
   };
 
   const handleProceed = () => {
-    if (!selectedGroupId) {
-        toast({ title: "No Group Selected", description: "Please select a group.", variant: "destructive"});
-        return;
+    const validation = GroupService.validateGroupSelection(
+      selectedGroupId,
+      selectedMembers,
+      groupMembers
+    );
+
+    if (!validation.isValid) {
+      toast({ 
+        title: validation.error?.includes("group") ? "No Group Selected" : "No Members Selected", 
+        description: validation.error, 
+        variant: "destructive"
+      });
+      return;
     }
-    if (selectedMembers.length === 0) {
-        toast({ title: "No Members Selected", description: "Please select at least one member.", variant: "destructive"});
-        return;
-    }
-    const finalSelectedUsers = groupMembers.filter(member => selectedMembers.includes(member.id));
-    onGroupAndMembersSelected(selectedGroupId, finalSelectedUsers);
+
+    const selectedGroup = groups.find(g => g.id === selectedGroupId);
+    const finalSelectedUsers = GroupService.prepareSelectedMembers(
+      selectedMembers,
+      groupMembers,
+      selectedGroupId!,
+      selectedGroup?.name || "Selected Group"
+    );
+    
+    onGroupAndMembersSelected(selectedGroupId!, finalSelectedUsers);
   };
 
   const isProceedDisabled = isLoading || !selectedGroupId || selectedMembers.length === 0 || isFetchingGroups || isFetchingMembers;

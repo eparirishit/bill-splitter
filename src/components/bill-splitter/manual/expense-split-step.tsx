@@ -13,6 +13,7 @@ import type { ManualExpenseData } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, parseCurrency, validateCurrencyAmount } from "@/lib/currency";
 import { getCardStyle } from "@/lib/design-system";
+import { ValidationService } from "@/services/validation-service";
 
 interface ManualExpenseSplitStepProps {
   expenseData: ManualExpenseData;
@@ -47,36 +48,31 @@ export function ManualExpenseSplitStep({
   };
 
   const handleProceed = () => {
-    if (splitType === 'custom') {
-      const totalCustom = Object.values(customAmounts).reduce((sum, val) => sum + val, 0);
-      const difference = Math.abs(totalCustom - expenseData.amount);
-      
-      if (difference > 0.01) {
-        toast({
-          title: "Split Mismatch",
-          description: `Custom amounts total ${formatCurrency(totalCustom)} but expense is ${formatCurrency(expenseData.amount)}`,
-          variant: "destructive",
-        });
-        return;
-      }
+    const validation = ValidationService.validateManualSplits(
+      { amount: expenseData.amount, splitType },
+      customAmounts
+    );
 
-      // Check for negative or zero amounts
-      const invalidAmounts = Object.values(customAmounts).some(amount => !validateCurrencyAmount(amount));
-      if (invalidAmounts) {
+    if (!validation.isValid) {
+      validation.errors.forEach(error => {
         toast({
-          title: "Invalid Amounts",
-          description: "All amounts must be greater than zero.",
+          title: splitType === 'custom' ? "Split Mismatch" : "Invalid Amounts",
+          description: error,
           variant: "destructive",
         });
-        return;
-      }
+      });
+      return;
     }
 
     onSplitConfigured(splitType, splitType === 'custom' ? customAmounts : undefined);
   };
 
   const totalCustomAmount = Object.values(customAmounts).reduce((sum, val) => sum + val, 0);
-  
+  const splitValidation = ValidationService.validateManualSplits(
+    { amount: expenseData.amount, splitType },
+    customAmounts
+  );
+
   // Calculate proper equal amounts with cent distribution
   const getEqualAmount = (memberIndex: number): number => {
     const totalCents = Math.round(expenseData.amount * 100);
@@ -123,7 +119,7 @@ export function ManualExpenseSplitStep({
 
       <div className="flex-1 pb-20">
         {splitType === 'equal' ? (
-          <Card className={getCardStyle('modern')}>
+          <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium">Equal Split</CardTitle>
             </CardHeader>
@@ -143,7 +139,7 @@ export function ManualExpenseSplitStep({
             </CardContent>
           </Card>
         ) : (
-          <Card className={getCardStyle('modern')}>
+          <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium">Custom Split</CardTitle>
             </CardHeader>
@@ -173,14 +169,14 @@ export function ManualExpenseSplitStep({
                   ))}
                 </div>
               </ScrollArea>
-              
+
               <div className="mt-4 pt-4 border-t">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Total:</span>
                   <span className={cn(
                     "font-semibold",
-                    Math.abs(totalCustomAmount - expenseData.amount) < 0.01 
-                      ? "text-primary" 
+                    Math.abs(totalCustomAmount - expenseData.amount) < 0.01
+                      ? "text-primary"
                       : "text-destructive"
                   )}>
                     {formatCurrency(totalCustomAmount)}
@@ -206,10 +202,10 @@ export function ManualExpenseSplitStep({
           <Button onClick={onBack} variant="outline" className="w-1/3 hover:bg-primary/10 hover:text-primary">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
-          <Button 
-            onClick={handleProceed} 
+          <Button
+            onClick={handleProceed}
             className="w-2/3 hover:bg-primary/10 hover:text-primary"
-            disabled={splitType === 'custom' && Math.abs(totalCustomAmount - expenseData.amount) > 0.01}
+            disabled={!splitValidation.isValid}
           >
             <ArrowRight className="mr-2 h-4 w-4" /> Next: Review
           </Button>

@@ -11,6 +11,9 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { createExpense } from "@/services/splitwise";
 import type { ManualExpenseData, CreateExpense } from "@/types";
+import { formatCurrency } from "@/lib/currency";
+import { getCardStyle } from "@/lib/design-system";
+import { isAPIError, getErrorMessage } from "@/types/api";
 
 interface ManualExpenseReviewStepProps {
   expenseData: ManualExpenseData;
@@ -37,13 +40,6 @@ export function ManualExpenseReviewStep({
       setPayerId(expenseData.members[0].id);
     }
   }, [expenseData.members, payerId]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency: 'USD' 
-    }).format(amount);
-  };
 
   const getMemberAmount = (memberId: string, memberIndex: number): number => {
     if (expenseData.splitType === 'custom' && customAmounts) {
@@ -132,23 +128,10 @@ export function ManualExpenseReviewStep({
       console.log("Manual Expense Payload:", JSON.stringify(expensePayload, null, 2));
       const result = await createExpense(expensePayload);
 
-      // Check for API errors in the response
-      if (result && typeof result === 'object' && 'errors' in result && result.errors) {
-        const errorMessages = [];
-        if (result.errors.base && Array.isArray(result.errors.base)) {
-          errorMessages.push(...result.errors.base);
-        }
-        // Handle other error types if they exist
-        Object.entries(result.errors).forEach(([key, value]) => {
-          if (key !== 'base' && Array.isArray(value)) {
-            errorMessages.push(...value);
-          }
-        });
-        
-        if (errorMessages.length > 0) {
-          const errorMessage = errorMessages.join('; ');
-          throw new Error(errorMessage);
-        }
+      // Check for API errors using improved error handling
+      if (isAPIError(result)) {
+        const errorMessage = getErrorMessage(result);
+        throw new Error(errorMessage);
       }
 
       toast({
@@ -158,11 +141,12 @@ export function ManualExpenseReviewStep({
       });
       onFinalize();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error finalizing expense:", error);
+      const errorMessage = error instanceof Error ? error.message : "Could not save expense. Try again.";
       toast({
         title: "Finalization Failed",
-        description: error.message || "Could not save expense. Try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -180,7 +164,7 @@ export function ManualExpenseReviewStep({
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-20">
-        <Card className="card-modern">
+        <Card className={getCardStyle('modern')}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">Expense Summary</CardTitle>
           </CardHeader>
@@ -210,7 +194,7 @@ export function ManualExpenseReviewStep({
           </CardContent>
         </Card>
 
-        <Card className="card-modern">
+        <Card className={getCardStyle('modern')}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">Payment Details</CardTitle>
             <CardDescription className="text-xs">Who paid for this expense?</CardDescription>
@@ -238,7 +222,7 @@ export function ManualExpenseReviewStep({
           </CardContent>
         </Card>
 
-        <Card className="card-modern">
+        <Card className={getCardStyle('modern')}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">Split Breakdown</CardTitle>
           </CardHeader>

@@ -1,21 +1,24 @@
 "use client";
 
 import * as React from "react";
-import { Users, UserCheck, Check, ArrowRight, Loader2, ArrowLeft } from "lucide-react";
+import { Users, UserCheck, ArrowRight, Loader2, ArrowLeft, AlertTriangle, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import type { ExtractReceiptDataOutput, SplitwiseUser, ItemSplit } from "@/types";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EditablePrice } from "@/components/ui/editable-price";
+import { MemberSelectionList } from "@/components/ui/member-selection-list";
+import { formatCurrency } from "@/lib/currency";
+import { getCardStyle, getAlertStyle } from "@/lib/design-system";
 
 interface ItemSplittingStepProps {
   billData: ExtractReceiptDataOutput;
   selectedMembers: SplitwiseUser[];
-  onSplitsDefined: (itemSplits: ItemSplit[], taxSplit: string[], otherChargesSplit: string[]) => void;
+  onSplitsDefined: (itemSplits: ItemSplit[], taxSplit: string[], otherChargesSplit: string[], updatedBillData?: ExtractReceiptDataOutput) => void;
   onLoadingChange: (isLoading: boolean) => void;
   isLoading: boolean;
   onBack: () => void;
@@ -26,76 +29,6 @@ type SplitType = 'equal' | 'custom';
 interface ItemSplitState extends ItemSplit {
   splitType: SplitType;
 }
-
-const MemberListItemSelect = ({
-    member,
-    isSelected,
-    onSelect,
-    disabled,
-    itemIdPrefix = 'member-item'
-  }: {
-    member: SplitwiseUser,
-    isSelected: boolean,
-    onSelect: (memberId: string) => void,
-    disabled: boolean,
-    itemIdPrefix?: string
-}) => {
-    const uniqueId = `${itemIdPrefix}-${member.id}`;
-    return (
-       <div
-          key={member.id}
-          onClick={() => !disabled && onSelect(member.id)}
-          className={cn(
-            "flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-150",
-            "border border-transparent",
-            isSelected ? "bg-primary/10 border-primary/30" : "hover:bg-muted/60",
-            disabled ? "opacity-60 cursor-not-allowed" : "tap-scale"
-          )}
-          role="button"
-          aria-pressed={isSelected}
-          aria-labelledby={`${uniqueId}-label`}
-          tabIndex={disabled ? -1 : 0}
-          onKeyDown={(e) => { if(e.key === ' ' || e.key === 'Enter') { !disabled && onSelect(member.id); e.preventDefault(); }}
-          }
-        >
-           <Label id={`${uniqueId}-label`} className={cn("font-medium flex-grow cursor-pointer", isSelected ? "text-primary" : "text-foreground")}>
-              {member.first_name} {member.last_name}
-           </Label>
-           {isSelected && <Check className="h-5 w-5 text-primary flex-shrink-0" />}
-        </div>
-    );
-};
-
-const MemberSelectionList = ({
-    members,
-    selectedIds,
-    onSelect,
-    disabled,
-    listHeight = 'max-h-48',
-    itemIdPrefix = 'member-list'
-  }: {
-    members: SplitwiseUser[],
-    selectedIds: string[],
-    onSelect: (memberId: string) => void,
-    disabled: boolean,
-    listHeight?: string,
-    itemIdPrefix?: string
-}) => (
-     <ScrollArea className={cn("w-full scrollArea rounded-md border", listHeight)}>
-        <div className="p-2 space-y-1.5">
-          {members.map(member => (
-            <MemberListItemSelect
-              key={member.id}
-              member={member}
-              isSelected={selectedIds.includes(member.id)}
-              onSelect={onSelect}
-              disabled={disabled}
-              itemIdPrefix={`${itemIdPrefix}-${member.id}`}
-            />
-          ))}
-        </div>
-    </ScrollArea>
-);
 
 export function ItemSplittingStep({
   billData,
@@ -108,13 +41,17 @@ export function ItemSplittingStep({
   const { toast } = useToast();
   const memberIds = React.useMemo(() => selectedMembers.map(m => m.id), [selectedMembers]);
 
+  // State for edited bill data
+  const [editedBillData, setEditedBillData] = React.useState<ExtractReceiptDataOutput>(billData);
+  const [hasManualEdits, setHasManualEdits] = React.useState(false);
+
   // Initialize item splits state
   const initialItemSplits: ItemSplitState[] = React.useMemo(() =>
-    billData.items.map((item, index) => ({
+    editedBillData.items.map((item, index) => ({
       itemId: `item-${index}`,
       splitType: 'equal',
       sharedBy: memberIds,
-    })), [billData.items, memberIds]
+    })), [editedBillData.items, memberIds]
   );
 
   const [itemSplits, setItemSplits] = React.useState<ItemSplitState[]>(initialItemSplits);
@@ -127,8 +64,83 @@ export function ItemSplittingStep({
     setTaxSplitMembers(memberIds);
     setOtherChargesSplitMembers(memberIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billData.items, memberIds.join(",")]);
+  }, [editedBillData.items, memberIds.join(",")]);
 
+  const recalculateDiscrepancy = React.useCallback((updatedItems: typeof editedBillData.items, taxes: number, otherCharges: number) => {
+    const itemsSum = updatedItems.reduce((sum, item) => sum + item.price, 0);
+    const discount = editedBillData.discount ?? 0;
+    const calculatedTotal = itemsSum + taxes + otherCharges - discount;
+    const difference = Math.abs(calculatedTotal - editedBillData.totalCost);
+    
+    const discrepancyFlag = difference > 0.02;
+    const discrepancyMessage = discrepancyFlag 
+      ? `Receipt total ($${editedBillData.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
+      : undefined;
+
+    return { discrepancyFlag, discrepancyMessage };
+  }, [editedBillData.totalCost, editedBillData.discount]);
+
+  const handleItemPriceChange = (itemIndex: number, newPrice: number) => {
+    setEditedBillData(prev => {
+      const updatedItems = [...prev.items];
+      updatedItems[itemIndex] = { ...updatedItems[itemIndex], price: newPrice };
+      
+      const { discrepancyFlag, discrepancyMessage } = recalculateDiscrepancy(
+        updatedItems, 
+        prev.taxes ?? 0, 
+        prev.otherCharges ?? 0
+      );
+
+      return {
+        ...prev,
+        items: updatedItems,
+        discrepancyFlag,
+        discrepancyMessage
+      };
+    });
+    
+    setHasManualEdits(true);
+  };
+
+  const handleTaxChange = (newTax: number) => {
+    setEditedBillData(prev => {
+      const { discrepancyFlag, discrepancyMessage } = recalculateDiscrepancy(
+        prev.items, 
+        newTax, 
+        prev.otherCharges ?? 0
+      );
+
+      return {
+        ...prev,
+        taxes: newTax,
+        discrepancyFlag,
+        discrepancyMessage
+      };
+    });
+    
+    setHasManualEdits(true);
+  };
+
+  const handleOtherChargesChange = (newCharges: number) => {
+    setEditedBillData(prev => {
+      const { discrepancyFlag, discrepancyMessage } = recalculateDiscrepancy(
+        prev.items, 
+        prev.taxes ?? 0, 
+        newCharges
+      );
+
+      return {
+        ...prev,
+        otherCharges: newCharges,
+        discrepancyFlag,
+        discrepancyMessage
+      };
+    });
+    
+    setHasManualEdits(true);
+  };
+
+  // Handle split type change
   const handleSplitTypeChange = (itemId: string, type: SplitType | null) => {
     if (type === null) return;
     setItemSplits(prev =>
@@ -144,6 +156,7 @@ export function ItemSplittingStep({
     );
   };
 
+  // Handle member selection for custom splits
   const handleMemberSelectionChange = (itemId: string, memberId: string) => {
     setItemSplits(prev =>
       prev.map(split => {
@@ -158,6 +171,7 @@ export function ItemSplittingStep({
     );
   };
 
+  // Handle member selection for tax/other charges
   const handleChargeMemberSelection = (chargeType: 'tax' | 'other', memberId: string) => {
     if (chargeType === 'tax') {
       setTaxSplitMembers(prev =>
@@ -179,7 +193,7 @@ export function ItemSplittingStep({
     for (const split of itemSplits) {
       if (split.splitType === 'custom' && split.sharedBy.length === 0) {
         const itemIndex = parseInt(split.itemId.split('-')[1]);
-        const item = billData.items[itemIndex];
+        const item = editedBillData.items[itemIndex];
         toast({
           title: "Incomplete Split",
           description: `Please select members for the custom split of: ${item?.name || split.itemId}.`,
@@ -189,31 +203,27 @@ export function ItemSplittingStep({
         return;
       }
     }
-    if (typeof billData.taxes === 'number' && billData.taxes > 0 && taxSplitMembers.length === 0) {
+    if (typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0 && taxSplitMembers.length === 0) {
       toast({ title: "Incomplete Split", description: "Please select members to split the tax.", variant: "destructive" });
       onLoadingChange(false);
       return;
     }
-    if (typeof billData.otherCharges === 'number' && billData.otherCharges > 0 && otherChargesSplitMembers.length === 0) {
+    if (typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0 && otherChargesSplitMembers.length === 0) {
       toast({ title: "Incomplete Split", description: "Please select members to split other charges.", variant: "destructive" });
       onLoadingChange(false);
       return;
     }
+    
     const finalItemSplits: ItemSplit[] = itemSplits.map(({ itemId, sharedBy, splitType }) => ({
       itemId,
       sharedBy: splitType === 'equal' ? memberIds : sharedBy,
       splitType
     }));
 
-    const finalTaxSplitMembers = (typeof billData.taxes === 'number' && billData.taxes > 0) ? taxSplitMembers : [];
-    const finalOtherChargesSplitMembers = (typeof billData.otherCharges === 'number' && billData.otherCharges > 0) ? otherChargesSplitMembers : [];
+    const finalTaxSplitMembers = (typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) ? taxSplitMembers : [];
+    const finalOtherChargesSplitMembers = (typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) ? otherChargesSplitMembers : [];
 
-    onSplitsDefined(finalItemSplits, finalTaxSplitMembers, finalOtherChargesSplitMembers);
-  };
-
-  const formatCurrency = (amount: number | undefined | null) => {
-    if (typeof amount !== 'number' || isNaN(amount)) return '-';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    onSplitsDefined(finalItemSplits, finalTaxSplitMembers, finalOtherChargesSplitMembers, hasManualEdits ? editedBillData : undefined);
   };
 
   return (
@@ -223,17 +233,39 @@ export function ItemSplittingStep({
             <p className="text-muted-foreground text-sm">How should each item be divided?</p>
         </div>
 
+        {/* AI Warning */}
+        <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('ai'))}>
+          <Bot className="h-5 w-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">AI-Extracted Data</p>
+            <p className="text-xs mt-1">This information was extracted using AI and may contain errors. Please review and edit prices if needed.</p>
+          </div>
+        </div>
+
+        {/* Discrepancy Alert */}
+        {editedBillData.discrepancyFlag && (
+          <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('discrepancy'))}>
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <span><strong>Bill Discrepancy:</strong> {editedBillData.discrepancyMessage}</span>
+          </div>
+        )}
+
         <div className="flex-grow space-y-4 overflow-y-auto pb-24">
             <Accordion type="multiple" className="w-full space-y-3">
-              {billData.items.map((item, index) => {
+              {editedBillData.items.map((item, index) => {
                 const itemId = `item-${index}`;
                 const currentSplit = itemSplits.find(s => s.itemId === itemId);
+                
                 return (
-                  <AccordionItem value={itemId} key={itemId} className="border rounded-lg overflow-hidden bg-card shadow-sm">
+                  <AccordionItem value={itemId} key={itemId} className={getCardStyle('modern')}>
                     <AccordionTrigger className="text-sm px-4 py-3 hover:bg-muted/50 transition-colors [&[data-state=open]]:bg-muted/50">
                         <div className="flex justify-between w-full items-start gap-3">
                             <span className="font-medium text-foreground flex-1 text-left leading-tight">{item.name}</span>
-                            <span className="text-muted-foreground whitespace-nowrap flex-shrink-0 ml-auto">{formatCurrency(item.price)}</span>
+                            <EditablePrice
+                              value={item.price}
+                              onValueChange={(newPrice) => handleItemPriceChange(index, newPrice)}
+                              disabled={isLoading}
+                            />
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 p-4 bg-background border-t">
@@ -287,11 +319,17 @@ export function ItemSplittingStep({
                 );
               })}
             </Accordion>
-             {(typeof billData.taxes === 'number' && billData.taxes > 0) && (
-                <Card className="card-modern">
+
+            {/* Tax Section */}
+            {(typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) && (
+                <Card className={getCardStyle('modern')}>
                     <CardHeader className="flex-row items-center justify-between pb-2">
                         <CardTitle className="text-base font-medium">Tax</CardTitle>
-                        <span className="font-semibold">{formatCurrency(billData.taxes)}</span>
+                        <EditablePrice
+                          value={editedBillData.taxes}
+                          onValueChange={handleTaxChange}
+                          disabled={isLoading}
+                        />
                     </CardHeader>
                     <CardContent className="pt-0">
                          <p className="text-xs text-muted-foreground mb-3">Select members to split tax equally.</p>
@@ -310,11 +348,16 @@ export function ItemSplittingStep({
                 </Card>
              )}
             
-             {(typeof billData.otherCharges === 'number' && billData.otherCharges > 0) && (
-                 <Card className="card-modern">
+            {/* Other Charges Section */}
+            {(typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) && (
+                 <Card className={getCardStyle('modern')}>
                     <CardHeader className="flex-row items-center justify-between pb-2">
                         <CardTitle className="text-base font-medium">Other Charges</CardTitle>
-                        <span className="font-semibold">{formatCurrency(billData.otherCharges)}</span>
+                        <EditablePrice
+                          value={editedBillData.otherCharges}
+                          onValueChange={handleOtherChargesChange}
+                          disabled={isLoading}
+                        />
                     </CardHeader>
                     <CardContent className="pt-0">
                          <p className="text-xs text-muted-foreground mb-3">Select members to split charges equally.</p>
@@ -333,15 +376,16 @@ export function ItemSplittingStep({
                  </Card>
              )}
 
-            {(typeof billData.discount === 'number' && billData.discount > 0) && (
-                <Card className="card-modern">
+            {/* Discount Section */}
+            {(typeof editedBillData.discount === 'number' && editedBillData.discount > 0) && (
+                <Card className={getCardStyle('modern')}>
                     <CardHeader className="flex-row items-center justify-between pb-2">
                         <CardTitle className="text-base font-medium">Discount</CardTitle>
-                        <span className="font-semibold text-green-600">-{formatCurrency(billData.discount)}</span>
+                        <span className="font-semibold text-green-600">-{formatCurrency(editedBillData.discount)}</span>
                     </CardHeader>
                     <CardContent className="pt-0">
                          <p className="text-xs text-muted-foreground">
-                            A discount of {formatCurrency(billData.discount)} will be applied to the total.
+                            A discount of {formatCurrency(editedBillData.discount)} will be applied to the total.
                          </p>
                     </CardContent>
                 </Card>

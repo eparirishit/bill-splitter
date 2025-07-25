@@ -1,17 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Users, UserCheck, Check, ArrowRight, Loader2, ArrowLeft, AlertTriangle, Bot, Edit3 } from "lucide-react";
+import { Users, UserCheck, ArrowRight, Loader2, ArrowLeft, AlertTriangle, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import type { ExtractReceiptDataOutput, SplitwiseUser, ItemSplit } from "@/types";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { EditablePrice } from "@/components/ui/editable-price";
+import { MemberSelectionList } from "@/components/ui/member-selection-list";
+import { formatCurrency } from "@/lib/currency";
+import { getCardStyle, getAlertStyle } from "@/lib/design-system";
 
 interface ItemSplittingStepProps {
   billData: ExtractReceiptDataOutput;
@@ -28,76 +30,6 @@ interface ItemSplitState extends ItemSplit {
   splitType: SplitType;
 }
 
-const MemberListItemSelect = ({
-    member,
-    isSelected,
-    onSelect,
-    disabled,
-    itemIdPrefix = 'member-item'
-  }: {
-    member: SplitwiseUser,
-    isSelected: boolean,
-    onSelect: (memberId: string) => void,
-    disabled: boolean,
-    itemIdPrefix?: string
-}) => {
-    const uniqueId = `${itemIdPrefix}-${member.id}`;
-    return (
-       <div
-          key={member.id}
-          onClick={() => !disabled && onSelect(member.id)}
-          className={cn(
-            "flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-150",
-            "border border-transparent",
-            isSelected ? "bg-primary/10 border-primary/30" : "hover:bg-muted/60",
-            disabled ? "opacity-60 cursor-not-allowed" : "tap-scale"
-          )}
-          role="button"
-          aria-pressed={isSelected}
-          aria-labelledby={`${uniqueId}-label`}
-          tabIndex={disabled ? -1 : 0}
-          onKeyDown={(e) => { if(e.key === ' ' || e.key === 'Enter') { !disabled && onSelect(member.id); e.preventDefault(); }}
-          }
-        >
-           <Label id={`${uniqueId}-label`} className={cn("font-medium flex-grow cursor-pointer", isSelected ? "text-primary" : "text-foreground")}>
-              {member.first_name} {member.last_name}
-           </Label>
-           {isSelected && <Check className="h-5 w-5 text-primary flex-shrink-0" />}
-        </div>
-    );
-};
-
-const MemberSelectionList = ({
-    members,
-    selectedIds,
-    onSelect,
-    disabled,
-    listHeight = 'max-h-48',
-    itemIdPrefix = 'member-list'
-  }: {
-    members: SplitwiseUser[],
-    selectedIds: string[],
-    onSelect: (memberId: string) => void,
-    disabled: boolean,
-    listHeight?: string,
-    itemIdPrefix?: string
-}) => (
-     <ScrollArea className={cn("w-full scrollArea rounded-md border", listHeight)}>
-        <div className="p-2 space-y-1.5">
-          {members.map(member => (
-            <MemberListItemSelect
-              key={member.id}
-              member={member}
-              isSelected={selectedIds.includes(member.id)}
-              onSelect={onSelect}
-              disabled={disabled}
-              itemIdPrefix={`${itemIdPrefix}-${member.id}`}
-            />
-          ))}
-        </div>
-    </ScrollArea>
-);
-
 export function ItemSplittingStep({
   billData,
   selectedMembers,
@@ -112,9 +44,6 @@ export function ItemSplittingStep({
   // State for edited bill data
   const [editedBillData, setEditedBillData] = React.useState<ExtractReceiptDataOutput>(billData);
   const [hasManualEdits, setHasManualEdits] = React.useState(false);
-  const [editingPrices, setEditingPrices] = React.useState<Record<number, string>>({});
-  const [editingTax, setEditingTax] = React.useState<string | null>(null);
-  const [editingOtherCharges, setEditingOtherCharges] = React.useState<string | null>(null);
 
   // Initialize item splits state
   const initialItemSplits: ItemSplitState[] = React.useMemo(() =>
@@ -137,27 +66,30 @@ export function ItemSplittingStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editedBillData.items, memberIds.join(",")]);
 
-  // Handle item price editing
-  const handleItemPriceChange = (itemIndex: number, newPrice: string) => {
-    const priceValue = parseFloat(newPrice);
-    if (isNaN(priceValue) || priceValue < 0) return;
+  const recalculateDiscrepancy = React.useCallback((updatedItems: typeof editedBillData.items, taxes: number, otherCharges: number) => {
+    const itemsSum = updatedItems.reduce((sum, item) => sum + item.price, 0);
+    const discount = editedBillData.discount ?? 0;
+    const calculatedTotal = itemsSum + taxes + otherCharges - discount;
+    const difference = Math.abs(calculatedTotal - editedBillData.totalCost);
+    
+    const discrepancyFlag = difference > 0.02;
+    const discrepancyMessage = discrepancyFlag 
+      ? `Receipt total ($${editedBillData.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
+      : undefined;
 
+    return { discrepancyFlag, discrepancyMessage };
+  }, [editedBillData.totalCost, editedBillData.discount]);
+
+  const handleItemPriceChange = (itemIndex: number, newPrice: number) => {
     setEditedBillData(prev => {
       const updatedItems = [...prev.items];
-      updatedItems[itemIndex] = { ...updatedItems[itemIndex], price: priceValue };
+      updatedItems[itemIndex] = { ...updatedItems[itemIndex], price: newPrice };
       
-      // Recalculate discrepancy
-      const itemsSum = updatedItems.reduce((sum, item) => sum + item.price, 0);
-      const taxes = prev.taxes ?? 0;
-      const otherCharges = prev.otherCharges ?? 0;
-      const discount = prev.discount ?? 0;
-      const calculatedTotal = itemsSum + taxes + otherCharges - discount;
-      const difference = Math.abs(calculatedTotal - prev.totalCost);
-      
-      const discrepancyFlag = difference > 0.02;
-      const discrepancyMessage = discrepancyFlag 
-        ? `Receipt total ($${prev.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
-        : undefined;
+      const { discrepancyFlag, discrepancyMessage } = recalculateDiscrepancy(
+        updatedItems, 
+        prev.taxes ?? 0, 
+        prev.otherCharges ?? 0
+      );
 
       return {
         ...prev,
@@ -170,166 +102,45 @@ export function ItemSplittingStep({
     setHasManualEdits(true);
   };
 
-  // Handle item price editing with text input behavior
-  const handlePriceInputChange = (itemIndex: number, value: string) => {
-    // Allow user to type freely, store the string value
-    setEditingPrices(prev => ({ ...prev, [itemIndex]: value }));
-  };
-
-  const handlePriceInputBlur = (itemIndex: number, value: string) => {
-    // When user finishes editing, validate and update the actual price
-    const trimmedValue = value.replace(/[^0-9.]/g, ''); // Remove non-numeric characters except decimal
-    const priceValue = parseFloat(trimmedValue);
-    
-    if (isNaN(priceValue) || priceValue < 0) {
-      // Reset to original price if invalid
-      setEditingPrices(prev => {
-        const newState = { ...prev };
-        delete newState[itemIndex];
-        return newState;
-      });
-      toast({
-        title: "Invalid Price",
-        description: "Please enter a valid price greater than or equal to 0.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Update the actual bill data
+  const handleTaxChange = (newTax: number) => {
     setEditedBillData(prev => {
-      const updatedItems = [...prev.items];
-      updatedItems[itemIndex] = { ...updatedItems[itemIndex], price: priceValue };
-      
-      // Recalculate discrepancy
-      const itemsSum = updatedItems.reduce((sum, item) => sum + item.price, 0);
-      const taxes = prev.taxes ?? 0;
-      const otherCharges = prev.otherCharges ?? 0;
-      const discount = prev.discount ?? 0;
-      const calculatedTotal = itemsSum + taxes + otherCharges - discount;
-      const difference = Math.abs(calculatedTotal - prev.totalCost);
-      
-      const discrepancyFlag = difference > 0.02;
-      const discrepancyMessage = discrepancyFlag 
-        ? `Receipt total ($${prev.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
-        : undefined;
+      const { discrepancyFlag, discrepancyMessage } = recalculateDiscrepancy(
+        prev.items, 
+        newTax, 
+        prev.otherCharges ?? 0
+      );
 
       return {
         ...prev,
-        items: updatedItems,
+        taxes: newTax,
         discrepancyFlag,
         discrepancyMessage
       };
     });
     
-    // Clear the editing state
-    setEditingPrices(prev => {
-      const newState = { ...prev };
-      delete newState[itemIndex];
-      return newState;
-    });
-    
     setHasManualEdits(true);
   };
 
-  const handlePriceKeyPress = (event: React.KeyboardEvent<HTMLInputElement>, itemIndex: number, value: string) => {
-    if (event.key === 'Enter') {
-      (event.currentTarget as HTMLInputElement).blur(); // Trigger onBlur
-    }
-  };
-
-  // Handle tax editing
-  const handleTaxInputChange = (value: string) => {
-    setEditingTax(value);
-  };
-
-  const handleTaxInputBlur = (value: string) => {
-    const trimmedValue = value.replace(/[^0-9.]/g, '');
-    const taxValue = parseFloat(trimmedValue);
-    
-    if (isNaN(taxValue) || taxValue < 0) {
-      setEditingTax(null);
-      toast({
-        title: "Invalid Tax Amount",
-        description: "Please enter a valid tax amount greater than or equal to 0.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleOtherChargesChange = (newCharges: number) => {
     setEditedBillData(prev => {
-      const itemsSum = prev.items.reduce((sum, item) => sum + item.price, 0);
-      const otherCharges = prev.otherCharges ?? 0;
-      const discount = prev.discount ?? 0;
-      const calculatedTotal = itemsSum + taxValue + otherCharges - discount;
-      const difference = Math.abs(calculatedTotal - prev.totalCost);
-      
-      const discrepancyFlag = difference > 0.02;
-      const discrepancyMessage = discrepancyFlag 
-        ? `Receipt total ($${prev.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
-        : undefined;
+      const { discrepancyFlag, discrepancyMessage } = recalculateDiscrepancy(
+        prev.items, 
+        prev.taxes ?? 0, 
+        newCharges
+      );
 
       return {
         ...prev,
-        taxes: taxValue,
+        otherCharges: newCharges,
         discrepancyFlag,
         discrepancyMessage
       };
     });
     
-    setEditingTax(null);
     setHasManualEdits(true);
   };
 
-  // Handle other charges editing
-  const handleOtherChargesInputChange = (value: string) => {
-    setEditingOtherCharges(value);
-  };
-
-  const handleOtherChargesInputBlur = (value: string) => {
-    const trimmedValue = value.replace(/[^0-9.]/g, '');
-    const chargesValue = parseFloat(trimmedValue);
-    
-    if (isNaN(chargesValue) || chargesValue < 0) {
-      setEditingOtherCharges(null);
-      toast({
-        title: "Invalid Charges Amount",
-        description: "Please enter a valid charges amount greater than or equal to 0.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setEditedBillData(prev => {
-      const itemsSum = prev.items.reduce((sum, item) => sum + item.price, 0);
-      const taxes = prev.taxes ?? 0;
-      const discount = prev.discount ?? 0;
-      const calculatedTotal = itemsSum + taxes + chargesValue - discount;
-      const difference = Math.abs(calculatedTotal - prev.totalCost);
-      
-      const discrepancyFlag = difference > 0.02;
-      const discrepancyMessage = discrepancyFlag 
-        ? `Receipt total ($${prev.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
-        : undefined;
-
-      return {
-        ...prev,
-        otherCharges: chargesValue,
-        discrepancyFlag,
-        discrepancyMessage
-      };
-    });
-    
-    setEditingOtherCharges(null);
-    setHasManualEdits(true);
-  };
-
-  const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      (event.currentTarget as HTMLInputElement).blur();
-    }
-  };
-
+  // Handle split type change
   const handleSplitTypeChange = (itemId: string, type: SplitType | null) => {
     if (type === null) return;
     setItemSplits(prev =>
@@ -345,6 +156,7 @@ export function ItemSplittingStep({
     );
   };
 
+  // Handle member selection for custom splits
   const handleMemberSelectionChange = (itemId: string, memberId: string) => {
     setItemSplits(prev =>
       prev.map(split => {
@@ -359,6 +171,7 @@ export function ItemSplittingStep({
     );
   };
 
+  // Handle member selection for tax/other charges
   const handleChargeMemberSelection = (chargeType: 'tax' | 'other', memberId: string) => {
     if (chargeType === 'tax') {
       setTaxSplitMembers(prev =>
@@ -400,6 +213,7 @@ export function ItemSplittingStep({
       onLoadingChange(false);
       return;
     }
+    
     const finalItemSplits: ItemSplit[] = itemSplits.map(({ itemId, sharedBy, splitType }) => ({
       itemId,
       sharedBy: splitType === 'equal' ? memberIds : sharedBy,
@@ -412,11 +226,6 @@ export function ItemSplittingStep({
     onSplitsDefined(finalItemSplits, finalTaxSplitMembers, finalOtherChargesSplitMembers, hasManualEdits ? editedBillData : undefined);
   };
 
-  const formatCurrency = (amount: number | undefined | null) => {
-    if (typeof amount !== 'number' || isNaN(amount)) return '-';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
-
   return (
     <div className="flex flex-col h-full space-y-6 animate-fade-in pt-2">
         <div className="px-1">
@@ -425,7 +234,7 @@ export function ItemSplittingStep({
         </div>
 
         {/* AI Warning */}
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400 mx-1">
+        <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('ai'))}>
           <Bot className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">AI-Extracted Data</p>
@@ -435,7 +244,7 @@ export function ItemSplittingStep({
 
         {/* Discrepancy Alert */}
         {editedBillData.discrepancyFlag && (
-          <div className="flex items-start gap-2 rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 text-sm text-orange-700 dark:text-orange-400 mx-1">
+          <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('discrepancy'))}>
             <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
             <span><strong>Bill Discrepancy:</strong> {editedBillData.discrepancyMessage}</span>
           </div>
@@ -446,51 +255,17 @@ export function ItemSplittingStep({
               {editedBillData.items.map((item, index) => {
                 const itemId = `item-${index}`;
                 const currentSplit = itemSplits.find(s => s.itemId === itemId);
-                const isEditingPrice = editingPrices[index] !== undefined;
-                const displayPrice = isEditingPrice ? editingPrices[index] : item.price.toFixed(2);
                 
                 return (
-                  <AccordionItem value={itemId} key={itemId} className="border rounded-lg overflow-hidden bg-card shadow-sm">
+                  <AccordionItem value={itemId} key={itemId} className={getCardStyle('modern')}>
                     <AccordionTrigger className="text-sm px-4 py-3 hover:bg-muted/50 transition-colors [&[data-state=open]]:bg-muted/50">
                         <div className="flex justify-between w-full items-start gap-3">
                             <span className="font-medium text-foreground flex-1 text-left leading-tight">{item.name}</span>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <span 
-                                className={cn(
-                                  "text-sm font-semibold px-2 py-1 rounded cursor-pointer transition-colors",
-                                  isEditingPrice 
-                                    ? "bg-blue-50 text-blue-700 border border-blue-200" 
-                                    : "text-gray-700 hover:bg-gray-100"
-                                )}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!isEditingPrice) {
-                                    setEditingPrices(prev => ({ ...prev, [index]: item.price.toFixed(2) }));
-                                  }
-                                }}
-                              >
-                                {isEditingPrice ? (
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={displayPrice}
-                                    onChange={(e) => handlePriceInputChange(index, e.target.value)}
-                                    onBlur={(e) => handlePriceInputBlur(index, e.target.value)}
-                                    onKeyDown={(e) => handlePriceKeyPress(e, index, e.currentTarget.value)}
-                                    onFocus={(e) => {
-                                      e.stopPropagation();
-                                      e.target.select();
-                                    }}
-                                    className="w-16 text-sm font-semibold text-blue-700 bg-transparent border-0 outline-none text-center"
-                                    placeholder="0.00"
-                                    autoFocus
-                                  />
-                                ) : (
-                                  `$${item.price.toFixed(2)}`
-                                )}
-                              </span>
-                              <Edit3 className="h-3 w-3 text-gray-400" />
-                            </div>
+                            <EditablePrice
+                              value={item.price}
+                              onValueChange={(newPrice) => handleItemPriceChange(index, newPrice)}
+                              disabled={isLoading}
+                            />
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 p-4 bg-background border-t">
@@ -544,43 +319,17 @@ export function ItemSplittingStep({
                 );
               })}
             </Accordion>
-             {(typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) && (
-                <Card className="card-modern">
+
+            {/* Tax Section */}
+            {(typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) && (
+                <Card className={getCardStyle('modern')}>
                     <CardHeader className="flex-row items-center justify-between pb-2">
                         <CardTitle className="text-base font-medium">Tax</CardTitle>
-                        <div className="flex items-center gap-1">
-                          <span 
-                            className={cn(
-                              "text-sm font-semibold px-2 py-1 rounded cursor-pointer transition-colors",
-                              editingTax !== null
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                : "text-gray-700 hover:bg-gray-100"
-                            )}
-                            onClick={() => {
-                              if (editingTax === null) {
-                                setEditingTax(editedBillData.taxes?.toFixed(2) || '0.00');
-                              }
-                            }}
-                          >
-                            {editingTax !== null ? (
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editingTax}
-                                onChange={(e) => handleTaxInputChange(e.target.value)}
-                                onBlur={(e) => handleTaxInputBlur(e.target.value)}
-                                onKeyDown={handleKeyPress}
-                                onFocus={(e) => e.target.select()}
-                                className="w-16 text-sm font-semibold text-blue-700 bg-transparent border-0 outline-none text-center"
-                                placeholder="0.00"
-                                autoFocus
-                              />
-                            ) : (
-                              `$${(editedBillData.taxes ?? 0).toFixed(2)}`
-                            )}
-                          </span>
-                          <Edit3 className="h-3 w-3 text-gray-400" />
-                        </div>
+                        <EditablePrice
+                          value={editedBillData.taxes}
+                          onValueChange={handleTaxChange}
+                          disabled={isLoading}
+                        />
                     </CardHeader>
                     <CardContent className="pt-0">
                          <p className="text-xs text-muted-foreground mb-3">Select members to split tax equally.</p>
@@ -599,43 +348,16 @@ export function ItemSplittingStep({
                 </Card>
              )}
             
-             {(typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) && (
-                 <Card className="card-modern">
+            {/* Other Charges Section */}
+            {(typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) && (
+                 <Card className={getCardStyle('modern')}>
                     <CardHeader className="flex-row items-center justify-between pb-2">
                         <CardTitle className="text-base font-medium">Other Charges</CardTitle>
-                        <div className="flex items-center gap-1">
-                          <span 
-                            className={cn(
-                              "text-sm font-semibold px-2 py-1 rounded cursor-pointer transition-colors",
-                              editingOtherCharges !== null
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                : "text-gray-700 hover:bg-gray-100"
-                            )}
-                            onClick={() => {
-                              if (editingOtherCharges === null) {
-                                setEditingOtherCharges(editedBillData.otherCharges?.toFixed(2) || '0.00');
-                              }
-                            }}
-                          >
-                            {editingOtherCharges !== null ? (
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editingOtherCharges}
-                                onChange={(e) => handleOtherChargesInputChange(e.target.value)}
-                                onBlur={(e) => handleOtherChargesInputBlur(e.target.value)}
-                                onKeyDown={handleKeyPress}
-                                onFocus={(e) => e.target.select()}
-                                className="w-16 text-sm font-semibold text-blue-700 bg-transparent border-0 outline-none text-center"
-                                placeholder="0.00"
-                                autoFocus
-                              />
-                            ) : (
-                              `$${(editedBillData.otherCharges ?? 0).toFixed(2)}`
-                            )}
-                          </span>
-                          <Edit3 className="h-3 w-3 text-gray-400" />
-                        </div>
+                        <EditablePrice
+                          value={editedBillData.otherCharges}
+                          onValueChange={handleOtherChargesChange}
+                          disabled={isLoading}
+                        />
                     </CardHeader>
                     <CardContent className="pt-0">
                          <p className="text-xs text-muted-foreground mb-3">Select members to split charges equally.</p>
@@ -654,8 +376,9 @@ export function ItemSplittingStep({
                  </Card>
              )}
 
+            {/* Discount Section */}
             {(typeof editedBillData.discount === 'number' && editedBillData.discount > 0) && (
-                <Card className="card-modern">
+                <Card className={getCardStyle('modern')}>
                     <CardHeader className="flex-row items-center justify-between pb-2">
                         <CardTitle className="text-base font-medium">Discount</CardTitle>
                         <span className="font-semibold text-green-600">-{formatCurrency(editedBillData.discount)}</span>

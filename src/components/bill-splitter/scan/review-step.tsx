@@ -14,6 +14,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { formatCurrency } from "@/lib/currency";
+import { getCardStyle, getAlertStyle } from "@/lib/design-system";
+import { isAPIError, getErrorMessage } from "@/types/api";
 
 interface ReviewStepProps {
   billData: ExtractReceiptDataOutput;
@@ -74,12 +77,6 @@ export function ReviewStep({
     const month = (localDate.getMonth() + 1).toString().padStart(2, '0');
     const day = (localDate.getDate() + 1).toString().padStart(2, '0');
     return `${year}-${month}-${day}`;
-  };
-
-  const formatCurrency = (amount: number | undefined) => {
-     if (amount === undefined) return '-';
-     const value = (typeof amount === 'number' && !isNaN(amount)) ? amount : 0;
-     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
 
    // Calculate final splits whenever relevant props change
@@ -271,23 +268,10 @@ export function ReviewStep({
        console.log("Expense Payload :", JSON.stringify(expensePayload, null, 2));
        const result = await createExpense(expensePayload);
 
-       // Check for API errors in the response - only check if result exists and has errors property
-       if (result && typeof result === 'object' && 'errors' in result && result.errors) {
-         const errorMessages = [];
-         if (result.errors.base && Array.isArray(result.errors.base)) {
-           errorMessages.push(...result.errors.base);
-         }
-         // Handle other error types if they exist
-         Object.entries(result.errors).forEach(([key, value]) => {
-           if (key !== 'base' && Array.isArray(value)) {
-             errorMessages.push(...value);
-           }
-         });
-         
-         if (errorMessages.length > 0) {
-           const errorMessage = errorMessages.join('; ');
-           throw new Error(errorMessage);
-         }
+       // Check for API errors using improved error handling
+       if (isAPIError(result)) {
+         const errorMessage = getErrorMessage(result);
+         throw new Error(errorMessage);
        }
 
        // If we get here, the expense was created successfully
@@ -298,11 +282,12 @@ export function ReviewStep({
        });
        onFinalize();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
        console.error("Error finalizing expense:", error);
+       const errorMessage = error instanceof Error ? error.message : "Could not save expense. Try again.";
        toast({
          title: "Finalization Failed",
-         description: error.message || "Could not save expense. Try again.",
+         description: errorMessage,
          variant: "destructive",
        });
     } finally {
@@ -334,7 +319,7 @@ export function ReviewStep({
         {/* Scrollable Content Area with proper bottom padding */}
         <div className="flex-1 space-y-4 overflow-y-auto pb-20">
             {/* AI Warning */}
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400 mx-1">
+            <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('ai'))}>
               <Bot className="h-5 w-5 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium">AI-Extracted Data</p>
@@ -344,20 +329,20 @@ export function ReviewStep({
 
             {/* Discrepancy Alerts */}
             {activeBillData.discrepancyFlag && (
-               <div className="flex items-start gap-2 rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 text-sm text-orange-700 dark:text-orange-400 mx-1">
+               <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('discrepancy'))}>
                  <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                  <span><strong>Bill Discrepancy:</strong> {activeBillData.discrepancyMessage}</span>
                </div>
             )}
              {!totalMatches && !isLoading && (
-                 <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive mx-1">
+                 <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('error'))}>
                    <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                    <span><strong>Calculation Warning:</strong> Final split total ({formatCurrency(calculatedTotalFromSplits)}) doesn't exactly match bill total ({formatCurrency(billTotalForComparison)}). Check splits if difference is large.</span>
                  </div>
              )}
 
             {/* Summary Card */}
-            <Card className="card-modern">
+            <Card className={getCardStyle('modern')}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-medium">Expense Summary</CardTitle>
               </CardHeader>
@@ -404,7 +389,7 @@ export function ReviewStep({
             </Card>
 
             {/* Payment Details Card */}
-            <Card className="card-modern">
+            <Card className={getCardStyle('modern')}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-medium">Payment Details</CardTitle>
                 <CardDescription className="text-xs">Who paid this bill?</CardDescription>
@@ -434,7 +419,7 @@ export function ReviewStep({
             </Card>
 
             {/* Final Splits Card */}
-            <Card className="card-modern">
+            <Card className={getCardStyle('modern')}>
                <CardHeader className="flex-row items-center justify-between pb-3">
                     <CardTitle className="text-base font-medium">Final Splits</CardTitle>
                     <Button variant="ghost" size="sm" className="h-auto p-1 text-xs text-primary hover:bg-primary/10" onClick={() => onEdit(3)} disabled={isLoading}>
@@ -471,7 +456,7 @@ export function ReviewStep({
             </Card>
 
              {/* Notes Card */}
-             <Card className="card-modern">
+             <Card className={getCardStyle('modern')}>
                <CardHeader className="pb-3">
                  <CardTitle className="text-base font-medium">Expense Notes</CardTitle>
                </CardHeader>

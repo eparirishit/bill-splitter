@@ -11,6 +11,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import type { ManualExpenseData } from "@/types";
 import { cn } from "@/lib/utils";
+import { formatCurrency, parseCurrency, validateCurrencyAmount } from "@/lib/currency";
+import { getCardStyle } from "@/lib/design-system";
 
 interface ManualExpenseSplitStepProps {
   expenseData: ManualExpenseData;
@@ -38,8 +40,10 @@ export function ManualExpenseSplitStep({
   }, [expenseData.amount, expenseData.members]);
 
   const handleCustomAmountChange = (memberId: string, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setCustomAmounts(prev => ({ ...prev, [memberId]: numValue }));
+    const numValue = parseCurrency(value);
+    if (validateCurrencyAmount(numValue)) {
+      setCustomAmounts(prev => ({ ...prev, [memberId]: numValue }));
+    }
   };
 
   const handleProceed = () => {
@@ -50,14 +54,14 @@ export function ManualExpenseSplitStep({
       if (difference > 0.01) {
         toast({
           title: "Split Mismatch",
-          description: `Custom amounts total $${totalCustom.toFixed(2)} but expense is $${expenseData.amount.toFixed(2)}`,
+          description: `Custom amounts total ${formatCurrency(totalCustom)} but expense is ${formatCurrency(expenseData.amount)}`,
           variant: "destructive",
         });
         return;
       }
 
       // Check for negative or zero amounts
-      const invalidAmounts = Object.values(customAmounts).some(amount => amount <= 0);
+      const invalidAmounts = Object.values(customAmounts).some(amount => !validateCurrencyAmount(amount));
       if (invalidAmounts) {
         toast({
           title: "Invalid Amounts",
@@ -69,13 +73,6 @@ export function ManualExpenseSplitStep({
     }
 
     onSplitConfigured(splitType, splitType === 'custom' ? customAmounts : undefined);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency: 'USD' 
-    }).format(amount);
   };
 
   const totalCustomAmount = Object.values(customAmounts).reduce((sum, val) => sum + val, 0);
@@ -126,7 +123,7 @@ export function ManualExpenseSplitStep({
 
       <div className="flex-1 pb-20">
         {splitType === 'equal' ? (
-          <Card className="card-modern">
+          <Card className={getCardStyle('modern')}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium">Equal Split</CardTitle>
             </CardHeader>
@@ -146,7 +143,7 @@ export function ManualExpenseSplitStep({
             </CardContent>
           </Card>
         ) : (
-          <Card className="card-modern">
+          <Card className={getCardStyle('modern')}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium">Custom Split</CardTitle>
             </CardHeader>

@@ -123,7 +123,7 @@ export function ManualExpenseSplitStep({
 
       <div className="flex-1 pb-20">
         {splitType === 'equal' ? (
-          <Card className={getCardStyle('modern')}>
+          <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium">Equal Split</CardTitle>
             </CardHeader>
@@ -143,7 +143,7 @@ export function ManualExpenseSplitStep({
             </CardContent>
           </Card>
         ) : (
-          <Card className={getCardStyle('modern')}>
+          <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium">Custom Split</CardTitle>
             </CardHeader>

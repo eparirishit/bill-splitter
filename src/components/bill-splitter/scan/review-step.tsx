@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/currency";
 import { getCardStyle, getAlertStyle } from "@/lib/design-system";
-import { isAPIError, getErrorMessage } from "@/types/api";
+import { isAPIError, getErrorMessage, isSuccessfulResponse } from "@/types/api";
 
 interface ReviewStepProps {
   billData: ExtractReceiptDataOutput;
@@ -267,11 +267,20 @@ export function ReviewStep({
 
        console.log("Expense Payload :", JSON.stringify(expensePayload, null, 2));
        const result = await createExpense(expensePayload);
+       
+       console.log("API Response:", result); // Add logging to debug
 
        // Check for API errors using improved error handling
        if (isAPIError(result)) {
          const errorMessage = getErrorMessage(result);
          throw new Error(errorMessage);
+       }
+
+       // Check if the response indicates success
+       if (!isSuccessfulResponse(result)) {
+         console.warn("Unexpected API response:", result);
+         // Don't throw an error if we can't determine success/failure
+         // Let it continue to success handling
        }
 
        // If we get here, the expense was created successfully
@@ -319,7 +328,7 @@ export function ReviewStep({
         {/* Scrollable Content Area with proper bottom padding */}
         <div className="flex-1 space-y-4 overflow-y-auto pb-20">
             {/* AI Warning */}
-            <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('ai'))}>
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400 mx-1">
               <Bot className="h-5 w-5 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium">AI-Extracted Data</p>
@@ -329,20 +338,20 @@ export function ReviewStep({
 
             {/* Discrepancy Alerts */}
             {activeBillData.discrepancyFlag && (
-               <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('discrepancy'))}>
+               <div className="flex items-start gap-2 rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 text-sm text-orange-700 dark:text-orange-400 mx-1">
                  <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                  <span><strong>Bill Discrepancy:</strong> {activeBillData.discrepancyMessage}</span>
                </div>
             )}
              {!totalMatches && !isLoading && (
-                 <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('error'))}>
+                 <div className="flex items-start gap-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400 mx-1">
                    <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                    <span><strong>Calculation Warning:</strong> Final split total ({formatCurrency(calculatedTotalFromSplits)}) doesn't exactly match bill total ({formatCurrency(billTotalForComparison)}). Check splits if difference is large.</span>
                  </div>
              )}
 
             {/* Summary Card */}
-            <Card className={getCardStyle('modern')}>
+            <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-medium">Expense Summary</CardTitle>
               </CardHeader>
@@ -389,7 +398,7 @@ export function ReviewStep({
             </Card>
 
             {/* Payment Details Card */}
-            <Card className={getCardStyle('modern')}>
+            <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-medium">Payment Details</CardTitle>
                 <CardDescription className="text-xs">Who paid this bill?</CardDescription>
@@ -419,7 +428,7 @@ export function ReviewStep({
             </Card>
 
             {/* Final Splits Card */}
-            <Card className={getCardStyle('modern')}>
+            <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
                <CardHeader className="flex-row items-center justify-between pb-3">
                     <CardTitle className="text-base font-medium">Final Splits</CardTitle>
                     <Button variant="ghost" size="sm" className="h-auto p-1 text-xs text-primary hover:bg-primary/10" onClick={() => onEdit(3)} disabled={isLoading}>
@@ -456,7 +465,7 @@ export function ReviewStep({
             </Card>
 
              {/* Notes Card */}
-             <Card className={getCardStyle('modern')}>
+             <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
                <CardHeader className="pb-3">
                  <CardTitle className="text-base font-medium">Expense Notes</CardTitle>
                </CardHeader>

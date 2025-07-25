@@ -234,7 +234,7 @@ export function ItemSplittingStep({
         </div>
 
         {/* AI Warning */}
-        <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('ai'))}>
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400 mx-1">
           <Bot className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">AI-Extracted Data</p>
@@ -244,7 +244,7 @@ export function ItemSplittingStep({
 
         {/* Discrepancy Alert */}
         {editedBillData.discrepancyFlag && (
-          <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm mx-1", getAlertStyle('discrepancy'))}>
+          <div className="flex items-start gap-2 rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 text-sm text-orange-700 dark:text-orange-400 mx-1">
             <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
             <span><strong>Bill Discrepancy:</strong> {editedBillData.discrepancyMessage}</span>
           </div>

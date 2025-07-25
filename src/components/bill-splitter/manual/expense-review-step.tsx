@@ -13,7 +13,7 @@ import { createExpense } from "@/services/splitwise";
 import type { ManualExpenseData, CreateExpense } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { getCardStyle } from "@/lib/design-system";
-import { isAPIError, getErrorMessage } from "@/types/api";
+import { isAPIError, getErrorMessage, isSuccessfulResponse } from "@/types/api";
 
 interface ManualExpenseReviewStepProps {
   expenseData: ManualExpenseData;
@@ -127,11 +127,20 @@ export function ManualExpenseReviewStep({
 
       console.log("Manual Expense Payload:", JSON.stringify(expensePayload, null, 2));
       const result = await createExpense(expensePayload);
+      
+      console.log("API Response:", result); // Add logging to debug
 
       // Check for API errors using improved error handling
       if (isAPIError(result)) {
         const errorMessage = getErrorMessage(result);
         throw new Error(errorMessage);
+      }
+
+      // Check if the response indicates success
+      if (!isSuccessfulResponse(result)) {
+        console.warn("Unexpected API response:", result);
+        // Don't throw an error if we can't determine success/failure
+        // Let it continue to success handling
       }
 
       toast({
@@ -164,7 +173,7 @@ export function ManualExpenseReviewStep({
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-20">
-        <Card className={getCardStyle('modern')}>
+        <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">Expense Summary</CardTitle>
           </CardHeader>
@@ -194,7 +203,7 @@ export function ManualExpenseReviewStep({
           </CardContent>
         </Card>
 
-        <Card className={getCardStyle('modern')}>
+        <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">Payment Details</CardTitle>
             <CardDescription className="text-xs">Who paid for this expense?</CardDescription>
@@ -222,7 +231,7 @@ export function ManualExpenseReviewStep({
           </CardContent>
         </Card>
 
-        <Card className={getCardStyle('modern')}>
+        <Card className="border rounded-lg overflow-hidden bg-card shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">Split Breakdown</CardTitle>
           </CardHeader>

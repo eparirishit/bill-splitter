@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { SplitwiseUser, ManualExpenseData } from "@/types";
+import { FormValidationService } from "@/services/form-validation-service";
 
 interface ManualExpenseDetailsStepProps {
   selectedMembers: SplitwiseUser[];
@@ -33,29 +34,19 @@ export function ManualExpenseDetailsStep({
   const { toast } = useToast();
 
   const handleProceed = () => {
-    if (!title.trim()) {
-      toast({
-        title: "Missing Title",
-        description: "Please enter an expense title.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const validation = FormValidationService.validateManualExpenseForm({
+      title,
+      amount,
+      date,
+      notes
+    });
 
-    const parsedAmount = parseFloat(amount);
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
+    if (!validation.isValid) {
       toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid expense amount.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!date) {
-      toast({
-        title: "Missing Date",
-        description: "Please select an expense date.",
+        title: validation.error?.includes("title") ? "Missing Title" : 
+               validation.error?.includes("amount") ? "Invalid Amount" :
+               validation.error?.includes("date") ? "Missing Date" : "Validation Error",
+        description: validation.error,
         variant: "destructive",
       });
       return;
@@ -63,7 +54,7 @@ export function ManualExpenseDetailsStep({
 
     const expenseData: ManualExpenseData = {
       title: title.trim(),
-      amount: parsedAmount,
+      amount: parseFloat(amount),
       date,
       groupId,
       members: selectedMembers,
@@ -74,13 +65,14 @@ export function ManualExpenseDetailsStep({
     onExpenseDetailsSet(expenseData);
   };
 
-  const formatCurrency = (value: string) => {
-    const num = parseFloat(value);
-    return isNaN(num) ? '$0.00' : new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency: 'USD' 
-    }).format(num);
-  };
+  const isFormValid = React.useMemo(() => {
+    return FormValidationService.validateManualExpenseForm({
+      title,
+      amount,
+      date,
+      notes
+    }).isValid;
+  }, [title, amount, date, notes]);
 
   return (
     <div className="flex flex-col min-h-full space-y-6 animate-fade-in pt-2">
@@ -130,7 +122,7 @@ export function ManualExpenseDetailsStep({
               </div>
               {amount && (
                 <p className="text-xs text-muted-foreground">
-                  Total: {formatCurrency(amount)}
+                  Total: {FormValidationService.formatCurrencyDisplay(amount)}
                 </p>
               )}
             </div>
@@ -185,7 +177,7 @@ export function ManualExpenseDetailsStep({
             </div>
             {amount && selectedMembers.length > 0 && (
               <p className="text-xs text-muted-foreground mt-2">
-                Each person: {formatCurrency((parseFloat(amount) / selectedMembers.length).toString())}
+                Each person: {FormValidationService.formatCurrencyDisplay((parseFloat(amount) / selectedMembers.length).toString())}
               </p>
             )}
           </CardContent>
@@ -200,7 +192,7 @@ export function ManualExpenseDetailsStep({
           <Button 
             onClick={handleProceed} 
             className="w-2/3 hover:bg-primary/10 hover:text-primary"
-            disabled={!title.trim() || !amount || parseFloat(amount) <= 0}
+            disabled={!isFormValid}
           >
             <ArrowRight className="mr-2 h-4 w-4" /> Next: Split Options
           </Button>

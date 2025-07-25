@@ -9,11 +9,9 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { createExpense } from "@/services/splitwise";
-import type { ManualExpenseData, CreateExpense } from "@/types";
+import type { ManualExpenseData } from "@/types";
 import { formatCurrency } from "@/lib/currency";
-import { getCardStyle } from "@/lib/design-system";
-import { isAPIError, getErrorMessage, isSuccessfulResponse } from "@/types/api";
+import { ExpenseService } from "@/services/expense-service";
 
 interface ManualExpenseReviewStepProps {
   expenseData: ManualExpenseData;
@@ -41,18 +39,9 @@ export function ManualExpenseReviewStep({
     }
   }, [expenseData.members, payerId]);
 
-  const getMemberAmount = (memberId: string, memberIndex: number): number => {
-    if (expenseData.splitType === 'custom' && customAmounts) {
-      return customAmounts[memberId] || 0;
-    }
-    // Calculate proper equal amounts with cent distribution
-    const totalCents = Math.round(expenseData.amount * 100);
-    const memberCount = expenseData.members.length;
-    const baseCents = Math.floor(totalCents / memberCount);
-    const remainderCents = totalCents % memberCount;
-    const extraCent = memberIndex < remainderCents ? 1 : 0;
-    return (baseCents + extraCent) / 100;
-  };
+  const finalSplits = React.useMemo(() => {
+    return ExpenseService.calculateManualSplits(expenseData, customAmounts);
+  }, [expenseData, customAmounts]);
 
   const handleFinalizeExpense = async () => {
     if (!payerId) {
@@ -66,82 +55,15 @@ export function ManualExpenseReviewStep({
 
     onLoadingChange(true);
     try {
-      const groupId = parseInt(expenseData.groupId);
-      const numericPayerId = parseInt(payerId);
-
-      // Calculate individual amounts with proper rounding
-      let memberAmounts: Record<string, number> = {};
-
-      if (expenseData.splitType === 'equal') {
-        // For equal splits, calculate base amount and distribute remaining cents
-        const totalCents = Math.round(expenseData.amount * 100);
-        const memberCount = expenseData.members.length;
-        const baseCents = Math.floor(totalCents / memberCount);
-        const remainderCents = totalCents % memberCount;
-        
-        expenseData.members.forEach((member, index) => {
-          // First 'remainderCents' members get an extra cent
-          const extraCent = index < remainderCents ? 1 : 0;
-          memberAmounts[member.id] = (baseCents + extraCent) / 100;
-        });
-      } else if (customAmounts) {
-        // For custom splits, adjust the last member to match exact total
-        let totalOwedSoFar = 0;
-        expenseData.members.forEach((member, index) => {
-          if (index === expenseData.members.length - 1) {
-            // Last member gets the remainder to ensure exact total
-            memberAmounts[member.id] = expenseData.amount - totalOwedSoFar;
-          } else {
-            memberAmounts[member.id] = Math.round((customAmounts[member.id] || 0) * 100) / 100;
-            totalOwedSoFar += memberAmounts[member.id];
-          }
-        });
-      }
-
-      // Final validation to ensure exact match
-      const finalTotal = Object.values(memberAmounts).reduce((sum, amount) => sum + amount, 0);
-      if (Math.abs(finalTotal - expenseData.amount) > 0.005) {
-        throw new Error(`Split calculation error: Total ${finalTotal.toFixed(2)} doesn't match expense ${expenseData.amount.toFixed(2)}`);
-      }
-
-      const expensePayload: CreateExpense = {
-        cost: expenseData.amount.toFixed(2),
-        description: expenseData.title,
-        group_id: groupId,
-        date: expenseData.date,
-        currency_code: 'USD',
-        category_id: 18,
-        split_equally: expenseData.splitType === 'equal',
-        details: expenseData.notes || undefined,
-      };
-
-      expenseData.members.forEach((member, index) => {
-        const memberAmount = memberAmounts[member.id];
-        const paidShare = parseInt(member.id) === numericPayerId ? expenseData.amount.toFixed(2) : '0.00';
-        const owedShare = memberAmount.toFixed(2);
-        
-        expensePayload[`users__${index}__user_id`] = parseInt(member.id);
-        expensePayload[`users__${index}__paid_share`] = paidShare;
-        expensePayload[`users__${index}__owed_share`] = owedShare;
-      });
+      const expensePayload = ExpenseService.createManualExpensePayload(
+        expenseData,
+        finalSplits,
+        payerId
+      );
 
       console.log("Manual Expense Payload:", JSON.stringify(expensePayload, null, 2));
-      const result = await createExpense(expensePayload);
       
-      console.log("API Response:", result); // Add logging to debug
-
-      // Check for API errors using improved error handling
-      if (isAPIError(result)) {
-        const errorMessage = getErrorMessage(result);
-        throw new Error(errorMessage);
-      }
-
-      // Check if the response indicates success
-      if (!isSuccessfulResponse(result)) {
-        console.warn("Unexpected API response:", result);
-        // Don't throw an error if we can't determine success/failure
-        // Let it continue to success handling
-      }
+      await ExpenseService.submitExpense(expensePayload);
 
       toast({
         title: "Expense Created Successfully",
@@ -238,18 +160,18 @@ export function ManualExpenseReviewStep({
           <CardContent>
             <ScrollArea className="max-h-60">
               <div className="space-y-2 pr-2">
-                {expenseData.members.map((member, index) => {
-                  const memberAmount = getMemberAmount(member.id, index);
+                {finalSplits.map((split, index) => {
+                  const member = expenseData.members.find(m => m.id === split.userId);
                   return (
-                    <div key={member.id} className="flex justify-between items-center p-2 rounded-lg bg-muted/30">
+                    <div key={split.userId} className="flex justify-between items-center p-2 rounded-lg bg-muted/30">
                       <div className="flex items-center gap-2">
                         <UserCircle className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">
-                          {member.first_name} {member.last_name}
+                          {member ? `${member.first_name} ${member.last_name}` : `User ${split.userId}`}
                         </span>
                       </div>
                       <span className="text-sm font-semibold text-primary">
-                        {formatCurrency(memberAmount)}
+                        {formatCurrency(split.amountOwed)}
                       </span>
                     </div>
                   );

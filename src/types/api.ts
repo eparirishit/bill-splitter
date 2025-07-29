@@ -1,55 +1,51 @@
-// API Response Types and Helpers
-
-export interface APIError {
-  error?: string;
-  message?: string;
-  details?: unknown;
+export interface SplitWiseAPIError {
+  errors: {
+    base?: string[];
+    [key: string]: string[] | undefined;
+  };
 }
 
-export interface APISuccess {
+export interface APIResponse<T = unknown> {
+  data?: T;
+  errors?: SplitWiseAPIError['errors'];
   success?: boolean;
-  expenses?: unknown[];
-  expense?: unknown;
 }
 
-export type APIResponse = APIError | APISuccess | unknown;
+export interface CreateExpenseResponse extends APIResponse {
+  expense?: {
+    id: number;
+    description: string;
+    cost: string;
+    currency_code: string;
+    date: string;
+    // Add other expense fields as needed
+  };
+}
 
-/**
- * Check if response is an API error
- */
-export function isAPIError(response: APIResponse): response is APIError {
+export type APIResult<T = unknown> = T | SplitWiseAPIError;
+
+export function isAPIError(result: unknown): result is SplitWiseAPIError {
   return (
-    typeof response === 'object' &&
-    response !== null &&
-    ('error' in response || 'message' in response)
+    typeof result === 'object' &&
+    result !== null &&
+    'errors' in result &&
+    typeof (result as SplitWiseAPIError).errors === 'object'
   );
 }
 
-/**
- * Extract error message from API response
- */
-export function getErrorMessage(response: APIError): string {
-  return response.error || response.message || 'Unknown API error occurred';
-}
-
-/**
- * Check if response indicates success
- */
-export function isSuccessfulResponse(response: APIResponse): response is APISuccess {
-  if (typeof response !== 'object' || response === null) {
-    return false;
+export function getErrorMessage(error: SplitWiseAPIError): string {
+  const errorMessages: string[] = [];
+  
+  if (error.errors.base && Array.isArray(error.errors.base)) {
+    errorMessages.push(...error.errors.base);
   }
   
-  // Check for explicit success indicators
-  if ('success' in response && response.success === true) {
-    return true;
-  }
+  // Handle other error types
+  Object.entries(error.errors).forEach(([key, value]) => {
+    if (key !== 'base' && Array.isArray(value)) {
+      errorMessages.push(...value);
+    }
+  });
   
-  // Check for expense data (indicates successful creation)
-  if ('expenses' in response || 'expense' in response) {
-    return true;
-  }
-  
-  // If no error fields are present, assume success
-  return !('error' in response || 'message' in response);
+  return errorMessages.length > 0 ? errorMessages.join('; ') : 'An unknown error occurred';
 }

@@ -20,7 +20,7 @@ export const APP_CONFIG = {
 
 // AI Configuration
 export const AI_CONFIG = {
-  DISCREPANCY_TOLERANCE: 0.02,
+  DISCREPANCYY_TOLERANCE: 0.02,
   MAX_IMAGE_SIZE_MB: 10,
   MAX_PAYLOAD_SIZE_KB: 3072, // 3MB for Vercel limits
   MAX_RETRIES: 3,
@@ -88,11 +88,9 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanations):
 Analyze the receipt image now:`;
 
 // Validate required environment variables
-if (typeof window === 'undefined') {
-  const requiredEnvVars = ['SPLITWISE_CLIENT_ID', 'SPLITWISE_CLIENT_SECRET', 'SPLITWISE_REDIRECT_URI', 'GOOGLE_API_KEY'];
-  const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+const requiredEnvVars = ['SPLITWISE_CLIENT_ID', 'SPLITWISE_CLIENT_SECRET', 'SPLITWISE_REDIRECT_URI'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
-  if (missingEnvVars.length > 0) {
-    throw new ConfigurationError(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
-  }
+if (missingEnvVars.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
 }

@@ -34,7 +34,7 @@ export function EditablePrice({
   const { toast } = useToast();
 
   const handleEditStart = () => {
-    if (disabled) {return;}
+    if (disabled) return;
     
     setIsEditing(true);
     setEditValue(value.toFixed(2));

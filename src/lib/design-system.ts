@@ -1,5 +1,5 @@
 export const CARD_STYLES = {
-  modern: "border rounded-lg overflow-hidden bg-card shadow-sm",
+  modern: "card-modern border rounded-lg overflow-hidden bg-card shadow-sm",
   compact: "border rounded-md bg-card p-3",
   elevated: "border rounded-lg bg-card shadow-md p-4",
   flat: "border-0 bg-card p-4",

@@ -8,6 +8,7 @@ import { ManualExpenseSplitStep } from "@/components/bill-splitter/manual/expens
 import { ItemSplittingStep } from "@/components/bill-splitter/scan/item-splitting-step";
 import { ReviewStep } from "@/components/bill-splitter/scan/review-step";
 import { UploadStep } from "@/components/bill-splitter/scan/upload-step";
+import { FeedbackModal } from "@/components/feedback/feedback-modal";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useBillSplittingFlow } from "@/hooks/use-bill-splitting-flow";
@@ -18,7 +19,8 @@ import * as React from "react";
 
 function BillSplitterFlow() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading, userId } = useAuth();
+  const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
   const {
     // State
     expenseType,
@@ -30,6 +32,7 @@ function BillSplitterFlow() {
     itemSplits,
     taxSplit,
     otherChargesSplit,
+    receiptId,
     storeName,
     date,
     expenseNotes,
@@ -83,6 +86,7 @@ function BillSplitterFlow() {
               onLoadingChange={handleLoadingChange} 
               isLoading={isLoading}
               onBack={() => handleEditStep(0)}
+              userId={userId}
             />
           );
         } else if (expenseType === 'manual') {
@@ -123,6 +127,7 @@ function BillSplitterFlow() {
             onLoadingChange={handleLoadingChange}
             isLoading={isLoading}
             onBack={() => handleEditStep(2)}
+            userId={userId}
           />
         );
         
@@ -139,10 +144,11 @@ function BillSplitterFlow() {
             date={date}
             expenseNotes={expenseNotes}
             payerId={payerId}
-            onFinalize={handleFinalize}
+            onFinalize={() => handleFinalize(() => setShowFeedbackModal(true))}
             onEdit={handleEditStep}
             onLoadingChange={handleLoadingChange}
             isLoading={isLoading}
+            userId={userId}
           />
         );
         
@@ -196,7 +202,10 @@ function BillSplitterFlow() {
             The expense has been successfully added to your Splitwise group.
           </p>
           <Button
-            onClick={handleRestart}
+            onClick={() => {
+              setShowFeedbackModal(false);
+              handleRestart();
+            }}
             size="lg"
             className="w-full max-w-xs tap-scale"
           >
@@ -208,6 +217,14 @@ function BillSplitterFlow() {
           {renderStepContent()}
         </div>
       )}
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        userId={userId}
+        receiptId={receiptId}
+      />
     </div>
   );
 }

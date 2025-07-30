@@ -1,4 +1,5 @@
 import { extractReceiptData } from '@/ai/extract-receipt-data';
+import { AnalyticsService } from '@/lib/analytics';
 import { FileProcessingService, type FileValidationResult } from '@/services/file-processing';
 import type { ExtractReceiptDataOutput } from '@/types';
 import { useRef, useState } from 'react';
@@ -10,13 +11,14 @@ interface UseFileUploadReturn {
   isLoading: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
   handleFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  handleUpload: () => Promise<ExtractReceiptDataOutput | null>;
+  handleUpload: () => Promise<{ data: ExtractReceiptDataOutput; receiptId?: string } | null>;
   clearFile: () => void;
 }
 
 export function useFileUpload(
   onDataExtracted: (data: ExtractReceiptDataOutput) => void,
-  onLoadingChange: (isLoading: boolean) => void
+  onLoadingChange: (isLoading: boolean) => void,
+  userId?: string
 ): UseFileUploadReturn {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export function useFileUpload(
     });
   };
 
-  const handleUpload = async (): Promise<ExtractReceiptDataOutput | null> => {
+  const handleUpload = async (): Promise<{ data: ExtractReceiptDataOutput; receiptId?: string } | null> => {
     if (!selectedFile || !previewUrl) {
       setError("No file selected");
       return null;
@@ -71,6 +73,8 @@ export function useFileUpload(
     setIsLoading(true);
     onLoadingChange(true);
     setError(null);
+
+    const startTime = Date.now();
 
     try {
       const result = await extractReceiptData({ photoDataUri: previewUrl });
@@ -89,8 +93,25 @@ export function useFileUpload(
         discount: result.discount === null ? undefined : result.discount
       };
 
+      // Track receipt processing for analytics
+      let receiptId: string | undefined;
+      if (userId && selectedFile) {
+        const processingTimeMs = Date.now() - startTime;
+        try {
+          receiptId = await AnalyticsService.trackReceiptProcessing(
+            userId,
+            selectedFile,
+            processedResult,
+            processingTimeMs
+          );
+          console.log('Receipt processing tracked with ID:', receiptId);
+        } catch (error) {
+          console.warn('Failed to track receipt processing:', error);
+        }
+      }
+
       onDataExtracted(processedResult);
-      return processedResult;
+      return { data: processedResult, receiptId };
     } catch (err: any) {
       console.error("Error extracting data:", err);
       let userMessage = "Failed to extract data from the bill. Please try again or use a clearer image.";

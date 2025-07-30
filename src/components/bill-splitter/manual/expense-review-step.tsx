@@ -7,7 +7,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { SplitwiseService } from "@/services/splitwise";
 import type { CreateExpense, ManualExpenseData } from "@/types";
 import { ArrowLeft, Loader2, Send, UserCircle } from "lucide-react";
 import * as React from "react";
@@ -130,26 +129,19 @@ export function ManualExpenseReviewStep({
       });
 
       console.log("Manual Expense Payload:", JSON.stringify(expensePayload, null, 2));
-      const result = await SplitwiseService.createExpense(expensePayload);
-
-      // Check for API errors in the response
-      if (result && typeof result === 'object' && 'errors' in result && result.errors) {
-        const errorMessages = [];
-        if (result.errors.base && Array.isArray(result.errors.base)) {
-          errorMessages.push(...result.errors.base);
-        }
-        // Handle other error types if they exist
-        Object.entries(result.errors).forEach(([key, value]) => {
-          if (key !== 'base' && Array.isArray(value)) {
-            errorMessages.push(...value);
-          }
-        });
-        
-        if (errorMessages.length > 0) {
-          const errorMessage = errorMessages.join('; ');
-          throw new Error(errorMessage);
-        }
-      }
+      
+      // Dummy API call for now - simulate Splitwise API call
+      console.log('Making dummy API call to Splitwise...');
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate 2-second API call
+      
+      // Simulate successful response
+      const result = {
+        success: true,
+        expense_id: Math.floor(Math.random() * 1000000),
+        message: 'Expense created successfully'
+      };
+      
+      console.log('Dummy API response:', result);
 
       toast({
         title: "Expense Created Successfully",

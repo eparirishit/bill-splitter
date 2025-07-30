@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, type SafetySetting } from "@google/generative-ai";
 import { ConfigurationError } from "@/ai/errors";
+import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory, type SafetySetting } from "@google/generative-ai";
 
-// Splitwise OAuth Configuration
+// Splitwise OAuth Configuration (server-side only)
 export const SPLITWISE_CONFIG = {
   CLIENT_ID: process.env.SPLITWISE_CLIENT_ID!,
   CLIENT_SECRET: process.env.SPLITWISE_CLIENT_SECRET!,
@@ -18,7 +18,7 @@ export const APP_CONFIG = {
   OAUTH_STATE_COOKIE_NAME: 'oauth_state',
 } as const;
 
-// AI Configuration
+// AI Configuration (client-safe)
 export const AI_CONFIG = {
   DISCREPANCYY_TOLERANCE: 0.02,
   MAX_IMAGE_SIZE_MB: 10,
@@ -41,6 +41,10 @@ export const AI_CONFIG = {
 } as const;
 
 export function createGoogleAIClient(): GoogleGenerativeAI {
+  if (typeof window !== 'undefined') {
+    throw new ConfigurationError("Google AI client can only be created on the server side.");
+  }
+  
   if (!process.env.GOOGLE_API_KEY) {
     throw new ConfigurationError("GOOGLE_API_KEY environment variable is not set.");
   }
@@ -87,10 +91,12 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanations):
 
 Analyze the receipt image now:`;
 
-// Validate required environment variables
-const requiredEnvVars = ['SPLITWISE_CLIENT_ID', 'SPLITWISE_CLIENT_SECRET', 'SPLITWISE_REDIRECT_URI'];
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+// Validate required environment variables (server-side only)
+if (typeof window === 'undefined') {
+  const requiredEnvVars = ['SPLITWISE_CLIENT_ID', 'SPLITWISE_CLIENT_SECRET', 'SPLITWISE_REDIRECT_URI'];
+  const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
-if (missingEnvVars.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  if (missingEnvVars.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  }
 }

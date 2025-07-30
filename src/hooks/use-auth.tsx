@@ -1,11 +1,13 @@
 "use client";
     
+import { AnalyticsService } from '@/lib/analytics';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
+  userId?: string;
   login: () => void;
   logout: () => void;
 }
@@ -15,6 +17,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | undefined>(undefined);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -27,17 +30,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const data = await response.json();
         const wasAuthenticated = isAuthenticated;
         setIsAuthenticated(data.isAuthenticated);
+        setUserId(data.userId);
         
-              // If user was not authenticated before but is now (login), clear any stale state
-      if (!wasAuthenticated && data.isAuthenticated) {
-        if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-          try {
-            localStorage.removeItem('bill-splitter-state');
-          } catch (error) {
-            console.warn('Failed to clear stale bill-splitter state from localStorage:', error);
+        // If user was not authenticated before but is now (login), clear any stale state
+        if (!wasAuthenticated && data.isAuthenticated) {
+          if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+            try {
+              localStorage.removeItem('bill-splitter-state');
+            } catch (error) {
+              console.warn('Failed to clear stale bill-splitter state from localStorage:', error);
+            }
+          }
+          
+          // Track user signin for analytics
+          if (data.userId) {
+            try {
+              await AnalyticsService.trackUserSignin(data.userId);
+            } catch (error) {
+              console.warn('Failed to track user signin:', error);
+            }
           }
         }
-      }
       } else {
         setIsAuthenticated(false);
       }
@@ -59,6 +72,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = () => {
     setIsAuthenticated(false);
+    setUserId(undefined);
     // Clear bill-splitter state from localStorage
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
       try {
@@ -72,7 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, userId, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

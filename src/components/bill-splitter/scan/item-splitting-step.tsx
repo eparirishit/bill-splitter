@@ -9,6 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useBillEditing } from "@/hooks/use-bill-editing";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { UserTrackingService } from "@/services/user-tracking";
 import type { ExtractReceiptDataOutput, ItemSplit, SplitwiseUser } from "@/types";
 import { AlertTriangle, ArrowLeft, ArrowRight, Bot, Check, Edit3, Loader2, UserCheck, Users } from "lucide-react";
 import * as React from "react";
@@ -23,6 +24,7 @@ interface ItemSplittingStepProps {
   onLoadingChange: (isLoading: boolean) => void;
   isLoading: boolean;
   onBack: () => void;
+  userId?: string;
 }
 
 type SplitType = 'equal' | 'custom';
@@ -110,7 +112,8 @@ export function ItemSplittingStep({
   onSplitsDefined,
   onLoadingChange,
   isLoading,
-  onBack
+  onBack,
+  userId
 }: ItemSplittingStepProps) {
   const { toast } = useToast();
   const memberIds = React.useMemo(() => selectedMembers.map(m => m.id), [selectedMembers]);
@@ -232,7 +235,7 @@ export function ItemSplittingStep({
     }
   };
 
-  const handleProceedToReview = () => {
+  const handleProceedToReview = async () => {
     onLoadingChange(true);
     for (const split of localItemSplits) {
       if (split.splitType === 'custom' && split.sharedBy.length === 0) {
@@ -265,6 +268,33 @@ export function ItemSplittingStep({
 
     const finalTaxSplitMembers = (typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) ? taxSplitMembers : [];
     const finalOtherChargesSplitMembers = (typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) ? otherChargesSplitMembers : [];
+
+    // Track corrections if any were made
+    if (hasManualEdits && userId) {
+      try {
+        // Count total corrections
+        let correctionCount = 0;
+        
+        // Check item corrections
+        editedBillData.items.forEach((item, index) => {
+          const originalItem = billData.items[index];
+          if (originalItem && (item.name !== originalItem.name || item.price !== originalItem.price)) {
+            correctionCount++;
+          }
+        });
+        
+        // Check other corrections
+        if (editedBillData.taxes !== billData.taxes) correctionCount++;
+        if (editedBillData.otherCharges !== billData.otherCharges) correctionCount++;
+        if (editedBillData.totalCost !== billData.totalCost) correctionCount++;
+        
+        if (correctionCount > 0) {
+          await UserTrackingService.incrementCorrectionsMade(userId, correctionCount);
+        }
+      } catch (error) {
+        console.warn('Failed to track corrections:', error);
+      }
+    }
 
     onSplitsDefined(finalItemSplits, finalTaxSplitMembers, finalOtherChargesSplitMembers, hasManualEdits ? editedBillData : undefined);
   };

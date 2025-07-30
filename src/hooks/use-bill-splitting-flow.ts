@@ -14,6 +14,7 @@ export const useBillSplittingFlow = () => {
     itemSplits,
     taxSplit,
     otherChargesSplit,
+    receiptId,
     storeName,
     date,
     expenseNotes,
@@ -33,6 +34,7 @@ export const useBillSplittingFlow = () => {
     setItemSplits,
     setTaxSplit,
     setOtherChargesSplit,
+    setReceiptId,
     setManualExpenseData,
     setCustomAmounts,
     setSelectedGroupId,
@@ -48,11 +50,16 @@ export const useBillSplittingFlow = () => {
   }, [setExpenseType, setCurrentStep]);
 
   // Receipt scanning flow handlers
-  const handleDataExtracted = useCallback((data: ExtractReceiptDataOutput) => {
+  const handleDataExtracted = useCallback((data: ExtractReceiptDataOutput, receiptId?: string) => {
     setBillData(data);
+    // Store receiptId in context for later use
+    if (receiptId) {
+      setReceiptId(receiptId);
+      console.log('Receipt ID captured:', receiptId);
+    }
     setCurrentStep(2);
     setLoading(false);
-  }, [setBillData, setCurrentStep, setLoading]);
+  }, [setBillData, setReceiptId, setCurrentStep, setLoading]);
 
   const handleGroupAndMembersSelected = useCallback((groupId: string, members: SplitwiseUser[]) => {
     setSelectedGroupId(groupId);
@@ -102,11 +109,15 @@ export const useBillSplittingFlow = () => {
     setLoading(false);
   }, [manualExpenseData, setManualExpenseData, setCustomAmounts, setCurrentStep, setLoading]);
 
-  const handleFinalize = useCallback(() => {
+  const handleFinalize = useCallback((onSuccess?: () => void) => {
     setLoading(true);
     setTimeout(() => {
       setComplete(true);
       setLoading(false);
+      // Trigger success callback after a short delay to show completion first
+      setTimeout(() => {
+        onSuccess?.();
+      }, 1000);
     }, 500);
   }, [setLoading, setComplete]);
 
@@ -173,6 +184,7 @@ export const useBillSplittingFlow = () => {
     itemSplits,
     taxSplit,
     otherChargesSplit,
+    receiptId,
     storeName,
     date,
     expenseNotes,

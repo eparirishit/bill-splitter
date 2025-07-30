@@ -11,13 +11,14 @@ import { AlertTriangle, ArrowLeft, ImagePlus, Loader2, Upload } from "lucide-rea
 import * as React from "react";
 
 interface UploadStepProps {
-  onDataExtracted: (data: ExtractReceiptDataOutput) => void;
+  onDataExtracted: (data: ExtractReceiptDataOutput, receiptId?: string) => void;
   onLoadingChange: (isLoading: boolean) => void;
   isLoading: boolean;
   onBack?: () => void;
+  userId?: string;
 }
 
-export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack }: UploadStepProps) {
+export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack, userId }: UploadStepProps) {
   const { toast } = useToast();
   const {
     selectedFile,
@@ -28,7 +29,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
     handleFileChange,
     handleUpload,
     clearFile
-  } = useFileUpload(onDataExtracted, onLoadingChange);
+  } = useFileUpload(onDataExtracted, onLoadingChange, userId);
 
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     handleFileChange(event);
@@ -37,6 +38,8 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
   const onUpload = async () => {
     const result = await handleUpload();
     if (result) {
+      // Call onDataExtracted with both data and receiptId
+      onDataExtracted(result.data, result.receiptId);
       toast({
         title: "Extraction Complete",
         description: "Bill data processed successfully. Please review the extracted information for accuracy.",

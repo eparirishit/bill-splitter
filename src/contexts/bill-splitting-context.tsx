@@ -16,6 +16,7 @@ interface BillSplittingState {
   itemSplits: ItemSplit[];
   taxSplit: string[];
   otherChargesSplit: string[];
+  receiptId: string | undefined;
   
   // Review step state
   storeName: string;
@@ -45,6 +46,7 @@ interface BillSplittingContextType extends BillSplittingState {
   setItemSplits: (splits: ItemSplit[]) => void;
   setTaxSplit: (split: string[]) => void;
   setOtherChargesSplit: (split: string[]) => void;
+  setReceiptId: (id: string | undefined) => void;
   
   // Review step actions
   setStoreName: (name: string) => void;
@@ -84,6 +86,7 @@ const initialState: BillSplittingState = {
   itemSplits: [],
   taxSplit: [],
   otherChargesSplit: [],
+  receiptId: undefined,
   storeName: '',
   date: '',
   expenseNotes: '',
@@ -180,6 +183,10 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
     setState(prev => ({ ...prev, otherChargesSplit: split }));
   }, []);
 
+  const setReceiptId = useCallback((id: string | undefined) => {
+    setState(prev => ({ ...prev, receiptId: id }));
+  }, []);
+
   // Review step actions
   const setStoreName = useCallback((name: string) => {
     setState(prev => ({ ...prev, storeName: name }));
@@ -261,6 +268,7 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
     setItemSplits,
     setTaxSplit,
     setOtherChargesSplit,
+    setReceiptId,
     setStoreName,
     setDate,
     setExpenseNotes,

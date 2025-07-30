@@ -1,15 +1,16 @@
 "use client";
-import * as React from "react";
-import { usePathname, useRouter } from 'next/navigation';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
-import { Button } from "@/components/ui/button";
-import { cn } from '@/lib/utils';
-import { LogOut, Loader2, ArrowLeft } from 'lucide-react';
-import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AppIcon } from "@/components/icons/app-icon";
+import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/toaster";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { BillSplittingProvider } from "@/contexts/bill-splitting-context";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { cn } from '@/lib/utils';
+import { ArrowLeft, Loader2, LogOut } from 'lucide-react';
+import { Inter } from 'next/font/google';
+import { usePathname, useRouter } from 'next/navigation';
+import * as React from "react";
+import './globals.css';
 const inter = Inter({
   variable: '--font-inter',
   subsets: ['latin'],
@@ -24,11 +25,9 @@ function Header() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await logout();
-      router.replace('/login');
+      logout(); // This will handle clearing localStorage and redirecting
     } catch (error) {
       console.error("Logout failed in layout:", error);
-    } finally {
       setIsLoggingOut(false);
     }
   };
@@ -93,11 +92,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={cn(inter.variable, 'font-sans antialiased bg-background min-h-dvh flex flex-col')}>
         <AuthProvider>
-          <Header />
-          <main className="flex-1 w-full max-w-md mx-auto p-4 md:p-6">
-            {children}
-          </main>
-          <Toaster />
+          <BillSplittingProvider>
+            <Header />
+            <main className="flex-1 w-full max-w-md mx-auto p-4 md:p-6">
+              {children}
+            </main>
+            <Toaster />
+          </BillSplittingProvider>
         </AuthProvider>
       </body>
     </html>

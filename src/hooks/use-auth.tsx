@@ -1,7 +1,7 @@
 "use client";
     
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -25,7 +25,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await fetch('/api/auth/status', { credentials: 'include' });
       if (response.ok) {
         const data = await response.json();
+        const wasAuthenticated = isAuthenticated;
         setIsAuthenticated(data.isAuthenticated);
+        
+              // If user was not authenticated before but is now (login), clear any stale state
+      if (!wasAuthenticated && data.isAuthenticated) {
+        if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+          try {
+            localStorage.removeItem('bill-splitter-state');
+          } catch (error) {
+            console.warn('Failed to clear stale bill-splitter state from localStorage:', error);
+          }
+        }
+      }
       } else {
         setIsAuthenticated(false);
       }
@@ -35,7 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     verifyAuth();
@@ -47,6 +59,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = () => {
     setIsAuthenticated(false);
+    // Clear bill-splitter state from localStorage
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem('bill-splitter-state');
+      } catch (error) {
+        console.warn('Failed to clear bill-splitter state from localStorage:', error);
+      }
+    }
     // Clear the auth cookie by redirecting to logout endpoint
     window.location.href = '/api/auth/logout';
   };

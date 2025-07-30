@@ -1,5 +1,5 @@
 import { extractReceiptData } from '@/ai/extract-receipt-data';
-import { FileProcessingService, type FileValidationResult, type ImageProcessingResult } from '@/services/file-processing';
+import { FileProcessingService, type FileValidationResult } from '@/services/file-processing';
 import type { ExtractReceiptDataOutput } from '@/types';
 import { useRef, useState } from 'react';
 
@@ -53,13 +53,8 @@ export function useFileUpload(
     setSelectedFile(file);
     
     // Process image
-    FileProcessingService.processImage(file).then((result: ImageProcessingResult) => {
-      if (result.success && result.dataUri) {
-        setPreviewUrl(result.dataUri);
-      } else {
-        setError(result.error || 'Failed to process image');
-        clearFile();
-      }
+    FileProcessingService.processImage(file).then((dataUri: string) => {
+      setPreviewUrl(dataUri);
     }).catch((error) => {
       console.error('Image processing error:', error);
       setError('Failed to process image');

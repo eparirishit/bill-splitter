@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useBillSplitting } from "@/contexts/bill-splitting-context";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ExpenseCalculationService } from "@/services/expense-calculations";
@@ -23,6 +25,10 @@ interface ReviewStepProps {
   itemSplits: ItemSplit[];
   taxSplitMembers: string[];
   otherChargesSplitMembers: string[];
+  storeName?: string;
+  date?: string;
+  expenseNotes?: string;
+  payerId?: string;
   onFinalize: () => void;
   onEdit: (step: number) => void;
   onLoadingChange: (isLoading: boolean) => void;
@@ -36,6 +42,10 @@ export function ReviewStep({
   itemSplits,
   taxSplitMembers,
   otherChargesSplitMembers,
+  storeName: contextStoreName,
+  date: contextDate,
+  expenseNotes: contextExpenseNotes,
+  payerId: contextPayerId,
   onFinalize,
   onEdit,
   onLoadingChange,
@@ -46,10 +56,24 @@ export function ReviewStep({
   const activeBillData = updatedBillData || billData;
   const { toast } = useToast();
   const [finalSplits, setFinalSplits] = React.useState<FinalSplit[]>([]);
-  const [expenseNotes, setExpenseNotes] = React.useState<string>("");
-  const [payerId, setPayerId] = React.useState<string | undefined>(undefined);
-  const [storeName, setStoreName] = React.useState<string>(billData.storeName);
-  const [date, setDate] = React.useState<string>(billData.date);
+  const [localExpenseNotes, setLocalExpenseNotes] = React.useState<string>(contextExpenseNotes || "");
+  const [localPayerId, setLocalPayerId] = React.useState<string | undefined>(contextPayerId);
+  const [localStoreName, setLocalStoreName] = React.useState<string>(contextStoreName || billData.storeName);
+  const [localDate, setLocalDate] = React.useState<string>(contextDate || billData.date);
+  const hasUserEditedNotesRef = React.useRef<boolean>(false);
+  const { setExpenseNotes, setStoreName, setDate, setPayerId } = useBillSplitting();
+
+  // Update local state when context state changes
+  React.useEffect(() => {
+    setLocalPayerId(contextPayerId);
+    setLocalStoreName(contextStoreName || billData.storeName);
+    setLocalDate(contextDate || billData.date);
+    
+    // Only update expense notes from context if user hasn't manually edited them
+    if (!hasUserEditedNotesRef.current) {
+      setLocalExpenseNotes(contextExpenseNotes || "");
+    }
+  }, [contextExpenseNotes, contextPayerId, contextStoreName, contextDate, billData.storeName, billData.date]);
 
   const memberMap = React.useMemo(() => {
     return selectedMembers.reduce((acc, member) => {
@@ -59,10 +83,10 @@ export function ReviewStep({
   }, [selectedMembers]);
 
   React.useEffect(() => {
-    if (selectedMembers.length > 0 && !payerId) {
-      setPayerId(selectedMembers[0].id);
+    if (selectedMembers.length > 0 && !localPayerId) {
+      setLocalPayerId(selectedMembers[0].id);
     }
-  }, [selectedMembers, payerId]);
+  }, [selectedMembers, localPayerId]);
 
 // Helper function to format a date string or Date object to "YYYY-MM-DD"
   const formatToLocalDateString = (dateInput: string | Date): string => {
@@ -96,14 +120,19 @@ export function ReviewStep({
           );
       };
 
-      const generateNotes = (): string => {
-          return ExpensePayloadService.generateExpenseNotes(activeBillData, storeName, date);
-      };
-
       setFinalSplits(calculateSplits());
-      setExpenseNotes(generateNotes());
+  }, [activeBillData, itemSplits, selectedMembers, taxSplitMembers, otherChargesSplitMembers]);
 
-  }, [activeBillData, itemSplits, selectedMembers, taxSplitMembers, otherChargesSplitMembers, storeName, date]);
+  // Generate expense notes only if user hasn't edited them
+  React.useEffect(() => {
+      if (!hasUserEditedNotesRef.current) {
+          const generateNotes = (): string => {
+              return ExpensePayloadService.generateExpenseNotes(activeBillData, localStoreName, localDate);
+          };
+          const newNotes = generateNotes();
+          setLocalExpenseNotes(newNotes);
+      }
+  }, [activeBillData, localStoreName, localDate]);
 
   const handleFinalizeExpense = async () => {
     onLoadingChange(true);
@@ -111,11 +140,11 @@ export function ReviewStep({
        if (finalSplits.length === 0) {
            throw new Error("No splits calculated.");
        }
-       if (!payerId) {
+       if (!localPayerId) {
            throw new Error("Payer not selected.");
        }
 
-       const groupIdStr = selectedMembers.find(m => m.id === payerId)?._groupDetails?.id || selectedMembers[0]?._groupDetails?.id;
+       const groupIdStr = selectedMembers.find(m => m.id === localPayerId)?._groupDetails?.id || selectedMembers[0]?._groupDetails?.id;
        if (!groupIdStr) throw new Error("Group ID not found for payer or any member.");
        const groupId = parseInt(groupIdStr);
 
@@ -125,10 +154,10 @@ export function ReviewStep({
          finalSplits,
          totalCostForPayload,
          {
-           storeName,
-           date,
-           expenseNotes,
-           payerId,
+           storeName: localStoreName,
+           date: localDate,
+           expenseNotes: localExpenseNotes,
+           payerId: localPayerId,
            groupId
          }
        );
@@ -165,7 +194,7 @@ export function ReviewStep({
        // If we get here, the expense was created successfully
        toast({
            title: "Expense Created Successfully",
-           description: `Expense for ${storeName} has been added to Splitwise.`,
+           description: `Expense for ${localStoreName} has been added to Splitwise.`,
            variant: "default",
        });
        onFinalize();
@@ -186,12 +215,12 @@ export function ReviewStep({
   const calculatedTotalFromSplits = parseFloat(finalSplits.reduce((sum, split) => sum + split.amountOwed, 0).toFixed(2));
   const totalMatches = Math.abs(calculatedTotalFromSplits - billTotalForComparison) < 0.015;
 
-  const isFinalizeDisabled = isLoading || !totalMatches || activeBillData.discrepancyFlag || !payerId;
+  const isFinalizeDisabled = isLoading || !totalMatches || activeBillData.discrepancyFlag || !localPayerId;
   const finalizeDisabledReason = activeBillData.discrepancyFlag
                                   ? "Cannot finalize due to bill discrepancy. Please edit item prices to fix the discrepancy."
                                   : !totalMatches
                                   ? "Cannot finalize due to calculation mismatch."
-                                  : !payerId
+                                  : !localPayerId
                                   ? "Please select who paid the bill."
                                   : undefined;
 
@@ -241,8 +270,12 @@ export function ReviewStep({
                     </div>
                     <Input
                       id="store-name"
-                      value={storeName}
-                      onChange={(e) => setStoreName(e.target.value)}
+                      value={localStoreName}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        setLocalStoreName(newValue);
+                        setStoreName(newValue);
+                      }}
                       disabled={isLoading}
                       className="text-sm font-medium"
                       placeholder="Enter store name"
@@ -256,8 +289,12 @@ export function ReviewStep({
                     <Input
                       id="expense-date"
                       type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
+                      value={localDate}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        setLocalDate(newValue);
+                        setDate(newValue);
+                      }}
                       disabled={isLoading}
                       className="text-sm font-medium"
                     />
@@ -285,8 +322,11 @@ export function ReviewStep({
                 <div className="space-y-2">
                   <Label htmlFor="payer-select">Paid by</Label>
                   <Select
-                    value={payerId}
-                    onValueChange={(value) => setPayerId(value)}
+                    value={localPayerId}
+                    onValueChange={(value) => {
+                      setLocalPayerId(value);
+                      setPayerId(value);
+                    }}
                     disabled={isLoading || selectedMembers.length === 0}
                   >
                     <SelectTrigger id="payer-select" className="w-full">
@@ -346,13 +386,21 @@ export function ReviewStep({
              <Card className="card-modern">
                <CardHeader className="pb-3">
                  <CardTitle className="text-base font-medium">Expense Notes</CardTitle>
+                 <CardDescription className="text-xs">Edit the expense notes if needed</CardDescription>
                </CardHeader>
                <CardContent>
-                 <ScrollArea className="h-32 w-full rounded-md">
-                   <div className="p-1">
-                     <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{expenseNotes}</pre>
-                   </div>
-                 </ScrollArea>
+                 <Textarea
+                   value={localExpenseNotes}
+                   onChange={(e) => {
+                     const newValue = e.target.value;
+                     setLocalExpenseNotes(newValue);
+                     hasUserEditedNotesRef.current = true;
+                     setExpenseNotes(newValue);
+                   }}
+                   disabled={isLoading}
+                   className="h-32 w-full text-xs font-mono resize-none"
+                   placeholder="Expense notes will be generated automatically..."
+                 />
                </CardContent>
              </Card>
         </div>

@@ -1,143 +1,62 @@
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
 import { ExpenseTypeSelection } from "@/components/bill-splitter/common/expense-type-selection";
-import { UploadStep } from "@/components/bill-splitter/scan/upload-step";
 import { GroupSelectionStep } from "@/components/bill-splitter/common/group-selection-step";
+import { ManualExpenseDetailsStep } from "@/components/bill-splitter/manual/expense-details-step";
+import { ManualExpenseReviewStep } from "@/components/bill-splitter/manual/expense-review-step";
+import { ManualExpenseSplitStep } from "@/components/bill-splitter/manual/expense-split-step";
 import { ItemSplittingStep } from "@/components/bill-splitter/scan/item-splitting-step";
 import { ReviewStep } from "@/components/bill-splitter/scan/review-step";
-import { ManualExpenseDetailsStep } from "@/components/bill-splitter/manual/expense-details-step";
-import { ManualExpenseSplitStep } from "@/components/bill-splitter/manual/expense-split-step";
-import { ManualExpenseReviewStep } from "@/components/bill-splitter/manual/expense-review-step";
-import { CheckCircle, Loader2 } from "lucide-react";
-import type { ExtractReceiptDataOutput, SplitwiseUser, ItemSplit, ManualExpenseData } from "@/types";
-import { useAuth } from "@/hooks/use-auth";
+import { UploadStep } from "@/components/bill-splitter/scan/upload-step";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { useBillSplittingFlow } from "@/hooks/use-bill-splitting-flow";
 import { cn } from "@/lib/utils";
-
-type ExpenseType = 'scan' | 'manual' | null;
+import { CheckCircle, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import * as React from "react";
 
 function BillSplitterFlow() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-
-  const [expenseType, setExpenseType] = React.useState<ExpenseType>(null);
-  const [currentStep, setCurrentStep] = React.useState(0); // 0 = type selection
-  const [isLoading, setIsLoading] = React.useState(false);
-  
-  // Receipt scanning flow state
-  const [billData, setBillData] = React.useState<ExtractReceiptDataOutput | null>(null);
-  const [updatedBillData, setUpdatedBillData] = React.useState<ExtractReceiptDataOutput | undefined>(undefined);
-  const [itemSplits, setItemSplits] = React.useState<ItemSplit[]>([]);
-  const [taxSplitMembers, setTaxSplitMembers] = React.useState<string[]>([]);
-  const [otherChargesSplitMembers, setOtherChargesSplitMembers] = React.useState<string[]>([]);
-  
-  // Manual expense flow state
-  const [manualExpenseData, setManualExpenseData] = React.useState<ManualExpenseData | null>(null);
-  const [customAmounts, setCustomAmounts] = React.useState<Record<string, number> | undefined>(undefined);
-  
-  // Shared state
-  const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
-  const [selectedMembers, setSelectedMembers] = React.useState<SplitwiseUser[]>([]);
-  const [isComplete, setIsComplete] = React.useState(false);
+  const {
+    // State
+    expenseType,
+    currentStep,
+    isLoading,
+    isComplete,
+    billData,
+    updatedBillData,
+    itemSplits,
+    taxSplit,
+    otherChargesSplit,
+    storeName,
+    date,
+    expenseNotes,
+    payerId,
+    manualExpenseData,
+    customAmounts,
+    selectedGroupId,
+    selectedMembers,
+    
+    // Handlers
+    handleExpenseTypeSelect,
+    handleDataExtracted,
+    handleGroupAndMembersSelected,
+    handleSplitsDefined,
+    handleExpenseDetailsSet,
+    handleSplitConfigured,
+    handleFinalize,
+    handleRestart,
+    handleLoadingChange,
+    handleEditStep
+  } = useBillSplittingFlow();
 
   React.useEffect(() => {
     if (!isAuthLoading && !isAuthenticated) {
       router.replace('/login');
     }
   }, [isAuthenticated, isAuthLoading, router]);
-
-  const handleExpenseTypeSelect = (type: 'scan' | 'manual') => {
-    setExpenseType(type);
-    setCurrentStep(1);
-  };
-
-  // Receipt scanning flow handlers
-  const handleDataExtracted = (data: ExtractReceiptDataOutput) => {
-    setBillData(data);
-    setCurrentStep(2);
-    setIsLoading(false);
-  };
-
-  const handleGroupAndMembersSelected = (groupId: string, members: SplitwiseUser[]) => {
-    setSelectedGroupId(groupId);
-    const membersWithGroup = members.map(m => ({ ...m, _groupDetails: { id: groupId, name: "Selected Group" } }));
-    setSelectedMembers(membersWithGroup);
-    
-    if (expenseType === 'scan') {
-      setCurrentStep(3);
-    } else if (expenseType === 'manual') {
-      setCurrentStep(5);
-    }
-    setIsLoading(false);
-  };
-
-  const handleSplitsDefined = (
-    definedItemSplits: ItemSplit[],
-    definedTaxSplit: string[],
-    definedOtherChargesSplit: string[],
-    editedBillData?: ExtractReceiptDataOutput
-  ) => {
-    setItemSplits(definedItemSplits);
-    setTaxSplitMembers(definedTaxSplit);
-    setOtherChargesSplitMembers(definedOtherChargesSplit);
-    if (editedBillData) {
-      setUpdatedBillData(editedBillData);
-    }
-    setCurrentStep(4);
-    setIsLoading(false);
-  };
-
-  // Manual expense flow handlers
-  const handleExpenseDetailsSet = (expenseData: ManualExpenseData) => {
-    setManualExpenseData(expenseData);
-    setCurrentStep(6);
-    setIsLoading(false);
-  };
-
-  const handleSplitConfigured = (splitType: 'equal' | 'custom', amounts?: Record<string, number>) => {
-    if (manualExpenseData) {
-      setManualExpenseData(prev => prev ? { ...prev, splitType } : null);
-      setCustomAmounts(amounts);
-      setCurrentStep(7);
-    }
-    setIsLoading(false);
-  };
-
-  const handleEditStep = (step: number) => {
-    if (step >= 0 && step < currentStep && !isComplete) {
-      setCurrentStep(step);
-    }
-  };
-
-  const handleFinalize = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsComplete(true);
-      setIsLoading(false);
-    }, 500);
-  };
-
-  const handleRestart = () => {
-    setExpenseType(null);
-    setCurrentStep(0);
-    setIsLoading(false);
-    setBillData(null);
-    setUpdatedBillData(undefined);
-    setSelectedGroupId(null);
-    setSelectedMembers([]);
-    setItemSplits([]);
-    setTaxSplitMembers([]);
-    setOtherChargesSplitMembers([]);
-    setManualExpenseData(null);
-    setCustomAmounts(undefined);
-    setIsComplete(false);
-  };
-
-  const handleLoadingChange = (loading: boolean) => {
-    setIsLoading(loading);
-  };
 
   if (isAuthLoading) {
     return (
@@ -167,20 +86,24 @@ function BillSplitterFlow() {
             />
           );
         } else if (expenseType === 'manual') {
-          return (
-            <GroupSelectionStep 
-              onGroupAndMembersSelected={handleGroupAndMembersSelected} 
-              onLoadingChange={handleLoadingChange} 
-              isLoading={isLoading} 
-              onBack={() => handleEditStep(0)} 
-            />
-          );
+                  return (
+          <GroupSelectionStep 
+            selectedGroupId={selectedGroupId}
+            selectedMembers={selectedMembers}
+            onGroupAndMembersSelected={handleGroupAndMembersSelected} 
+            onLoadingChange={handleLoadingChange} 
+            isLoading={isLoading} 
+            onBack={() => handleEditStep(0)} 
+          />
+        );
         }
         break;
         
       case 2:
         return expenseType === 'scan' && billData && (
           <GroupSelectionStep 
+            selectedGroupId={selectedGroupId}
+            selectedMembers={selectedMembers}
             onGroupAndMembersSelected={handleGroupAndMembersSelected} 
             onLoadingChange={handleLoadingChange} 
             isLoading={isLoading} 
@@ -193,6 +116,9 @@ function BillSplitterFlow() {
           <ItemSplittingStep
             billData={billData}
             selectedMembers={selectedMembers}
+            itemSplits={itemSplits}
+            taxSplit={taxSplit}
+            otherChargesSplit={otherChargesSplit}
             onSplitsDefined={handleSplitsDefined}
             onLoadingChange={handleLoadingChange}
             isLoading={isLoading}
@@ -207,8 +133,12 @@ function BillSplitterFlow() {
             updatedBillData={updatedBillData}
             selectedMembers={selectedMembers}
             itemSplits={itemSplits}
-            taxSplitMembers={taxSplitMembers}
-            otherChargesSplitMembers={otherChargesSplitMembers}
+            taxSplitMembers={taxSplit}
+            otherChargesSplitMembers={otherChargesSplit}
+            storeName={storeName}
+            date={date}
+            expenseNotes={expenseNotes}
+            payerId={payerId}
             onFinalize={handleFinalize}
             onEdit={handleEditStep}
             onLoadingChange={handleLoadingChange}

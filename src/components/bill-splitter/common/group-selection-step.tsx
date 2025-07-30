@@ -14,6 +14,8 @@ import { ArrowLeft, Check, Loader2, Users } from "lucide-react";
 import * as React from "react";
 
 interface GroupSelectionStepProps {
+  selectedGroupId?: string | null;
+  selectedMembers?: SplitwiseUser[];
   onGroupAndMembersSelected: (groupId: string, members: SplitwiseUser[]) => void;
   onLoadingChange: (isLoading: boolean) => void;
   isLoading: boolean;
@@ -43,15 +45,30 @@ const MemberListItem = ({ member, isSelected, onSelect, disabled }: {
     </div>
 );
 
-export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange, isLoading, onBack }: GroupSelectionStepProps) {
+export function GroupSelectionStep({ 
+  selectedGroupId: contextSelectedGroupId, 
+  selectedMembers: contextSelectedMembers, 
+  onGroupAndMembersSelected, 
+  onLoadingChange, 
+  isLoading, 
+  onBack 
+}: GroupSelectionStepProps) {
   const [groups, setGroups] = React.useState<SplitwiseGroup[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
+  const [localSelectedGroupId, setLocalSelectedGroupId] = React.useState<string | null>(contextSelectedGroupId || null);
   const [groupMembers, setGroupMembers] = React.useState<SplitwiseUser[]>([]);
-  const [selectedMembers, setSelectedMembers] = React.useState<string[]>([]);
+  const [localSelectedMembers, setLocalSelectedMembers] = React.useState<string[]>(
+    contextSelectedMembers ? contextSelectedMembers.map(m => m.id) : []
+  );
   const [isFetchingGroups, setIsFetchingGroups] = React.useState(false);
   const [isFetchingMembers, setIsFetchingMembers] = React.useState(false);
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
+
+  // Update local state when context state changes
+  React.useEffect(() => {
+    setLocalSelectedGroupId(contextSelectedGroupId || null);
+    setLocalSelectedMembers(contextSelectedMembers ? contextSelectedMembers.map(m => m.id) : []);
+  }, [contextSelectedGroupId, contextSelectedMembers]);
 
   React.useEffect(() => {
     const fetchGroups = async () => {
@@ -84,17 +101,31 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
 
   React.useEffect(() => {
     const fetchMembers = async () => {
-      if (selectedGroupId && isAuthenticated) {
-        console.log("Selected groupId:", selectedGroupId);
+      if (localSelectedGroupId && isAuthenticated) {
+        console.log("Selected groupId:", localSelectedGroupId);
         onLoadingChange(true);
         setIsFetchingMembers(true);
         setGroupMembers([]);
-        setSelectedMembers([]);
         try {
-          const members = await SplitwiseService.getGroupMembers(selectedGroupId);
-          console.log("Fetched members for group", selectedGroupId, ":", members);
+          const members = await SplitwiseService.getGroupMembers(localSelectedGroupId);
+          console.log("Fetched members for group", localSelectedGroupId, ":", members);
           setGroupMembers(members);
-          setSelectedMembers(members.map(m => m.id));
+          
+          // Only set all members as selected if there are no existing selections for this group
+          // or if the group has changed
+          const existingSelections = contextSelectedMembers ? contextSelectedMembers.map(m => m.id) : [];
+          const hasExistingSelections = existingSelections.length > 0;
+          
+          if (!hasExistingSelections) {
+            // No existing selections, select all members by default
+            setLocalSelectedMembers(members.map(m => m.id));
+          } else {
+            // Keep existing selections, but filter to only include members from this group
+            const validSelections = existingSelections.filter(id => 
+              members.some(m => m.id === id)
+            );
+            setLocalSelectedMembers(validSelections.length > 0 ? validSelections : members.map(m => m.id));
+          }
         } catch (error) {
           console.error("Error fetching group members:", error);
           toast({
@@ -103,22 +134,22 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
             variant: "destructive",
           });
           setGroupMembers([]);
-          setSelectedMembers([]);
+          setLocalSelectedMembers([]);
         } finally {
           onLoadingChange(false);
           setIsFetchingMembers(false);
         }
       } else {
         setGroupMembers([]);
-        setSelectedMembers([]);
+        setLocalSelectedMembers([]);
       }
     };
     fetchMembers();
      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroupId, isAuthenticated]);
+  }, [localSelectedGroupId, isAuthenticated, contextSelectedMembers]);
 
   const handleMemberSelection = (memberId: string) => {
-    setSelectedMembers(prev =>
+    setLocalSelectedMembers(prev =>
       prev.includes(memberId)
         ? prev.filter(id => id !== memberId)
         : [...prev, memberId]
@@ -126,19 +157,19 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
   };
 
   const handleProceed = () => {
-    if (!selectedGroupId) {
+    if (!localSelectedGroupId) {
         toast({ title: "No Group Selected", description: "Please select a group.", variant: "destructive"});
         return;
     }
-    if (selectedMembers.length === 0) {
+    if (localSelectedMembers.length === 0) {
         toast({ title: "No Members Selected", description: "Please select at least one member.", variant: "destructive"});
         return;
     }
-    const finalSelectedUsers = groupMembers.filter(member => selectedMembers.includes(member.id));
-    onGroupAndMembersSelected(selectedGroupId, finalSelectedUsers);
+    const finalSelectedUsers = groupMembers.filter(member => localSelectedMembers.includes(member.id));
+    onGroupAndMembersSelected(localSelectedGroupId, finalSelectedUsers);
   };
 
-  const isProceedDisabled = isLoading || !selectedGroupId || selectedMembers.length === 0 || isFetchingGroups || isFetchingMembers;
+  const isProceedDisabled = isLoading || !localSelectedGroupId || localSelectedMembers.length === 0 || isFetchingGroups || isFetchingMembers;
   const isCurrentlyLoading = isLoading || isFetchingGroups || isFetchingMembers;
 
   return (
@@ -155,8 +186,8 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
                  <div className="flex items-center justify-center p-2 h-12 border rounded-lg bg-muted/50"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
               ): (
                  <Select
-                  value={selectedGroupId ?? ""}
-                  onValueChange={(value) => setSelectedGroupId(value || null)}
+                  value={localSelectedGroupId ?? ""}
+                  onValueChange={(value) => setLocalSelectedGroupId(value || null)}
                   disabled={isCurrentlyLoading || groups.length === 0}
                 >
                   <SelectTrigger id="splitwise-group" aria-label="Select Splitwise Group" className="bg-background h-12 text-base">
@@ -182,7 +213,7 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
               )}
             </div>
 
-            {selectedGroupId && (
+            {localSelectedGroupId && (
                 <Card className="card-modern overflow-hidden">
                   <div className="p-4 border-b">
                     <Label className="text-sm font-medium text-muted-foreground block">Members Involved</Label>
@@ -196,7 +227,7 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
                             <MemberListItem
                                 key={member.id}
                                 member={member}
-                                isSelected={selectedMembers.includes(member.id)}
+                                isSelected={localSelectedMembers.includes(member.id)}
                                 onSelect={handleMemberSelection}
                                 disabled={isCurrentlyLoading}
                             />

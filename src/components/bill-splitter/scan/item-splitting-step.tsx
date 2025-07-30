@@ -16,6 +16,9 @@ import * as React from "react";
 interface ItemSplittingStepProps {
   billData: ExtractReceiptDataOutput;
   selectedMembers: SplitwiseUser[];
+  itemSplits?: ItemSplit[];
+  taxSplit?: string[];
+  otherChargesSplit?: string[];
   onSplitsDefined: (itemSplits: ItemSplit[], taxSplit: string[], otherChargesSplit: string[], updatedBillData?: ExtractReceiptDataOutput) => void;
   onLoadingChange: (isLoading: boolean) => void;
   isLoading: boolean;
@@ -101,6 +104,9 @@ const MemberSelectionList = ({
 export function ItemSplittingStep({
   billData,
   selectedMembers,
+  itemSplits: contextItemSplits,
+  taxSplit: contextTaxSplit,
+  otherChargesSplit: contextOtherChargesSplit,
   onSplitsDefined,
   onLoadingChange,
   isLoading,
@@ -126,32 +132,64 @@ export function ItemSplittingStep({
     handleKeyPress
   } = useBillEditing(billData);
 
-  // Initialize item splits state
-  const initialItemSplits: ItemSplitState[] = React.useMemo(() =>
-    editedBillData.items.map((item, index) => ({
+  // Get existing splits from context or initialize new ones
+  const existingItemSplits = React.useMemo(() => {
+    if (contextItemSplits && contextItemSplits.length > 0) {
+      // Convert context ItemSplit to ItemSplitState
+      return contextItemSplits.map(split => ({
+        ...split,
+        splitType: split.splitType || 'equal'
+      }));
+    }
+    return editedBillData.items.map((item, index) => ({
       itemId: `item-${index}`,
-      splitType: 'equal',
+      splitType: 'equal' as SplitType,
       sharedBy: memberIds,
-    })), [editedBillData.items, memberIds]
+    }));
+  }, [contextItemSplits, editedBillData.items, memberIds]);
+
+  const [localItemSplits, setLocalItemSplits] = React.useState<ItemSplitState[]>(existingItemSplits);
+  const [taxSplitMembers, setTaxSplitMembers] = React.useState<string[]>(
+    contextTaxSplit && contextTaxSplit.length > 0 ? contextTaxSplit : memberIds
+  );
+  const [otherChargesSplitMembers, setOtherChargesSplitMembers] = React.useState<string[]>(
+    contextOtherChargesSplit && contextOtherChargesSplit.length > 0 ? contextOtherChargesSplit : memberIds
   );
 
-  const [itemSplits, setItemSplits] = React.useState<ItemSplitState[]>(initialItemSplits);
-  const [taxSplitMembers, setTaxSplitMembers] = React.useState<string[]>(memberIds);
-  const [otherChargesSplitMembers, setOtherChargesSplitMembers] = React.useState<string[]>(memberIds);
-
-  // Reset splits if members or items change
+  // Update local state when context state changes (e.g., when navigating back)
   React.useEffect(() => {
-    setItemSplits(initialItemSplits);
-    setTaxSplitMembers(memberIds);
-    setOtherChargesSplitMembers(memberIds);
+    setLocalItemSplits(existingItemSplits);
+    setTaxSplitMembers(
+      contextTaxSplit && contextTaxSplit.length > 0 ? contextTaxSplit : memberIds
+    );
+    setOtherChargesSplitMembers(
+      contextOtherChargesSplit && contextOtherChargesSplit.length > 0 ? contextOtherChargesSplit : memberIds
+    );
+  }, [existingItemSplits, contextTaxSplit, contextOtherChargesSplit, memberIds]);
+
+  // Reset splits if members or items change (but preserve existing splits if possible)
+  React.useEffect(() => {
+    if (editedBillData.items.length !== localItemSplits.length) {
+      // Items changed, need to reinitialize
+      setLocalItemSplits(editedBillData.items.map((item, index) => ({
+        itemId: `item-${index}`,
+        splitType: 'equal' as SplitType,
+        sharedBy: memberIds,
+      })));
+    }
+    if (memberIds.length !== selectedMembers.length) {
+      // Members changed, need to reinitialize
+      setTaxSplitMembers(memberIds);
+      setOtherChargesSplitMembers(memberIds);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editedBillData.items, memberIds.join(",")]);
+  }, [editedBillData.items.length, memberIds.length]);
 
   // Price editing handlers are now provided by useBillEditing hook
 
   const handleSplitTypeChange = (itemId: string, type: SplitType | null) => {
     if (type === null) return;
-    setItemSplits(prev =>
+    setLocalItemSplits(prev =>
       prev.map(split =>
         split.itemId === itemId
           ? {
@@ -165,7 +203,7 @@ export function ItemSplittingStep({
   };
 
   const handleMemberSelectionChange = (itemId: string, memberId: string) => {
-    setItemSplits(prev =>
+    setLocalItemSplits(prev =>
       prev.map(split => {
         if (split.itemId === itemId && split.splitType === 'custom') {
           const updatedSharedBy = split.sharedBy.includes(memberId)
@@ -196,7 +234,7 @@ export function ItemSplittingStep({
 
   const handleProceedToReview = () => {
     onLoadingChange(true);
-    for (const split of itemSplits) {
+    for (const split of localItemSplits) {
       if (split.splitType === 'custom' && split.sharedBy.length === 0) {
         const itemIndex = parseInt(split.itemId.split('-')[1]);
         const item = editedBillData.items[itemIndex];
@@ -219,7 +257,7 @@ export function ItemSplittingStep({
       onLoadingChange(false);
       return;
     }
-    const finalItemSplits: ItemSplit[] = itemSplits.map(({ itemId, sharedBy, splitType }) => ({
+    const finalItemSplits: ItemSplit[] = localItemSplits.map(({ itemId, sharedBy, splitType }) => ({
       itemId,
       sharedBy: splitType === 'equal' ? memberIds : sharedBy,
       splitType
@@ -264,7 +302,7 @@ export function ItemSplittingStep({
             <Accordion type="multiple" className="w-full space-y-3">
               {editedBillData.items.map((item, index) => {
                 const itemId = `item-${index}`;
-                const currentSplit = itemSplits.find(s => s.itemId === itemId);
+                const currentSplit = localItemSplits.find(s => s.itemId === itemId);
                 const isEditingPrice = editingPrices[index] !== undefined;
                 const displayPrice = isEditingPrice ? editingPrices[index] : item.price.toFixed(2);
                 
@@ -284,7 +322,7 @@ export function ItemSplittingStep({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (!isEditingPrice) {
-                                    setEditingPrices(prev => ({ ...prev, [index]: item.price.toFixed(2) }));
+                                    handlePriceInputChange(index, item.price.toFixed(2));
                                   }
                                 }}
                               >
@@ -377,7 +415,7 @@ export function ItemSplittingStep({
                             )}
                             onClick={() => {
                               if (editingTax === null) {
-                                setEditingTax(editedBillData.taxes?.toFixed(2) || '0.00');
+                                handleTaxInputChange(editedBillData.taxes?.toFixed(2) || '0.00');
                               }
                             }}
                           >
@@ -432,7 +470,7 @@ export function ItemSplittingStep({
                             )}
                             onClick={() => {
                               if (editingOtherCharges === null) {
-                                setEditingOtherCharges(editedBillData.otherCharges?.toFixed(2) || '0.00');
+                                handleOtherChargesInputChange(editedBillData.otherCharges?.toFixed(2) || '0.00');
                               }
                             }}
                           >

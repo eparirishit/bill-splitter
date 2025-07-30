@@ -1,4 +1,11 @@
-export type { ExtractReceiptDataOutput } from "@/ai/extract-receipt-data";
+export type { ExtractReceiptDataOutput } from "@/ai/types";
+
+// Service exports
+export { ExpenseCalculationService } from "@/services/expense-calculations";
+export { ExpensePayloadService } from "@/services/expense-payload";
+export { ExpenseValidationService } from "@/services/expense-validation";
+export { FileProcessingService } from "@/services/file-processing";
+export { SplitwiseService } from "@/services/splitwise";
 
 // Splitwise API types
 export interface SplitwiseGroup {

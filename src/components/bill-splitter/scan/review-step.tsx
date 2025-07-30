@@ -1,19 +1,21 @@
 "use client";
 
-import * as React from "react";
-import { AlertTriangle, Send, Loader2, Edit, ArrowLeft, UserCircle, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
-import { createExpense } from "@/services/splitwise";
-import type { ExtractReceiptDataOutput, SplitwiseUser, ItemSplit, FinalSplit, CreateExpense } from "@/types";
-import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { ExpenseCalculationService } from "@/services/expense-calculations";
+import { ExpensePayloadService } from "@/services/expense-payload";
+import { SplitwiseService } from "@/services/splitwise";
+import type { ExtractReceiptDataOutput, FinalSplit, ItemSplit, SplitwiseUser } from "@/types";
+import { AlertTriangle, ArrowLeft, Bot, Edit, Loader2, Send, UserCircle } from "lucide-react";
+import * as React from "react";
 
 interface ReviewStepProps {
   billData: ExtractReceiptDataOutput;
@@ -79,129 +81,23 @@ export function ReviewStep({
   const formatCurrency = (amount: number | undefined) => {
      if (amount === undefined) return '-';
      const value = (typeof amount === 'number' && !isNaN(amount)) ? amount : 0;
-     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+     return ExpenseCalculationService.formatCurrency(value);
   };
 
    // Calculate final splits whenever relevant props change
   React.useEffect(() => {
       const calculateSplits = (): FinalSplit[] => {
-          const memberGrossTotals: Record<string, number> = selectedMembers.reduce((acc, member) => {
-              acc[member.id] = 0;
-              return acc;
-          }, {} as Record<string, number>);
-
-          // Calculate gross share for each member using activeBillData
-          activeBillData.items.forEach((item, index) => {
-              const itemId = `item-${index}`;
-              const splitInfo = itemSplits.find(s => s.itemId === itemId);
-              if (!splitInfo || splitInfo.sharedBy.length === 0) return;
-              const costPerMember = item.price / splitInfo.sharedBy.length;
-              splitInfo.sharedBy.forEach(memberId => {
-                  if (memberGrossTotals[memberId] !== undefined) {
-                      memberGrossTotals[memberId] += costPerMember;
-                  }
-              });
-          });
-
-          if ((activeBillData.taxes ?? 0) > 0 && taxSplitMembers.length > 0) {
-              const taxPerMember = (activeBillData.taxes ?? 0) / taxSplitMembers.length;
-              taxSplitMembers.forEach(memberId => {
-                 if (memberGrossTotals[memberId] !== undefined) {
-                    memberGrossTotals[memberId] += taxPerMember;
-                 }
-              });
-          }
-
-          if ((activeBillData.otherCharges ?? 0) > 0 && otherChargesSplitMembers.length > 0) {
-              const chargePerMember = (activeBillData.otherCharges ?? 0) / otherChargesSplitMembers.length;
-              otherChargesSplitMembers.forEach(memberId => {
-                 if (memberGrossTotals[memberId] !== undefined) {
-                    memberGrossTotals[memberId] += chargePerMember;
-                 }
-              });
-          }
-
-          const overallGrossTotal = Object.values(memberGrossTotals).reduce((sum, val) => sum + val, 0);
-          const targetTotal = activeBillData.totalCost;
-          let finalMemberShares: Record<string, number> = {};
-
-          if (overallGrossTotal === 0) {
-              if (targetTotal !== 0 && selectedMembers.length > 0) {
-                  const amountPerMember = targetTotal / selectedMembers.length;
-                  selectedMembers.forEach(member => {
-                      finalMemberShares[member.id] = amountPerMember;
-                  });
-              } else {
-                  selectedMembers.forEach(member => {
-                      finalMemberShares[member.id] = 0;
-                  });
-              }
-          } else {
-              selectedMembers.forEach(member => {
-                  const proportion = (memberGrossTotals[member.id] ?? 0) / overallGrossTotal;
-                  finalMemberShares[member.id] = proportion * targetTotal;
-              });
-          }
-          
-          // Round shares and distribute pennies
-          let roundedMemberShares: Record<string, number> = {};
-          let sumOfRoundedShares = 0;
-          selectedMembers.forEach(member => {
-              const roundedShare = Math.round((finalMemberShares[member.id] ?? 0) * 100) / 100;
-              roundedMemberShares[member.id] = roundedShare;
-              sumOfRoundedShares += roundedShare;
-          });
-
-          let discrepancy = parseFloat((targetTotal - sumOfRoundedShares).toFixed(2));
-          
-          if (Math.abs(discrepancy) > 0.005 && selectedMembers.length > 0) {
-              const memberIdsToAdjust = selectedMembers
-                  .map(m => m.id)
-                  .sort((a, b) => (roundedMemberShares[b] ?? 0) - (roundedMemberShares[a] ?? 0)); 
-
-              let remainingDiscrepancyCents = Math.round(discrepancy * 100);
-              let i = 0;
-              while (remainingDiscrepancyCents !== 0 && i < memberIdsToAdjust.length * 2) {
-                  const memberId = memberIdsToAdjust[i % memberIdsToAdjust.length];
-                  const adjustment = remainingDiscrepancyCents > 0 ? 0.01 : -0.01;
-                  roundedMemberShares[memberId] = parseFloat(((roundedMemberShares[memberId] ?? 0) + adjustment).toFixed(2));
-                  remainingDiscrepancyCents -= Math.round(adjustment * 100);
-                  i++;
-              }
-              if (remainingDiscrepancyCents !== 0 && memberIdsToAdjust.length > 0) {
-                  const firstMemberId = memberIdsToAdjust[0];
-                  roundedMemberShares[firstMemberId] = parseFloat(((roundedMemberShares[firstMemberId] ?? 0) + (remainingDiscrepancyCents / 100)).toFixed(2));
-              }
-          }
-
-          return selectedMembers.map(member => ({
-              userId: member.id,
-              amountOwed: roundedMemberShares[member.id] !== undefined ? roundedMemberShares[member.id] : 0,
-          }));
+          return ExpenseCalculationService.calculateFinalSplits(
+              activeBillData,
+              itemSplits,
+              selectedMembers,
+              taxSplitMembers,
+              otherChargesSplitMembers
+          );
       };
 
       const generateNotes = (): string => {
-          const subtotal = activeBillData.items.reduce((sum, item) => sum + item.price, 0);
-          let notes = `Store: ${storeName}\nDate: ${formatToLocalDateString(date)}\n\nItems Subtotal: ${formatCurrency(subtotal)}\n`;
-          
-          activeBillData.items.forEach(item => {
-              notes += `- ${item.name}: ${formatCurrency(item.price)}\n`;
-          });
-
-          if ((activeBillData.taxes ?? 0) > 0) {
-              notes += `Tax: ${formatCurrency(activeBillData.taxes ?? 0)}\n`;
-          }
-           if ((activeBillData.otherCharges ?? 0) > 0) {
-              notes += `Other Charges: ${formatCurrency(activeBillData.otherCharges ?? 0)}\n`;
-          }
-           if ((activeBillData.discount ?? 0) > 0) {
-              notes += `Discount Applied: -${formatCurrency(activeBillData.discount ?? 0)}\n`;
-          }
-          notes += `\nGrand Total (on receipt): ${formatCurrency(activeBillData.totalCost)}`;
-          if (activeBillData.discrepancyFlag) {
-              notes += `\n\nNote: Original bill data discrepancy: ${activeBillData.discrepancyMessage}`;
-          }
-          return notes;
+          return ExpensePayloadService.generateExpenseNotes(activeBillData, storeName, date);
       };
 
       setFinalSplits(calculateSplits());
@@ -223,53 +119,29 @@ export function ReviewStep({
        if (!groupIdStr) throw new Error("Group ID not found for payer or any member.");
        const groupId = parseInt(groupIdStr);
 
-       const numericPayerId = parseInt(payerId);
        const totalCostForPayload = activeBillData.totalCost;
 
-       // Adjust final splits to ensure exact total match
-       const adjustedSplits = [...finalSplits];
-       let totalOwedSoFar = 0;
-       
-       // Calculate all but the last split normally
-       for (let i = 0; i < adjustedSplits.length - 1; i++) {
-         adjustedSplits[i].amountOwed = Math.round(adjustedSplits[i].amountOwed * 100) / 100;
-         totalOwedSoFar += adjustedSplits[i].amountOwed;
-       }
-       
-       // Last person gets the remainder to ensure exact total
-       if (adjustedSplits.length > 0) {
-         adjustedSplits[adjustedSplits.length - 1].amountOwed = totalCostForPayload - totalOwedSoFar;
-       }
-
-       const expensePayload: CreateExpense = {
-           cost: totalCostForPayload.toFixed(2),
-           description: storeName,
-           group_id: groupId,
-           date: formatToLocalDateString(date),
-           details: expenseNotes,
-           currency_code: 'USD',
-           category_id: 18,
-           split_equally: false,
-       };
-
-       adjustedSplits.forEach((split, index) => {
-           const paidShare = parseInt(split.userId) === numericPayerId ? totalCostForPayload.toFixed(2) : '0.00';
-           const owedShare = split.amountOwed.toFixed(2);
-           
-           expensePayload[`users__${index}__user_id`] = parseInt(split.userId);
-           expensePayload[`users__${index}__paid_share`] = paidShare;
-           expensePayload[`users__${index}__owed_share`] = owedShare;
-       });
+       const expensePayload = ExpensePayloadService.generateExpensePayload(
+         finalSplits,
+         totalCostForPayload,
+         {
+           storeName,
+           date,
+           expenseNotes,
+           payerId,
+           groupId
+         }
+       );
 
        // Final validation
-       const totalOwed = parseFloat(adjustedSplits.reduce((sum, split) => sum + split.amountOwed, 0).toFixed(2));
-       if (Math.abs(totalOwed - totalCostForPayload) > 0.005) {
-           console.error("Final Validation Error:", { totalOwed, totalCostForPayload, expensePayload });
-           throw new Error(`Validation Error: Split total (${formatCurrency(totalOwed)}) doesn't match bill total (${formatCurrency(totalCostForPayload)}).`);
+       const validation = ExpensePayloadService.validateExpensePayload(expensePayload, totalCostForPayload);
+       if (!validation.isValid) {
+         console.error("Final Validation Error:", { expensePayload });
+         throw new Error(validation.error || "Validation failed");
        }
 
        console.log("Expense Payload :", JSON.stringify(expensePayload, null, 2));
-       const result = await createExpense(expensePayload);
+       const result = await SplitwiseService.createExpense(expensePayload);
 
        // Check for API errors in the response - only check if result exists and has errors property
        if (result && typeof result === 'object' && 'errors' in result && result.errors) {
@@ -391,7 +263,7 @@ export function ReviewStep({
                     />
                   </div>
                   <Separator className="my-3"/>
-                  <div className="flex justify-between text-muted-foreground"><span>Items Subtotal:</span> <strong className="text-foreground">{formatCurrency(activeBillData.items.reduce((s, i) => s + i.price, 0))}</strong></div>
+                  <div className="flex justify-between text-muted-foreground"><span>Items Subtotal:</span> <strong className="text-foreground">{formatCurrency(activeBillData.items.reduce((s: number, i: any) => s + i.price, 0))}</strong></div>
                    {(activeBillData.taxes ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Tax:</span> <strong className="text-foreground">{formatCurrency(activeBillData.taxes ?? 0)}</strong></div>}
                    {(activeBillData.otherCharges ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Other Charges:</span> <strong className="text-foreground">{formatCurrency(activeBillData.otherCharges ?? 0)}</strong></div>}
                    {(activeBillData.discount ?? 0) > 0 && <div className="flex justify-between text-muted-foreground"><span>Discount:</span> <strong className="text-green-600">-{formatCurrency(activeBillData.discount ?? 0)}</strong></div>}

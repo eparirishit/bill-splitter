@@ -1,17 +1,17 @@
 "use client";
 
-import * as React from "react";
-import { Users, UserCheck, Check, ArrowRight, Loader2, ArrowLeft, AlertTriangle, Bot, Edit3 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Label } from "@/components/ui/label";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
-import type { ExtractReceiptDataOutput, SplitwiseUser, ItemSplit } from "@/types";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useBillEditing } from "@/hooks/use-bill-editing";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import type { ExtractReceiptDataOutput, ItemSplit, SplitwiseUser } from "@/types";
+import { AlertTriangle, ArrowLeft, ArrowRight, Bot, Check, Edit3, Loader2, UserCheck, Users } from "lucide-react";
+import * as React from "react";
 
 interface ItemSplittingStepProps {
   billData: ExtractReceiptDataOutput;
@@ -109,12 +109,22 @@ export function ItemSplittingStep({
   const { toast } = useToast();
   const memberIds = React.useMemo(() => selectedMembers.map(m => m.id), [selectedMembers]);
 
-  // State for edited bill data
-  const [editedBillData, setEditedBillData] = React.useState<ExtractReceiptDataOutput>(billData);
-  const [hasManualEdits, setHasManualEdits] = React.useState(false);
-  const [editingPrices, setEditingPrices] = React.useState<Record<number, string>>({});
-  const [editingTax, setEditingTax] = React.useState<string | null>(null);
-  const [editingOtherCharges, setEditingOtherCharges] = React.useState<string | null>(null);
+  // Use the bill editing hook
+  const {
+    editedBillData,
+    editingPrices,
+    editingTax,
+    editingOtherCharges,
+    hasManualEdits,
+    handleItemPriceChange,
+    handlePriceInputChange,
+    handlePriceInputBlur,
+    handleTaxInputChange,
+    handleTaxInputBlur,
+    handleOtherChargesInputChange,
+    handleOtherChargesInputBlur,
+    handleKeyPress
+  } = useBillEditing(billData);
 
   // Initialize item splits state
   const initialItemSplits: ItemSplitState[] = React.useMemo(() =>
@@ -137,198 +147,7 @@ export function ItemSplittingStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editedBillData.items, memberIds.join(",")]);
 
-  // Handle item price editing
-  const handleItemPriceChange = (itemIndex: number, newPrice: string) => {
-    const priceValue = parseFloat(newPrice);
-    if (isNaN(priceValue) || priceValue < 0) return;
-
-    setEditedBillData(prev => {
-      const updatedItems = [...prev.items];
-      updatedItems[itemIndex] = { ...updatedItems[itemIndex], price: priceValue };
-      
-      // Recalculate discrepancy
-      const itemsSum = updatedItems.reduce((sum, item) => sum + item.price, 0);
-      const taxes = prev.taxes ?? 0;
-      const otherCharges = prev.otherCharges ?? 0;
-      const discount = prev.discount ?? 0;
-      const calculatedTotal = itemsSum + taxes + otherCharges - discount;
-      const difference = Math.abs(calculatedTotal - prev.totalCost);
-      
-      const discrepancyFlag = difference > 0.02;
-      const discrepancyMessage = discrepancyFlag 
-        ? `Receipt total ($${prev.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
-        : undefined;
-
-      return {
-        ...prev,
-        items: updatedItems,
-        discrepancyFlag,
-        discrepancyMessage
-      };
-    });
-    
-    setHasManualEdits(true);
-  };
-
-  // Handle item price editing with text input behavior
-  const handlePriceInputChange = (itemIndex: number, value: string) => {
-    // Allow user to type freely, store the string value
-    setEditingPrices(prev => ({ ...prev, [itemIndex]: value }));
-  };
-
-  const handlePriceInputBlur = (itemIndex: number, value: string) => {
-    // When user finishes editing, validate and update the actual price
-    const trimmedValue = value.replace(/[^0-9.]/g, ''); // Remove non-numeric characters except decimal
-    const priceValue = parseFloat(trimmedValue);
-    
-    if (isNaN(priceValue) || priceValue < 0) {
-      // Reset to original price if invalid
-      setEditingPrices(prev => {
-        const newState = { ...prev };
-        delete newState[itemIndex];
-        return newState;
-      });
-      toast({
-        title: "Invalid Price",
-        description: "Please enter a valid price greater than or equal to 0.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Update the actual bill data
-    setEditedBillData(prev => {
-      const updatedItems = [...prev.items];
-      updatedItems[itemIndex] = { ...updatedItems[itemIndex], price: priceValue };
-      
-      // Recalculate discrepancy
-      const itemsSum = updatedItems.reduce((sum, item) => sum + item.price, 0);
-      const taxes = prev.taxes ?? 0;
-      const otherCharges = prev.otherCharges ?? 0;
-      const discount = prev.discount ?? 0;
-      const calculatedTotal = itemsSum + taxes + otherCharges - discount;
-      const difference = Math.abs(calculatedTotal - prev.totalCost);
-      
-      const discrepancyFlag = difference > 0.02;
-      const discrepancyMessage = discrepancyFlag 
-        ? `Receipt total ($${prev.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
-        : undefined;
-
-      return {
-        ...prev,
-        items: updatedItems,
-        discrepancyFlag,
-        discrepancyMessage
-      };
-    });
-    
-    // Clear the editing state
-    setEditingPrices(prev => {
-      const newState = { ...prev };
-      delete newState[itemIndex];
-      return newState;
-    });
-    
-    setHasManualEdits(true);
-  };
-
-  const handlePriceKeyPress = (event: React.KeyboardEvent<HTMLInputElement>, itemIndex: number, value: string) => {
-    if (event.key === 'Enter') {
-      (event.currentTarget as HTMLInputElement).blur(); // Trigger onBlur
-    }
-  };
-
-  // Handle tax editing
-  const handleTaxInputChange = (value: string) => {
-    setEditingTax(value);
-  };
-
-  const handleTaxInputBlur = (value: string) => {
-    const trimmedValue = value.replace(/[^0-9.]/g, '');
-    const taxValue = parseFloat(trimmedValue);
-    
-    if (isNaN(taxValue) || taxValue < 0) {
-      setEditingTax(null);
-      toast({
-        title: "Invalid Tax Amount",
-        description: "Please enter a valid tax amount greater than or equal to 0.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setEditedBillData(prev => {
-      const itemsSum = prev.items.reduce((sum, item) => sum + item.price, 0);
-      const otherCharges = prev.otherCharges ?? 0;
-      const discount = prev.discount ?? 0;
-      const calculatedTotal = itemsSum + taxValue + otherCharges - discount;
-      const difference = Math.abs(calculatedTotal - prev.totalCost);
-      
-      const discrepancyFlag = difference > 0.02;
-      const discrepancyMessage = discrepancyFlag 
-        ? `Receipt total ($${prev.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
-        : undefined;
-
-      return {
-        ...prev,
-        taxes: taxValue,
-        discrepancyFlag,
-        discrepancyMessage
-      };
-    });
-    
-    setEditingTax(null);
-    setHasManualEdits(true);
-  };
-
-  // Handle other charges editing
-  const handleOtherChargesInputChange = (value: string) => {
-    setEditingOtherCharges(value);
-  };
-
-  const handleOtherChargesInputBlur = (value: string) => {
-    const trimmedValue = value.replace(/[^0-9.]/g, '');
-    const chargesValue = parseFloat(trimmedValue);
-    
-    if (isNaN(chargesValue) || chargesValue < 0) {
-      setEditingOtherCharges(null);
-      toast({
-        title: "Invalid Charges Amount",
-        description: "Please enter a valid charges amount greater than or equal to 0.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setEditedBillData(prev => {
-      const itemsSum = prev.items.reduce((sum, item) => sum + item.price, 0);
-      const taxes = prev.taxes ?? 0;
-      const discount = prev.discount ?? 0;
-      const calculatedTotal = itemsSum + taxes + chargesValue - discount;
-      const difference = Math.abs(calculatedTotal - prev.totalCost);
-      
-      const discrepancyFlag = difference > 0.02;
-      const discrepancyMessage = discrepancyFlag 
-        ? `Receipt total ($${prev.totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
-        : undefined;
-
-      return {
-        ...prev,
-        otherCharges: chargesValue,
-        discrepancyFlag,
-        discrepancyMessage
-      };
-    });
-    
-    setEditingOtherCharges(null);
-    setHasManualEdits(true);
-  };
-
-  const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      (event.currentTarget as HTMLInputElement).blur();
-    }
-  };
+  // Price editing handlers are now provided by useBillEditing hook
 
   const handleSplitTypeChange = (itemId: string, type: SplitType | null) => {
     if (type === null) return;
@@ -476,7 +295,7 @@ export function ItemSplittingStep({
                                     value={displayPrice}
                                     onChange={(e) => handlePriceInputChange(index, e.target.value)}
                                     onBlur={(e) => handlePriceInputBlur(index, e.target.value)}
-                                    onKeyDown={(e) => handlePriceKeyPress(e, index, e.currentTarget.value)}
+                                    onKeyDown={handleKeyPress}
                                     onFocus={(e) => {
                                       e.stopPropagation();
                                       e.target.select();

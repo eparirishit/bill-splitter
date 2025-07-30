@@ -1,16 +1,16 @@
 "use client";
 
-import * as React from "react";
-import { ArrowLeft, ArrowRight, Users, Calculator, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useManualExpenseSplitting } from "@/hooks/use-manual-expense-splitting";
 import { useToast } from "@/hooks/use-toast";
-import type { ManualExpenseData } from "@/types";
 import { cn } from "@/lib/utils";
+import type { ManualExpenseData } from "@/types";
+import { ArrowLeft, ArrowRight, Calculator, Users } from "lucide-react";
 
 interface ManualExpenseSplitStepProps {
   expenseData: ManualExpenseData;
@@ -23,52 +23,49 @@ export function ManualExpenseSplitStep({
   onSplitConfigured,
   onBack
 }: ManualExpenseSplitStepProps) {
-  const [splitType, setSplitType] = React.useState<'equal' | 'custom'>('equal');
-  const [customAmounts, setCustomAmounts] = React.useState<Record<string, number>>({});
   const { toast } = useToast();
-
-  React.useEffect(() => {
-    // Initialize custom amounts with equal split
-    const equalAmount = expenseData.amount / expenseData.members.length;
-    const initialAmounts: Record<string, number> = {};
-    expenseData.members.forEach(member => {
-      initialAmounts[member.id] = equalAmount;
-    });
-    setCustomAmounts(initialAmounts);
-  }, [expenseData.amount, expenseData.members]);
-
-  const handleCustomAmountChange = (memberId: string, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setCustomAmounts(prev => ({ ...prev, [memberId]: numValue }));
-  };
+  
+  // Use the manual expense splitting hook
+  const {
+    splitType,
+    customAmounts,
+    setSplitType,
+    handleCustomAmountChange,
+    validateAndProceed
+  } = useManualExpenseSplitting(expenseData);
 
   const handleProceed = () => {
-    if (splitType === 'custom') {
-      const totalCustom = Object.values(customAmounts).reduce((sum, val) => sum + val, 0);
-      const difference = Math.abs(totalCustom - expenseData.amount);
-      
-      if (difference > 0.01) {
-        toast({
-          title: "Split Mismatch",
-          description: `Custom amounts total $${totalCustom.toFixed(2)} but expense is $${expenseData.amount.toFixed(2)}`,
-          variant: "destructive",
-        });
-        return;
-      }
+    const result = validateAndProceed();
+    
+    if (!result.isValid) {
+      if (splitType === 'custom') {
+        const totalCustom = Object.values(customAmounts).reduce((sum, val) => sum + val, 0);
+        const difference = Math.abs(totalCustom - expenseData.amount);
+        
+        if (difference > 0.01) {
+          toast({
+            title: "Split Mismatch",
+            description: `Custom amounts total $${totalCustom.toFixed(2)} but expense is $${expenseData.amount.toFixed(2)}`,
+            variant: "destructive",
+          });
+          return;
+        }
 
-      // Check for negative or zero amounts
-      const invalidAmounts = Object.values(customAmounts).some(amount => amount <= 0);
-      if (invalidAmounts) {
-        toast({
-          title: "Invalid Amounts",
-          description: "All amounts must be greater than zero.",
-          variant: "destructive",
-        });
-        return;
+        // Check for negative or zero amounts
+        const invalidAmounts = Object.values(customAmounts).some(amount => amount <= 0);
+        if (invalidAmounts) {
+          toast({
+            title: "Invalid Amounts",
+            description: "All amounts must be greater than zero.",
+            variant: "destructive",
+          });
+          return;
+        }
       }
+      return;
     }
 
-    onSplitConfigured(splitType, splitType === 'custom' ? customAmounts : undefined);
+    onSplitConfigured(result.splitType, result.customAmounts);
   };
 
   const formatCurrency = (amount: number) => {

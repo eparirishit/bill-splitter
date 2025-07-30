@@ -1,14 +1,14 @@
 "use client";
 
-import * as React from "react";
-import { Upload, Loader2, AlertTriangle, ImagePlus, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import { useToast } from "@/hooks/use-toast";
-import { extractReceiptData } from "@/ai/extract-receipt-data";
+import { cn } from "@/lib/utils";
 import type { ExtractReceiptDataOutput } from "@/types";
-import { cn, compressImage, getImageSizeKB } from "@/lib/utils";
+import { AlertTriangle, ArrowLeft, ImagePlus, Loader2, Upload } from "lucide-react";
+import * as React from "react";
 
 interface UploadStepProps {
   onDataExtracted: (data: ExtractReceiptDataOutput) => void;
@@ -18,112 +18,36 @@ interface UploadStepProps {
 }
 
 export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack }: UploadStepProps) {
-  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const {
+    selectedFile,
+    previewUrl,
+    error,
+    isLoading: fileUploadLoading,
+    fileInputRef,
+    handleFileChange,
+    handleUpload,
+    clearFile
+  } = useFileUpload(onDataExtracted, onLoadingChange);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setError(null);
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-          setError("File size exceeds 10MB limit.");
-          setSelectedFile(null);
-          setPreviewUrl(null);
-           if (fileInputRef.current) {
-              fileInputRef.current.value = "";
-           }
-          return;
-      }
-
-      if (!file.type.startsWith("image/")) {
-        setError("Please select an image file (JPG, PNG, WEBP, HEIC).");
-        setSelectedFile(null);
-        setPreviewUrl(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-        return;
-      }
-      setSelectedFile(file);
-      
-      // Compress image for preview and processing
-      compressImage(file, {
-        maxWidth: 1024,
-        maxHeight: 1024,
-        quality: 0.8,
-        maxSizeKB: 2048
-      }).then((compressedDataUri) => {
-        setPreviewUrl(compressedDataUri);
-        console.log(`Image compressed to ${getImageSizeKB(compressedDataUri).toFixed(1)}KB`);
-      }).catch((compressionError) => {
-        console.error('Image compression failed:', compressionError);
-        // Fallback to original file
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setPreviewUrl(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      });
-    } else {
-      setSelectedFile(null);
-      setPreviewUrl(null);
-    }
+  const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    handleFileChange(event);
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile || !previewUrl) {
-      toast({
-        title: "No File Selected",
-        description: "Please select a bill image.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    onLoadingChange(true);
-    setError(null);
-
-    try {
-      const result = await extractReceiptData({ photoDataUri: previewUrl });
-      console.log("Extraction Result:", result);
-
-       // Basic validation of result structure
-      if (!result || typeof result !== 'object' || !Array.isArray(result.items) || typeof result.totalCost !== 'number') {
-          throw new Error("Received invalid data structure from extraction.");
-      }
-
-      // Convert null values to undefined to match ExtractReceiptDataOutput type
-      const processedResult: ExtractReceiptDataOutput = {
-        ...result,
-        taxes: result.taxes === null ? undefined : result.taxes,
-        otherCharges: result.otherCharges === null ? undefined : result.otherCharges,
-        discount: result.discount === null ? undefined : result.discount
-      };
-
-      onDataExtracted(processedResult);
+  const onUpload = async () => {
+    const result = await handleUpload();
+    if (result) {
       toast({
         title: "Extraction Complete",
         description: "Bill data processed successfully. Please review the extracted information for accuracy.",
         variant: 'default'
       });
-    } catch (err: any) {
-      console.error("Error extracting data:", err);
-      let userMessage = "Failed to extract data from the bill. Please try again or use a clearer image.";
-      if (err.message === "Received invalid data structure from extraction.") {
-          userMessage = "Could not understand the bill structure. Please ensure it's a clear image.";
-      } else if (err.message && err.message.includes("timeout")) {
-          userMessage = "The request timed out. Please try again.";
-      }
-      setError(userMessage);
+    } else {
       toast({
         title: "Extraction Failed",
-        description: userMessage,
+        description: error || "Failed to extract data from the bill. Please try again or use a clearer image.",
         variant: "destructive",
       });
-      onLoadingChange(false);
     }
   };
 
@@ -154,7 +78,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
                           <p className="text-xs text-muted-foreground">PNG, JPG, WEBP, HEIC (Max 10MB)</p>
                       </div>
                   )}
-                  <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileChange} accept="image/*,.heic,.heif" ref={fileInputRef} disabled={isLoading} />
+                  <Input id="dropzone-file" type="file" className="hidden" onChange={onFileChange} accept="image/*,.heic,.heif" ref={fileInputRef} disabled={isLoading} />
               </Label>
               {selectedFile && !previewUrl && !isLoading && (
                   <p className="text-sm text-muted-foreground mt-2 text-center">Selected: {selectedFile.name}</p>
@@ -177,12 +101,12 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
                       <ArrowLeft className="mr-2 h-4 w-4" /> Back
                     </Button>
                     <Button
-                        onClick={handleUpload}
-                        disabled={!selectedFile || isLoading}
+                        onClick={onUpload}
+                        disabled={!selectedFile || isLoading || fileUploadLoading}
                         className="w-2/3 tap-scale"
                         size="lg"
                     >
-                        {isLoading ? (
+                        {(isLoading || fileUploadLoading) ? (
                          <>
                            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
                          </>
@@ -195,12 +119,12 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
                   </div>
                 ) : (
                   <Button
-                      onClick={handleUpload}
-                      disabled={!selectedFile || isLoading}
+                      onClick={onUpload}
+                      disabled={!selectedFile || isLoading || fileUploadLoading}
                       className="w-full tap-scale"
                       size="lg"
                   >
-                      {isLoading ? (
+                      {(isLoading || fileUploadLoading) ? (
                        <>
                          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
                        </>

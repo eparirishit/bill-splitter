@@ -1,14 +1,15 @@
 "use client";
 
-import * as React from "react";
-import { ArrowLeft, ArrowRight, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { useExpenseForm } from "@/hooks/use-expense-form";
 import { useToast } from "@/hooks/use-toast";
-import type { SplitwiseUser, ManualExpenseData } from "@/types";
+import { ExpenseCalculationService } from "@/services/expense-calculations";
+import type { ManualExpenseData, SplitwiseUser } from "@/types";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 interface ManualExpenseDetailsStepProps {
   selectedMembers: SplitwiseUser[];
@@ -23,63 +24,40 @@ export function ManualExpenseDetailsStep({
   onBack,
   groupId
 }: ManualExpenseDetailsStepProps) {
-  const [title, setTitle] = React.useState("");
-  const [amount, setAmount] = React.useState("");
-  const [notes, setNotes] = React.useState("");
-  const [date, setDate] = React.useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
   const { toast } = useToast();
+  const {
+    title,
+    amount,
+    notes,
+    date,
+    errors,
+    setTitle,
+    setAmount,
+    setNotes,
+    setDate,
+    validateAndSubmit,
+    clearErrors
+  } = useExpenseForm();
 
   const handleProceed = () => {
-    if (!title.trim()) {
-      toast({
-        title: "Missing Title",
-        description: "Please enter an expense title.",
-        variant: "destructive",
-      });
-      return;
+    const expenseData = validateAndSubmit(selectedMembers, groupId);
+    if (expenseData) {
+      onExpenseDetailsSet(expenseData);
+    } else {
+      // Show first error in toast
+      if (errors.length > 0) {
+        toast({
+          title: "Validation Error",
+          description: errors[0],
+          variant: "destructive",
+        });
+      }
     }
-
-    const parsedAmount = parseFloat(amount);
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid expense amount.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!date) {
-      toast({
-        title: "Missing Date",
-        description: "Please select an expense date.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const expenseData: ManualExpenseData = {
-      title: title.trim(),
-      amount: parsedAmount,
-      date,
-      groupId,
-      members: selectedMembers,
-      splitType: 'equal',
-      notes: notes.trim() || undefined
-    };
-
-    onExpenseDetailsSet(expenseData);
   };
 
   const formatCurrency = (value: string) => {
     const num = parseFloat(value);
-    return isNaN(num) ? '$0.00' : new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency: 'USD' 
-    }).format(num);
+    return ExpenseCalculationService.formatCurrency(num);
   };
 
   return (

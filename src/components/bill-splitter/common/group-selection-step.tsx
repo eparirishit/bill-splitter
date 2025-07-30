@@ -1,17 +1,17 @@
 "use client";
 
-import * as React from "react";
-import { Users, Loader2, ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
-import { getGroups, getGroupMembers } from "@/services/splitwise";
-import type { SplitwiseGroup, SplitwiseUser } from "@/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
+import { SplitwiseService } from "@/services/splitwise";
+import type { SplitwiseGroup, SplitwiseUser } from "@/types";
+import { ArrowLeft, Check, Loader2, Users } from "lucide-react";
+import * as React from "react";
 
 interface GroupSelectionStepProps {
   onGroupAndMembersSelected: (groupId: string, members: SplitwiseUser[]) => void;
@@ -60,7 +60,7 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
       onLoadingChange(true);
       setIsFetchingGroups(true);
       try {
-        const fetchedGroups = await getGroups();
+        const fetchedGroups = await SplitwiseService.getGroups();
         console.log("Fetched groups:", fetchedGroups);
         setGroups(fetchedGroups);
         if (fetchedGroups.length === 0) {
@@ -91,7 +91,7 @@ export function GroupSelectionStep({ onGroupAndMembersSelected, onLoadingChange,
         setGroupMembers([]);
         setSelectedMembers([]);
         try {
-          const members = await getGroupMembers(selectedGroupId);
+          const members = await SplitwiseService.getGroupMembers(selectedGroupId);
           console.log("Fetched members for group", selectedGroupId, ":", members);
           setGroupMembers(members);
           setSelectedMembers(members.map(m => m.id));

@@ -1,16 +1,16 @@
 "use client";
 
-import * as React from "react";
-import { ArrowLeft, Send, Loader2, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { createExpense } from "@/services/splitwise";
-import type { ManualExpenseData, CreateExpense } from "@/types";
+import { SplitwiseService } from "@/services/splitwise";
+import type { CreateExpense, ManualExpenseData } from "@/types";
+import { ArrowLeft, Loader2, Send, UserCircle } from "lucide-react";
+import * as React from "react";
 
 interface ManualExpenseReviewStepProps {
   expenseData: ManualExpenseData;
@@ -130,7 +130,7 @@ export function ManualExpenseReviewStep({
       });
 
       console.log("Manual Expense Payload:", JSON.stringify(expensePayload, null, 2));
-      const result = await createExpense(expensePayload);
+      const result = await SplitwiseService.createExpense(expensePayload);
 
       // Check for API errors in the response
       if (result && typeof result === 'object' && 'errors' in result && result.errors) {

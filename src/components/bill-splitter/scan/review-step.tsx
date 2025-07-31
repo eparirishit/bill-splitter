@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ExpenseCalculationService } from "@/services/expense-calculations";
 import { ExpensePayloadService } from "@/services/expense-payload";
-import type { ExtractReceiptDataOutput, FinalSplit, ItemSplit, SplitwiseUser } from "@/types";
+import { SplitwiseService, type ExtractReceiptDataOutput, type FinalSplit, type ItemSplit, type SplitwiseUser } from "@/types";
 import { AlertTriangle, ArrowLeft, Bot, Edit, Loader2, Send, UserCircle } from "lucide-react";
 import * as React from "react";
 
@@ -179,40 +179,27 @@ export function ReviewStep({
        }
 
        console.log("Expense Payload :", JSON.stringify(expensePayload, null, 2));
-      //  const result = await SplitwiseService.createExpense(expensePayload);
+       const result = await SplitwiseService.createExpense(expensePayload);
 
-      //  // Check for API errors in the response - only check if result exists and has errors property
-      //  if (result && typeof result === 'object' && 'errors' in result && result.errors) {
-      //    const errorMessages = [];
-      //    if (result.errors.base && Array.isArray(result.errors.base)) {
-      //      errorMessages.push(...result.errors.base);
-      //    }
-      //    // Handle other error types if they exist
-      //    Object.entries(result.errors).forEach(([key, value]) => {
-      //      if (key !== 'base' && Array.isArray(value)) {
-      //        errorMessages.push(...value);
-      //      }
-      //    });
+       // Check for API errors in the response - only check if result exists and has errors property
+       if (result && typeof result === 'object' && 'errors' in result && result.errors) {
+         const errorMessages = [];
+         if (result.errors.base && Array.isArray(result.errors.base)) {
+           errorMessages.push(...result.errors.base);
+         }
+         // Handle other error types if they exist
+         Object.entries(result.errors).forEach(([key, value]) => {
+           if (key !== 'base' && Array.isArray(value)) {
+             errorMessages.push(...value);
+           }
+         });
          
-      //    if (errorMessages.length > 0) {
-      //      const errorMessage = errorMessages.join('; ');
-      //      throw new Error(errorMessage);
-      //    }
-      //  }
+         if (errorMessages.length > 0) {
+           const errorMessage = errorMessages.join('; ');
+           throw new Error(errorMessage);
+         }
+       }
 
-      // Dummy API call for now - simulate Splitwise API call
-      console.log('Making dummy API call to Splitwise...');
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate 2-second API call
-      
-      // Simulate successful response
-      const result = {
-        success: true,
-        expense_id: Math.floor(Math.random() * 1000000),
-        message: 'Expense created successfully'
-      };
-      
-      console.log('Dummy API response:', result);
-       // If we get here, the expense was created successfully
        toast({
            title: "Expense Created Successfully",
            description: `Expense for ${localStoreName} has been added to Splitwise.`,

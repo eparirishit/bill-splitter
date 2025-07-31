@@ -10,7 +10,11 @@ export class ReceiptTrackingService {
     file: File,
     aiExtraction: ExtractReceiptDataOutput,
     processingTimeMs: number,
-    aiModelVersion: string = 'v1.0'
+    aiModelVersion: string = 'v1.0',
+    aiProvider?: string,
+    aiModelName?: string,
+    aiTokensUsed?: number,
+    aiProcessingTimeMs?: number
   ): Promise<string> {
     try {
       // Upload image to Supabase Storage
@@ -27,7 +31,11 @@ export class ReceiptTrackingService {
           file_size: file.size,
           ai_extraction: aiExtraction,
           processing_time_ms: processingTimeMs,
-          ai_model_version: aiModelVersion
+          ai_model_version: aiModelVersion,
+          ai_provider: aiProvider,
+          ai_model_name: aiModelName,
+          ai_tokens_used: aiTokensUsed,
+          ai_processing_time_ms: aiProcessingTimeMs
         })
         .select('id')
         .single();

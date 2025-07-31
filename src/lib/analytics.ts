@@ -21,7 +21,11 @@ export class AnalyticsService {
     file: File,
     aiExtraction: ExtractReceiptDataOutput,
     processingTimeMs: number,
-    aiModelVersion: string = AI_CONFIG.MODEL_NAME
+    aiModelVersion: string = AI_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
+    aiProvider?: string,
+    aiModelName?: string,
+    aiTokensUsed?: number,
+    aiProcessingTimeMs?: number
   ): Promise<string> {
     // Track receipt processing
     const receiptId = await ReceiptTrackingService.trackReceiptProcessing(
@@ -29,7 +33,11 @@ export class AnalyticsService {
       file,
       aiExtraction,
       processingTimeMs,
-      aiModelVersion
+      aiModelVersion,
+      aiProvider,
+      aiModelName,
+      aiTokensUsed,
+      aiProcessingTimeMs
     );
 
     // Increment user's receipt count

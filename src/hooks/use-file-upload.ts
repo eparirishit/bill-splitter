@@ -77,7 +77,7 @@ export function useFileUpload(
     const startTime = Date.now();
 
     try {
-      const result = await extractReceiptData({ photoDataUri: previewUrl });
+      const result = await extractReceiptData({ photoDataUri: previewUrl }, userId);
       console.log("Extraction Result:", result);
 
       // Basic validation of result structure
@@ -87,10 +87,15 @@ export function useFileUpload(
 
       // Convert null values to undefined to match ExtractReceiptDataOutput type
       const processedResult: ExtractReceiptDataOutput = {
-        ...result,
+        storeName: result.storeName,
+        date: result.date,
+        items: result.items,
+        totalCost: result.totalCost,
         taxes: result.taxes === null ? undefined : result.taxes,
         otherCharges: result.otherCharges === null ? undefined : result.otherCharges,
-        discount: result.discount === null ? undefined : result.discount
+        discount: result.discount === null ? undefined : result.discount,
+        discrepancyFlag: result.discrepancyFlag,
+        discrepancyMessage: result.discrepancyMessage,
       };
 
       // Track receipt processing for analytics
@@ -102,7 +107,12 @@ export function useFileUpload(
             userId,
             selectedFile,
             processedResult,
-            processingTimeMs
+            processingTimeMs,
+            result.aiMetadata?.modelName || 'unknown',
+            result.aiMetadata?.provider,
+            result.aiMetadata?.modelName,
+            result.aiMetadata?.tokensUsed,
+            result.aiMetadata?.processingTimeMs
           );
           console.log('Receipt processing tracked with ID:', receiptId);
         } catch (error) {

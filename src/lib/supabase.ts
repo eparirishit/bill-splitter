@@ -70,6 +70,10 @@ export interface Database {
           feedback: any | null;
           processing_time_ms: number | null;
           ai_model_version: string;
+          ai_provider: string | null;
+          ai_model_name: string | null;
+          ai_tokens_used: number | null;
+          ai_processing_time_ms: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -85,6 +89,10 @@ export interface Database {
           feedback?: any | null;
           processing_time_ms?: number | null;
           ai_model_version?: string;
+          ai_provider?: string | null;
+          ai_model_name?: string | null;
+          ai_tokens_used?: number | null;
+          ai_processing_time_ms?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -100,6 +108,10 @@ export interface Database {
           feedback?: any | null;
           processing_time_ms?: number | null;
           ai_model_version?: string;
+          ai_provider?: string | null;
+          ai_model_name?: string | null;
+          ai_tokens_used?: number | null;
+          ai_processing_time_ms?: number | null;
           created_at?: string;
           updated_at?: string;
         };

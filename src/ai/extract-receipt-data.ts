@@ -2,11 +2,12 @@
 
 import {
   AI_CONFIG,
-  createGoogleAIClient,
   EXTRACTION_PROMPT,
 } from "@/lib/config";
+import { logger } from "@/lib/logger";
 import { validateImageSize } from "@/lib/utils";
 import { z } from "zod";
+import { AIServiceFactory } from "./ai-service-factory";
 import { AIServiceError, ValidationError } from "./errors";
 import {
   AIOutputSchema,
@@ -20,20 +21,37 @@ import {
   extractAndParseJSON,
   retryWithDelay,
   roundCurrency,
-  validateExtractionResult,
-  validateImageDataUri,
+  validateExtractionResult
 } from "./utils";
 
 export async function extractReceiptData(
-  input: ExtractReceiptDataInput
-): Promise<ExtractReceiptDataOutput> {
+  input: ExtractReceiptDataInput,
+  userId?: string,
+  receiptId?: string
+): Promise<ExtractReceiptDataOutput & { 
+  aiMetadata?: {
+    provider: string;
+    modelName: string;
+    tokensUsed?: number;
+    processingTimeMs?: number;
+  }
+}> {
+  const startTime = Date.now();
+  const logContext = { userId, receiptId, operation: 'extract_receipt_data' };
+
   try {
+    logger.info("Starting receipt data extraction", logContext);
+
     // Input validation
     ExtractReceiptDataInputSchema.parse(input);
 
     // Validate image size for Vercel limits
     validateImageSize(input.photoDataUri, AI_CONFIG.MAX_PAYLOAD_SIZE_KB);
+    
+    logger.debug("Input validation passed", logContext);
+
   } catch (error) {
+    logger.error("Input validation failed", logContext, error as Error);
     throw new ValidationError(
       "Invalid input: " +
         (error instanceof z.ZodError
@@ -43,47 +61,82 @@ export async function extractReceiptData(
     );
   }
 
-  const genAI = createGoogleAIClient();
-  const model = genAI.getGenerativeModel({
-    model: AI_CONFIG.MODEL_NAME,
-    safetySettings: AI_CONFIG.SAFETY_SETTINGS,
-    generationConfig: AI_CONFIG.GENERATION_CONFIG,
-  });
+  // Create AI provider based on configuration
+  const providerConfig = AI_CONFIG.PROVIDER === "google-gemini" 
+    ? {
+        modelName: AI_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
+        apiKey: AI_CONFIG.GOOGLE_GEMINI.API_KEY,
+        temperature: AI_CONFIG.GOOGLE_GEMINI.TEMPERATURE,
+        maxTokens: AI_CONFIG.GOOGLE_GEMINI.MAX_TOKENS,
+      }
+    : {
+        modelName: AI_CONFIG.OPENROUTER.MODEL_NAME,
+        apiKey: AI_CONFIG.OPENROUTER.API_KEY,
+        baseUrl: AI_CONFIG.OPENROUTER.BASE_URL,
+        temperature: AI_CONFIG.OPENROUTER.TEMPERATURE,
+        maxTokens: AI_CONFIG.OPENROUTER.MAX_TOKENS,
+      };
+    
+  const aiProvider = AIServiceFactory.createProvider(AI_CONFIG.PROVIDER, providerConfig);
 
-  // Image validation and processing
-  const { mimeType, base64Data } = validateImageDataUri(input.photoDataUri);
-  const imagePart = {
-    inlineData: {
-      data: base64Data,
-      mimeType: mimeType,
-    },
-  };
+  logger.aiRequest(
+    aiProvider.name,
+    providerConfig.modelName,
+    'extract_receipt_data',
+    logContext,
+    { providerType: AI_CONFIG.PROVIDER }
+  );
+
+  let aiResponse: any = null;
 
   // AI extraction with retry logic
   const aiOutput = await retryWithDelay(async (): Promise<AIOutput> => {
     try {
-      const result = await model.generateContent([
-        EXTRACTION_PROMPT,
-        imagePart,
-      ]);
-      const response = result.response;
+      const response = await aiProvider.generateContent({
+        prompt: EXTRACTION_PROMPT,
+        imageDataUri: input.photoDataUri,
+      });
 
-      // Check for blocked content
-      if (response.promptFeedback?.blockReason) {
-        throw new AIServiceError(
-          `Content was blocked: ${response.promptFeedback.blockReason}`
-        );
+      aiResponse = response;
+
+      if (response.blocked) {
+        logger.warn("AI content was blocked", {
+          ...logContext,
+          provider: aiProvider.name,
+          model: providerConfig.modelName,
+          blockReason: response.blockReason,
+        });
+        throw new AIServiceError(`Content was blocked: ${response.blockReason}`);
       }
 
-      const aiResponseText = response.text();
-      const parsedJson = extractAndParseJSON(aiResponseText);
+      logger.aiResponse(
+        aiProvider.name,
+        providerConfig.modelName,
+        'extract_receipt_data',
+        response.processingTimeMs || 0,
+        response.tokensUsed,
+        logContext,
+        { 
+          modelUsed: response.modelUsed,
+          providerName: response.providerName,
+        }
+      );
 
-      // Validate against schema
+      const parsedJson = extractAndParseJSON(response.text);
       return AIOutputSchema.parse(parsedJson);
     } catch (error) {
       if (error instanceof ValidationError || error instanceof AIServiceError) {
         throw error;
       }
+      
+      logger.aiError(
+        aiProvider.name,
+        providerConfig.modelName,
+        'extract_receipt_data',
+        error as Error,
+        logContext
+      );
+      
       throw new AIServiceError(
         `AI extraction failed: ${error instanceof Error ? error.message : String(error)}`,
         error as Error
@@ -97,8 +150,15 @@ export async function extractReceiptData(
   // Check for discrepancies
   const discrepancyCheck = checkDiscrepancy(aiOutput);
 
+  if (discrepancyCheck.flag) {
+    logger.warn("Discrepancy detected in extracted data", {
+      ...logContext,
+      discrepancyMessage: discrepancyCheck.message,
+    });
+  }
+
   // Format and return final result
-  return {
+  const result = {
     storeName: aiOutput.storeName.trim(),
     date: aiOutput.date,
     items: aiOutput.items.map((item) => ({
@@ -120,5 +180,21 @@ export async function extractReceiptData(
         : undefined,
     discrepancyFlag: discrepancyCheck.flag,
     discrepancyMessage: discrepancyCheck.message,
+    aiMetadata: aiResponse ? {
+      provider: aiResponse.providerName || aiProvider.name,
+      modelName: aiResponse.modelUsed || providerConfig.modelName,
+      tokensUsed: aiResponse.tokensUsed,
+      processingTimeMs: aiResponse.processingTimeMs,
+    } : undefined,
   };
+
+  const totalProcessingTime = Date.now() - startTime;
+  logger.info("Receipt data extraction completed successfully", {
+    ...logContext,
+    totalProcessingTimeMs: totalProcessingTime,
+    itemsExtracted: result.items.length,
+    hasDiscrepancy: result.discrepancyFlag,
+  });
+
+  return result;
 }

@@ -1,5 +1,6 @@
+import { ProviderType } from "@/ai/ai-service-factory";
 import { ConfigurationError } from "@/ai/errors";
-import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory, type SafetySetting } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Splitwise OAuth Configuration (server-side only)
 export const SPLITWISE_CONFIG = {
@@ -24,20 +25,26 @@ export const AI_CONFIG = {
   MAX_IMAGE_SIZE_MB: 10,
   MAX_PAYLOAD_SIZE_KB: 3072, // 3MB for Vercel limits
   MAX_RETRIES: 3,
-  MODEL_NAME: "gemini-2.5-flash",
   RETRY_DELAY_MS: 1000,
-  GENERATION_CONFIG: {
-    temperature: 0.1,
-    topP: 0.8,
-    topK: 40,
-    maxOutputTokens: 8192,
+  
+  // Provider configuration
+  PROVIDER: (process.env.AI_PROVIDER || "google-gemini") as ProviderType,
+  
+  // Provider-specific configs
+  GOOGLE_GEMINI: {
+    MODEL_NAME: process.env.GOOGLE_MODEL_NAME || "gemini-2.5-flash",
+    API_KEY: process.env.GOOGLE_API_KEY!,
+    TEMPERATURE: 0.1,
+    MAX_TOKENS: 8192,
   },
-  SAFETY_SETTINGS: [
-    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-  ] as SafetySetting[]
+  
+  OPENROUTER: {
+    MODEL_NAME: process.env.OPENROUTER_MODEL_NAME || "anthropic/claude-3.5-sonnet",
+    API_KEY: process.env.OPENROUTER_API_KEY!,
+    BASE_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    TEMPERATURE: 0.1,
+    MAX_TOKENS: 8192,
+  },
 } as const;
 
 export function createGoogleAIClient(): GoogleGenerativeAI {

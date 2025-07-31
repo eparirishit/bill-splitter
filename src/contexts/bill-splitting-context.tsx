@@ -27,6 +27,15 @@ interface BillSplittingState {
   // Manual expense flow state
   manualExpenseData: ManualExpenseData | null;
   customAmounts: Record<string, number> | undefined;
+  splitType: 'equal' | 'custom';
+  
+  // Manual expense form data (for persistence)
+  manualExpenseForm: {
+    title: string;
+    amount: string;
+    notes: string;
+    date: string;
+  };
   
   // Shared state
   selectedGroupId: string | null;
@@ -57,6 +66,14 @@ interface BillSplittingContextType extends BillSplittingState {
   // Manual expense actions
   setManualExpenseData: (data: ManualExpenseData | null) => void;
   setCustomAmounts: (amounts: Record<string, number> | undefined) => void;
+  setSplitType: (type: 'equal' | 'custom') => void;
+  
+  // Manual expense form actions
+  setManualExpenseFormTitle: (title: string) => void;
+  setManualExpenseFormAmount: (amount: string) => void;
+  setManualExpenseFormNotes: (notes: string) => void;
+  setManualExpenseFormDate: (date: string) => void;
+  clearManualExpenseForm: () => void;
   
   // Shared actions
   setSelectedGroupId: (groupId: string | null) => void;
@@ -93,6 +110,13 @@ const initialState: BillSplittingState = {
   payerId: undefined,
   manualExpenseData: null,
   customAmounts: undefined,
+  splitType: 'equal', // Added splitType to initial state
+  manualExpenseForm: {
+    title: '',
+    amount: '',
+    notes: '',
+    date: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD format in local timezone
+  },
   selectedGroupId: null,
   selectedMembers: []
 };
@@ -147,7 +171,23 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Flow actions
   const setExpenseType = useCallback((type: 'scan' | 'manual' | null) => {
-    setState(prev => ({ ...prev, expenseType: type }));
+    setState(prev => ({ 
+      ...prev, 
+      expenseType: type,
+      // Clear form data when starting a new manual expense
+      ...(type === 'manual' && {
+        manualExpenseForm: {
+          title: '',
+          amount: '',
+          notes: '',
+          date: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD format in local timezone
+        },
+        manualExpenseData: null,
+        customAmounts: undefined,
+        splitType: 'equal',
+        payerId: undefined
+      })
+    }));
   }, []);
 
   const setCurrentStep = useCallback((step: number) => {
@@ -213,6 +253,51 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
     setState(prev => ({ ...prev, customAmounts: amounts }));
   }, []);
 
+  const setSplitType = useCallback((type: 'equal' | 'custom') => {
+    setState(prev => ({ ...prev, splitType: type }));
+  }, []);
+
+  // Manual expense form actions
+  const setManualExpenseFormTitle = useCallback((title: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      manualExpenseForm: { ...prev.manualExpenseForm, title } 
+    }));
+  }, []);
+
+  const setManualExpenseFormAmount = useCallback((amount: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      manualExpenseForm: { ...prev.manualExpenseForm, amount } 
+    }));
+  }, []);
+
+  const setManualExpenseFormNotes = useCallback((notes: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      manualExpenseForm: { ...prev.manualExpenseForm, notes } 
+    }));
+  }, []);
+
+  const setManualExpenseFormDate = useCallback((date: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      manualExpenseForm: { ...prev.manualExpenseForm, date } 
+    }));
+  }, []);
+
+  const clearManualExpenseForm = useCallback(() => {
+    setState(prev => ({ 
+      ...prev, 
+      manualExpenseForm: {
+        title: '',
+        amount: '',
+        notes: '',
+        date: new Date().toISOString().split('T')[0]
+      }
+    }));
+  }, []);
+
   // Shared actions
   const setSelectedGroupId = useCallback((groupId: string | null) => {
     setState(prev => ({ ...prev, selectedGroupId: groupId }));
@@ -240,12 +325,44 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const goToPreviousStep = useCallback(() => {
-    setState(prev => ({ ...prev, currentStep: Math.max(0, prev.currentStep - 1) }));
+    setState(prev => {
+      let newStep = prev.currentStep - 1;
+      
+      // Handle manual flow navigation
+      if (prev.expenseType === 'manual') {
+        if (prev.currentStep === 5) {
+          // From expense details (step 5) go to group selection (step 1)
+          newStep = 1;
+        } else if (prev.currentStep === 6) {
+          // From expense split (step 6) go to expense details (step 5)
+          newStep = 5;
+        } else if (prev.currentStep === 7) {
+          // From expense review (step 7) go to expense split (step 6)
+          newStep = 6;
+        }
+      }
+      // Handle scan flow navigation
+      else if (prev.expenseType === 'scan') {
+        if (prev.currentStep === 2) {
+          // From group selection (step 2) go to upload (step 1)
+          newStep = 1;
+        } else if (prev.currentStep === 3) {
+          // From item splitting (step 3) go to group selection (step 2)
+          newStep = 2;
+        } else if (prev.currentStep === 4) {
+          // From review (step 4) go to item splitting (step 3)
+          newStep = 3;
+        }
+      }
+      
+      return { ...prev, currentStep: Math.max(0, newStep) };
+    });
   }, []);
 
   const handleEditStep = useCallback((step: number) => {
     setState(prev => {
-      if (step >= 0 && step < prev.currentStep && !prev.isComplete) {
+      // Allow going to any valid step (0-7) when not complete
+      if (step >= 0 && step <= 7 && !prev.isComplete) {
         return { ...prev, currentStep: step };
       }
       return prev;
@@ -275,6 +392,12 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
     setPayerId,
     setManualExpenseData,
     setCustomAmounts,
+    setSplitType,
+    setManualExpenseFormTitle,
+    setManualExpenseFormAmount,
+    setManualExpenseFormNotes,
+    setManualExpenseFormDate,
+    clearManualExpenseForm,
     setSelectedGroupId,
     setSelectedMembers,
     reset,

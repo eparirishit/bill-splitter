@@ -67,14 +67,22 @@ export function ReviewStep({
   // Update local state when context state changes
   React.useEffect(() => {
     setLocalPayerId(contextPayerId);
+  }, [contextPayerId]);
+
+  React.useEffect(() => {
     setLocalStoreName(contextStoreName || billData.storeName);
+  }, [contextStoreName, billData.storeName]);
+
+  React.useEffect(() => {
     setLocalDate(contextDate || billData.date);
-    
-    // Only update expense notes from context if user hasn't manually edited them
+  }, [contextDate, billData.date]);
+
+  // Only update expense notes from context if user hasn't manually edited them
+  React.useEffect(() => {
     if (!hasUserEditedNotesRef.current) {
       setLocalExpenseNotes(contextExpenseNotes || "");
     }
-  }, [contextExpenseNotes, contextPayerId, contextStoreName, contextDate, billData.storeName, billData.date]);
+  }, [contextExpenseNotes]);
 
   const memberMap = React.useMemo(() => {
     return selectedMembers.reduce((acc, member) => {

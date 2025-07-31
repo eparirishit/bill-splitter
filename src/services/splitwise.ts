@@ -2,21 +2,29 @@ import type { CreateExpense, SplitwiseGroup, SplitwiseUser } from '@/types';
 
 export class SplitwiseService {
   private static async makeApiRequest(endpoint: string, options: RequestInit = {}) {
-    const response = await fetch(endpoint, {
-      method: 'GET', // Default method
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET', // Default method
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API error: ${response.status} - ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API error for ${endpoint}:`, response.status, errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(`Network error: ${error}`);
     }
-
-    return response.json();
   }
 
   // Fetch all groups

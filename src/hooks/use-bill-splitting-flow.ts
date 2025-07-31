@@ -1,5 +1,5 @@
 import { useBillSplitting } from '@/contexts/bill-splitting-context';
-import type { ExtractReceiptDataOutput, ItemSplit, ManualExpenseData, SplitwiseUser } from '@/types';
+import type { ExtractReceiptDataOutput, ItemSplit, SplitwiseUser } from '@/types';
 import { useCallback } from 'react';
 
 export const useBillSplittingFlow = () => {
@@ -57,7 +57,7 @@ export const useBillSplittingFlow = () => {
       setReceiptId(receiptId);
       console.log('Receipt ID captured:', receiptId);
     }
-    setCurrentStep(2);
+    setCurrentStep(2); // Go to Group Selection step
     setLoading(false);
   }, [setBillData, setReceiptId, setCurrentStep, setLoading]);
 
@@ -70,7 +70,7 @@ export const useBillSplittingFlow = () => {
     setSelectedMembers(membersWithGroup);
     
     if (expenseType === 'scan') {
-      setCurrentStep(3);
+      setCurrentStep(3); // Go to Item Splitting step
     } else if (expenseType === 'manual') {
       setCurrentStep(5);
     }
@@ -89,17 +89,11 @@ export const useBillSplittingFlow = () => {
     if (editedBillData) {
       setUpdatedBillData(editedBillData);
     }
-    setCurrentStep(4);
+    setCurrentStep(4); // Go to Review step
     setLoading(false);
   }, [setItemSplits, setTaxSplit, setOtherChargesSplit, setUpdatedBillData, setCurrentStep, setLoading]);
 
   // Manual expense flow handlers
-  const handleExpenseDetailsSet = useCallback((expenseData: ManualExpenseData) => {
-    setManualExpenseData(expenseData);
-    setCurrentStep(6);
-    setLoading(false);
-  }, [setManualExpenseData, setCurrentStep, setLoading]);
-
   const handleSplitConfigured = useCallback((splitType: 'equal' | 'custom', amounts?: Record<string, number>) => {
     if (manualExpenseData) {
       setManualExpenseData({ ...manualExpenseData, splitType });
@@ -199,7 +193,6 @@ export const useBillSplittingFlow = () => {
     handleDataExtracted,
     handleGroupAndMembersSelected,
     handleSplitsDefined,
-    handleExpenseDetailsSet,
     handleSplitConfigured,
     handleFinalize,
     handleRestart,

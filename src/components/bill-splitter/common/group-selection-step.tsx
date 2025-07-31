@@ -70,34 +70,39 @@ export function GroupSelectionStep({
     setLocalSelectedMembers(contextSelectedMembers ? contextSelectedMembers.map(m => m.id) : []);
   }, [contextSelectedGroupId, contextSelectedMembers]);
 
-  React.useEffect(() => {
-    const fetchGroups = async () => {
-      if (!isAuthenticated) return;
+  const fetchGroups = async () => {
+    if (!isAuthenticated) return;
 
-      onLoadingChange(true);
-      setIsFetchingGroups(true);
-      try {
-        const fetchedGroups = await SplitwiseService.getGroups();
-        console.log("Fetched groups:", fetchedGroups);
-        setGroups(fetchedGroups);
-        if (fetchedGroups.length === 0) {
-             toast({ title: "No Groups Found", description: "No Splitwise groups were found.", variant: "default" });
-        }
-      } catch (error) {
-        console.error("Splitwise fetch groups failed:", error);
-        toast({
-          title: "Fetch Failed",
-          description: "Could not fetch Splitwise groups.",
-          variant: "destructive",
-        });
-      } finally {
-        onLoadingChange(false);
-        setIsFetchingGroups(false);
+    onLoadingChange(true);
+    setIsFetchingGroups(true);
+    try {
+      const fetchedGroups = await SplitwiseService.getGroups();
+      setGroups(fetchedGroups);
+      if (fetchedGroups.length === 0) {
+           toast({ title: "No Groups Found", description: "No Splitwise groups were found.", variant: "default" });
       }
-    };
-    fetchGroups();
-     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
+    } catch (error) {
+      console.error("Splitwise fetch groups failed:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast({
+        title: "Fetch Failed",
+        description: `Could not fetch Splitwise groups: ${errorMessage}`,
+        variant: "destructive",
+      });
+    } finally {
+      onLoadingChange(false);
+      setIsFetchingGroups(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (isAuthenticated && !groups.length && !isFetchingGroups) {
+      fetchGroups();
+    } else if (!isAuthenticated && groups.length === 0) {
+      // Clear groups if user is not authenticated
+      setGroups([]);
+    }
+  }, [isAuthenticated, groups.length, isFetchingGroups, fetchGroups]);
 
   React.useEffect(() => {
     const fetchMembers = async () => {
@@ -182,13 +187,21 @@ export function GroupSelectionStep({
         <div className="flex-grow space-y-4 overflow-y-auto pb-24">
             <div className="px-1">
               <Label htmlFor="splitwise-group" className="text-sm font-medium text-muted-foreground block mb-1.5">Splitwise Group</Label>
-              {isFetchingGroups ? (
-                 <div className="flex items-center justify-center p-2 h-12 border rounded-lg bg-muted/50"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-              ): (
-                 <Select
+              {!isAuthenticated ? (
+                <div className="flex flex-col items-center justify-center p-4 h-12 border rounded-lg bg-muted/50 text-muted-foreground">
+                  <span className="text-sm">Please connect to Splitwise to continue</span>
+                </div>
+              ) : isFetchingGroups ? (
+                <div className="flex items-center justify-center p-2 h-12 border rounded-lg bg-muted/50"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : groups.length === 0 ? (
+                <div className="flex items-center justify-center p-2 h-12 border rounded-lg bg-muted/50 text-muted-foreground">
+                  No groups found. Please check your Splitwise account.
+                </div>
+              ) : (
+                <Select
                   value={localSelectedGroupId ?? ""}
                   onValueChange={(value) => setLocalSelectedGroupId(value || null)}
-                  disabled={isCurrentlyLoading || groups.length === 0}
+                  disabled={isCurrentlyLoading}
                 >
                   <SelectTrigger id="splitwise-group" aria-label="Select Splitwise Group" className="bg-background h-12 text-base">
                     <SelectValue placeholder="Select a group..." />
@@ -203,11 +216,6 @@ export function GroupSelectionStep({
                         {group.name}
                       </SelectItem>
                     ))}
-                    {groups.length === 0 && !isFetchingGroups && (
-                      <SelectItem value="no-groups" disabled>
-                        No groups found
-                      </SelectItem>
-                    )}
                   </SelectContent>
                 </Select>
               )}
@@ -239,7 +247,7 @@ export function GroupSelectionStep({
             )}
         </div>
 
-         <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-background border-t border-border z-10">
+         <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-background border-t border-border z-20">
              <div className="flex gap-3">
                 <Button onClick={onBack} variant="outline" disabled={isCurrentlyLoading} className="w-1/3 hover:bg-primary/10 hover:text-primary">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back

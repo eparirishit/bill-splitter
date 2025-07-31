@@ -2,40 +2,45 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { useBillSplitting } from "@/contexts/bill-splitting-context";
 import { useToast } from "@/hooks/use-toast";
-import type { CreateExpense, ManualExpenseData } from "@/types";
+import type { CreateExpense } from "@/types";
 import { ArrowLeft, Loader2, Send, UserCircle } from "lucide-react";
 import * as React from "react";
 
-interface ManualExpenseReviewStepProps {
-  expenseData: ManualExpenseData;
-  customAmounts?: Record<string, number>;
-  onFinalize: () => void;
-  onBack: () => void;
-  onLoadingChange: (isLoading: boolean) => void;
-  isLoading: boolean;
-}
-
-export function ManualExpenseReviewStep({
-  expenseData,
-  customAmounts,
-  onFinalize,
-  onBack,
-  onLoadingChange,
-  isLoading
-}: ManualExpenseReviewStepProps) {
-  const [payerId, setPayerId] = React.useState<string | undefined>(undefined);
+export function ManualExpenseReviewStep() {
   const { toast } = useToast();
+  const {
+    manualExpenseData,
+    customAmounts,
+    splitType,
+    payerId,
+    setPayerId,
+    isLoading,
+    setLoading,
+    setComplete,
+    goToPreviousStep,
+    selectedGroupId,
+    selectedMembers
+  } = useBillSplitting();
+
+  // Guard: If required state is missing, show a message
+  if (!manualExpenseData || !selectedGroupId || !selectedMembers || selectedMembers.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)]">
+        <p className="text-muted-foreground mb-4">Please complete the expense details and group selection first.</p>
+        <Button onClick={goToPreviousStep} variant="outline">Back</Button>
+      </div>
+    );
+  }
 
   React.useEffect(() => {
-    if (expenseData.members.length > 0 && !payerId) {
-      setPayerId(expenseData.members[0].id);
+    if (manualExpenseData?.members.length > 0 && !payerId) {
+      setPayerId(manualExpenseData.members[0].id);
     }
-  }, [expenseData.members, payerId]);
+  }, [manualExpenseData?.members, payerId, setPayerId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { 
@@ -45,12 +50,12 @@ export function ManualExpenseReviewStep({
   };
 
   const getMemberAmount = (memberId: string, memberIndex: number): number => {
-    if (expenseData.splitType === 'custom' && customAmounts) {
+    if (splitType === 'custom' && customAmounts) {
       return customAmounts[memberId] || 0;
     }
     // Calculate proper equal amounts with cent distribution
-    const totalCents = Math.round(expenseData.amount * 100);
-    const memberCount = expenseData.members.length;
+    const totalCents = Math.round(manualExpenseData!.amount * 100);
+    const memberCount = manualExpenseData!.members.length;
     const baseCents = Math.floor(totalCents / memberCount);
     const remainderCents = totalCents % memberCount;
     const extraCent = memberIndex < remainderCents ? 1 : 0;
@@ -67,22 +72,22 @@ export function ManualExpenseReviewStep({
       return;
     }
 
-    onLoadingChange(true);
+    setLoading(true);
     try {
-      const groupId = parseInt(expenseData.groupId);
+      const groupId = parseInt(manualExpenseData!.groupId);
       const numericPayerId = parseInt(payerId);
 
       // Calculate individual amounts with proper rounding
       let memberAmounts: Record<string, number> = {};
 
-      if (expenseData.splitType === 'equal') {
+      if (splitType === 'equal') {
         // For equal splits, calculate base amount and distribute remaining cents
-        const totalCents = Math.round(expenseData.amount * 100);
-        const memberCount = expenseData.members.length;
+        const totalCents = Math.round(manualExpenseData!.amount * 100);
+        const memberCount = manualExpenseData!.members.length;
         const baseCents = Math.floor(totalCents / memberCount);
         const remainderCents = totalCents % memberCount;
         
-        expenseData.members.forEach((member, index) => {
+        manualExpenseData!.members.forEach((member, index) => {
           // First 'remainderCents' members get an extra cent
           const extraCent = index < remainderCents ? 1 : 0;
           memberAmounts[member.id] = (baseCents + extraCent) / 100;
@@ -90,10 +95,10 @@ export function ManualExpenseReviewStep({
       } else if (customAmounts) {
         // For custom splits, adjust the last member to match exact total
         let totalOwedSoFar = 0;
-        expenseData.members.forEach((member, index) => {
-          if (index === expenseData.members.length - 1) {
+        manualExpenseData!.members.forEach((member, index) => {
+          if (index === manualExpenseData!.members.length - 1) {
             // Last member gets the remainder to ensure exact total
-            memberAmounts[member.id] = expenseData.amount - totalOwedSoFar;
+            memberAmounts[member.id] = manualExpenseData!.amount - totalOwedSoFar;
           } else {
             memberAmounts[member.id] = Math.round((customAmounts[member.id] || 0) * 100) / 100;
             totalOwedSoFar += memberAmounts[member.id];
@@ -101,102 +106,89 @@ export function ManualExpenseReviewStep({
         });
       }
 
-      // Final validation to ensure exact match
-      const finalTotal = Object.values(memberAmounts).reduce((sum, amount) => sum + amount, 0);
-      if (Math.abs(finalTotal - expenseData.amount) > 0.005) {
-        throw new Error(`Split calculation error: Total ${finalTotal.toFixed(2)} doesn't match expense ${expenseData.amount.toFixed(2)}`);
-      }
-
+      // Create the expense payload
       const expensePayload: CreateExpense = {
-        cost: expenseData.amount.toFixed(2),
-        description: expenseData.title,
         group_id: groupId,
-        date: expenseData.date,
-        currency_code: 'USD',
-        category_id: 18,
-        split_equally: expenseData.splitType === 'equal',
-        details: expenseData.notes || undefined,
+        description: manualExpenseData!.title,
+        cost: manualExpenseData!.amount.toString(),
+        date: manualExpenseData!.date
       };
 
-      expenseData.members.forEach((member, index) => {
-        const memberAmount = memberAmounts[member.id];
-        const paidShare = parseInt(member.id) === numericPayerId ? expenseData.amount.toFixed(2) : '0.00';
-        const owedShare = memberAmount.toFixed(2);
-        
-        expensePayload[`users__${index}__user_id`] = parseInt(member.id);
-        expensePayload[`users__${index}__paid_share`] = paidShare;
-        expensePayload[`users__${index}__owed_share`] = owedShare;
-      });
-
-      console.log("Manual Expense Payload:", JSON.stringify(expensePayload, null, 2));
-      
       // Dummy API call for now - simulate Splitwise API call
       console.log('Making dummy API call to Splitwise...');
       await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate 2-second API call
-      
+
       // Simulate successful response
       const result = {
         success: true,
         expense_id: Math.floor(Math.random() * 1000000),
         message: 'Expense created successfully'
       };
-      
+
       console.log('Dummy API response:', result);
 
       toast({
-        title: "Expense Created Successfully",
-        description: `Expense "${expenseData.title}" has been added to Splitwise.`,
-        variant: "default",
+        title: "Success!",
+        description: "Expense has been added to Splitwise.",
       });
-      onFinalize();
 
-    } catch (error: any) {
-      console.error("Error finalizing expense:", error);
+      setComplete(true);
+    } catch (error) {
+      console.error('Failed to create expense:', error);
       toast({
-        title: "Finalization Failed",
-        description: error.message || "Could not save expense. Try again.",
+        title: "Error",
+        description: "Failed to create expense. Please try again.",
         variant: "destructive",
       });
     } finally {
-      onLoadingChange(false);
+      setLoading(false);
     }
   };
 
-  const isFinalizeDisabled = isLoading || !payerId;
+  if (!manualExpenseData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)]">
+        <p className="text-muted-foreground">No expense data found. Please go back and enter expense details.</p>
+        <Button onClick={goToPreviousStep} className="mt-4">
+          Go Back
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-full space-y-6 animate-fade-in pt-2">
       <div className="px-1">
-        <h2 className="text-2xl font-semibold mb-1">Review & Finalize</h2>
-        <p className="text-muted-foreground text-sm">Confirm the details before adding to Splitwise.</p>
+        <h2 className="text-2xl font-semibold mb-1">Review & Submit</h2>
+        <p className="text-muted-foreground text-sm">Review your expense details before submitting to Splitwise.</p>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto pb-20">
+      <div className="flex-1 space-y-4 pb-20">
         <Card className="card-modern">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">Expense Summary</CardTitle>
+            <CardTitle className="text-base font-medium">Expense Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Title:</span>
-              <span className="font-medium">{expenseData.title}</span>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Title:</span>
+              <span className="font-medium">{manualExpenseData.title}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Amount:</span>
-              <span className="font-semibold text-primary">{formatCurrency(expenseData.amount)}</span>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Date:</span>
+              <span className="font-medium">
+                {new Date(manualExpenseData.date + 'T00:00:00').toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Date:</span>
-              <span className="font-medium">{expenseData.date}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Split Type:</span>
-              <span className="font-medium capitalize">{expenseData.splitType}</span>
-            </div>
-            {expenseData.notes && (
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground">Notes:</span>
-                <span className="text-sm">{expenseData.notes}</span>
+            {manualExpenseData.notes && (
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Notes:</span>
+                <span className="font-medium text-right max-w-[60%]">
+                  {manualExpenseData.notes}
+                </span>
               </div>
             )}
           </CardContent>
@@ -204,84 +196,91 @@ export function ManualExpenseReviewStep({
 
         <Card className="card-modern">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">Payment Details</CardTitle>
-            <CardDescription className="text-xs">Who paid for this expense?</CardDescription>
+            <CardTitle className="text-base font-medium">Split Details</CardTitle>
+            <CardDescription>
+              {splitType === 'equal' ? 'Equal split' : 'Custom split'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="payer-select">Paid by</Label>
-              <Select
-                value={payerId}
-                onValueChange={(value) => setPayerId(value)}
-                disabled={isLoading || expenseData.members.length === 0}
-              >
-                <SelectTrigger id="payer-select" className="w-full">
-                  <SelectValue placeholder="Select who paid" />
-                </SelectTrigger>
-                <SelectContent>
-                  {expenseData.members.map((member) => (
-                    <SelectItem key={member.id} value={member.id} className="dropdownItem">
-                      {member.first_name} {member.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ScrollArea className="max-h-60">
+              <div className="space-y-2">
+                {manualExpenseData.members.map((member, index) => (
+                  <div key={member.id} className="flex justify-between items-center p-3 rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-sm font-medium text-primary">
+                          {member.first_name.charAt(0)}{member.last_name.charAt(0)}
+                        </span>
+                      </div>
+                      <span className="font-medium">
+                        {member.first_name} {member.last_name}
+                      </span>
+                    </div>
+                    <span className="font-semibold text-primary">
+                      {formatCurrency(getMemberAmount(member.id, index))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
           </CardContent>
         </Card>
 
         <Card className="card-modern">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">Split Breakdown</CardTitle>
+            <CardTitle className="text-base font-medium">Who Paid?</CardTitle>
+            <CardDescription>
+              Select who paid for this expense
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="max-h-60">
-              <div className="space-y-2 pr-2">
-                {expenseData.members.map((member, index) => {
-                  const memberAmount = getMemberAmount(member.id, index);
-                  return (
-                    <div key={member.id} className="flex justify-between items-center p-2 rounded-lg bg-muted/30">
-                      <div className="flex items-center gap-2">
-                        <UserCircle className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">
-                          {member.first_name} {member.last_name}
-                        </span>
-                      </div>
-                      <span className="text-sm font-semibold text-primary">
-                        {formatCurrency(memberAmount)}
-                      </span>
+            <Select value={payerId} onValueChange={setPayerId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select who paid" />
+              </SelectTrigger>
+              <SelectContent>
+                {manualExpenseData.members.map((member) => (
+                  <SelectItem 
+                    key={member.id} 
+                    value={member.id}
+                    className="text-base focus:bg-primary/10 focus:text-primary data-[highlighted]:bg-primary/10 data-[highlighted]:text-primary data-[state=checked]:bg-primary/10 data-[state=checked]:text-primary"
+                  >
+                    <div className="flex items-center gap-2">
+                      <UserCircle className="h-4 w-4" />
+                      {member.first_name} {member.last_name}
                     </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-            <Separator className="my-3" />
-            <div className="flex justify-between items-center font-semibold">
-              <span>Total:</span>
-              <span className="text-primary">{formatCurrency(expenseData.amount)}</span>
-            </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </CardContent>
         </Card>
       </div>
 
       <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-4 mt-auto">
         <div className="flex gap-3 max-w-md mx-auto">
-          <Button onClick={onBack} variant="outline" disabled={isLoading} className="w-1/3 hover:bg-primary/10 hover:text-primary">
+          <Button 
+            onClick={goToPreviousStep} 
+            variant="outline" 
+            className="w-1/3 hover:bg-primary/10 hover:text-primary"
+            disabled={isLoading}
+          >
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
-          <Button
-            onClick={handleFinalizeExpense}
-            disabled={isFinalizeDisabled}
+          <Button 
+            onClick={handleFinalizeExpense} 
             className="w-2/3 hover:bg-primary/10 hover:text-primary"
-            size="lg"
+            disabled={isLoading || !payerId}
           >
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Adding...
               </>
             ) : (
               <>
-                <Send className="mr-2 h-4 w-4" /> Add to Splitwise
+                <Send className="mr-2 h-4 w-4" />
+                Add to Splitwise
               </>
             )}
           </Button>

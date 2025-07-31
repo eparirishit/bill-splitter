@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { APP_CONFIG, SPLITWISE_CONFIG } from '@/lib/config';
 import { cookies } from 'next/headers';
-import { SPLITWISE_CONFIG, APP_CONFIG } from '@/lib/config';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
@@ -17,16 +17,17 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const result = await response.json();
-
     if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Splitwise API error:', response.status, errorData);
       return NextResponse.json(
-        { error: result.error || 'Failed to fetch groups' },
+        { error: errorData.error || 'Failed to fetch groups from Splitwise' },
         { status: response.status }
       );
     }
 
-    return NextResponse.json(result);
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching groups:', error);
     return NextResponse.json(

@@ -47,7 +47,6 @@ function BillSplitterFlow() {
     handleDataExtracted,
     handleGroupAndMembersSelected,
     handleSplitsDefined,
-    handleExpenseDetailsSet,
     handleSplitConfigured,
     handleFinalize,
     handleRestart,
@@ -90,33 +89,36 @@ function BillSplitterFlow() {
             />
           );
         } else if (expenseType === 'manual') {
-                  return (
-          <GroupSelectionStep 
-            selectedGroupId={selectedGroupId}
-            selectedMembers={selectedMembers}
-            onGroupAndMembersSelected={handleGroupAndMembersSelected} 
-            onLoadingChange={handleLoadingChange} 
-            isLoading={isLoading} 
-            onBack={() => handleEditStep(0)} 
-          />
-        );
+          return (
+            <GroupSelectionStep 
+              selectedGroupId={selectedGroupId}
+              selectedMembers={selectedMembers}
+              onGroupAndMembersSelected={handleGroupAndMembersSelected} 
+              onLoadingChange={handleLoadingChange} 
+              isLoading={isLoading} 
+              onBack={() => handleEditStep(0)} 
+            />
+          );
+        }
+        break;
+      
+      case 2:
+        if (expenseType === 'scan') {
+          return (
+            <GroupSelectionStep 
+              selectedGroupId={selectedGroupId}
+              selectedMembers={selectedMembers}
+              onGroupAndMembersSelected={handleGroupAndMembersSelected} 
+              onLoadingChange={handleLoadingChange} 
+              isLoading={isLoading} 
+              onBack={() => handleEditStep(1)} 
+            />
+          );
         }
         break;
         
-      case 2:
-        return expenseType === 'scan' && billData && (
-          <GroupSelectionStep 
-            selectedGroupId={selectedGroupId}
-            selectedMembers={selectedMembers}
-            onGroupAndMembersSelected={handleGroupAndMembersSelected} 
-            onLoadingChange={handleLoadingChange} 
-            isLoading={isLoading} 
-            onBack={() => handleEditStep(1)} 
-          />
-        );
-        
       case 3:
-        return expenseType === 'scan' && billData && selectedMembers.length > 0 && (
+        return expenseType === 'scan' && billData && (
           <ItemSplittingStep
             billData={billData}
             selectedMembers={selectedMembers}
@@ -124,15 +126,15 @@ function BillSplitterFlow() {
             taxSplit={taxSplit}
             otherChargesSplit={otherChargesSplit}
             onSplitsDefined={handleSplitsDefined}
+            onBack={() => handleEditStep(2)}
             onLoadingChange={handleLoadingChange}
             isLoading={isLoading}
-            onBack={() => handleEditStep(2)}
             userId={userId}
           />
         );
         
       case 4:
-        return expenseType === 'scan' && billData && selectedMembers.length > 0 && itemSplits.length > 0 && (
+        return expenseType === 'scan' && billData && (
           <ReviewStep
             billData={billData}
             updatedBillData={updatedBillData}
@@ -153,38 +155,27 @@ function BillSplitterFlow() {
         );
         
       case 5:
-        return expenseType === 'manual' && selectedMembers.length > 0 && selectedGroupId && (
-          <ManualExpenseDetailsStep
-            selectedMembers={selectedMembers}
-            onExpenseDetailsSet={handleExpenseDetailsSet}
-            onBack={() => handleEditStep(1)}
-            groupId={selectedGroupId}
-          />
-        );
+        return expenseType === 'manual' && <ManualExpenseDetailsStep />;
         
       case 6:
-        return expenseType === 'manual' && manualExpenseData && (
-          <ManualExpenseSplitStep
-            expenseData={manualExpenseData}
-            onSplitConfigured={handleSplitConfigured}
-            onBack={() => handleEditStep(5)}
-          />
-        );
+        return expenseType === 'manual' && <ManualExpenseSplitStep />;
         
       case 7:
-        return expenseType === 'manual' && manualExpenseData && (
-          <ManualExpenseReviewStep
-            expenseData={manualExpenseData}
-            customAmounts={customAmounts}
-            onFinalize={handleFinalize}
-            onBack={() => handleEditStep(6)}
-            onLoadingChange={handleLoadingChange}
-            isLoading={isLoading}
-          />
-        );
+        return expenseType === 'manual' && <ManualExpenseReviewStep />;
       
       default:
-        return <p>Something went wrong. Please refresh.</p>;
+        // If we reach here, something went wrong with step navigation
+        // Try to recover by going back to step 0
+        console.warn(`Invalid step ${currentStep}, resetting to step 0`);
+        setTimeout(() => {
+          handleEditStep(0);
+        }, 100);
+        return (
+          <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)]">
+            <p className="text-muted-foreground mb-4">Redirecting...</p>
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        );
     }
   };
 

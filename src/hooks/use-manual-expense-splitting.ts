@@ -26,7 +26,38 @@ export function useManualExpenseSplitting(
   }, [expenseData.amount, expenseData.members]);
 
   const handleCustomAmountChange = (memberId: string, value: string) => {
-    const numValue = parseFloat(value) || 0;
+    // Allow empty string for better UX
+    if (value === '') {
+      setCustomAmounts(prev => ({ ...prev, [memberId]: 0 }));
+      return;
+    }
+    
+    // Remove any non-numeric characters except decimal point
+    const cleanValue = value.replace(/[^0-9.]/g, '');
+    
+    // Ensure only one decimal point
+    const parts = cleanValue.split('.');
+    if (parts.length > 2) {
+      return; // Invalid input, don't update
+    }
+    
+    // Allow up to 2 decimal places
+    if (parts.length === 2 && parts[1].length > 2) {
+      return; // Too many decimal places, don't update
+    }
+    
+    // Parse the cleaned value - allow partial decimal input
+    const numValue = parseFloat(cleanValue);
+    
+    // Update the state - allow NaN for partial input like "0." or "."
+    if (isNaN(numValue)) {
+      // If it's just a decimal point or partial decimal, store as 0
+      if (cleanValue === '.' || cleanValue === '0.') {
+        setCustomAmounts(prev => ({ ...prev, [memberId]: 0 }));
+      }
+      return;
+    }
+    
     setCustomAmounts(prev => ({ ...prev, [memberId]: numValue }));
   };
 

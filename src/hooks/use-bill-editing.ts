@@ -6,16 +6,26 @@ import { useCallback, useState } from 'react';
 interface UseBillEditingReturn {
   editedBillData: ExtractReceiptDataOutput;
   editingPrices: Record<number, string>;
+  editingNames: Record<number, string>;
   editingTax: string | null;
   editingOtherCharges: string | null;
+  editingDiscount: string | null;
+  editingTotalCost: string | null;
   hasManualEdits: boolean;
   handleItemPriceChange: (itemIndex: number, newPrice: string) => void;
   handlePriceInputChange: (itemIndex: number, value: string) => void;
   handlePriceInputBlur: (itemIndex: number, value: string) => void;
+  handleItemNameChange: (itemIndex: number, newName: string) => void;
+  handleNameInputChange: (itemIndex: number, value: string) => void;
+  handleNameInputBlur: (itemIndex: number, value: string) => void;
   handleTaxInputChange: (value: string) => void;
   handleTaxInputBlur: (value: string) => void;
   handleOtherChargesInputChange: (value: string) => void;
   handleOtherChargesInputBlur: (value: string) => void;
+  handleDiscountInputChange: (value: string) => void;
+  handleDiscountInputBlur: (value: string) => void;
+  handleTotalCostInputChange: (value: string) => void;
+  handleTotalCostInputBlur: (value: string) => void;
   handleKeyPress: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   resetEdits: () => void;
 }
@@ -25,8 +35,11 @@ export function useBillEditing(
 ): UseBillEditingReturn {
   const [editedBillData, setEditedBillData] = useState<ExtractReceiptDataOutput>(originalBillData);
   const [editingPrices, setEditingPrices] = useState<Record<number, string>>({});
+  const [editingNames, setEditingNames] = useState<Record<number, string>>({});
   const [editingTax, setEditingTax] = useState<string | null>(null);
   const [editingOtherCharges, setEditingOtherCharges] = useState<string | null>(null);
+  const [editingDiscount, setEditingDiscount] = useState<string | null>(null);
+  const [editingTotalCost, setEditingTotalCost] = useState<string | null>(null);
   const [hasManualEdits, setHasManualEdits] = useState(false);
 
   const updateDiscrepancy = useCallback((updatedData: Partial<ExtractReceiptDataOutput>): ExtractReceiptDataOutput => {
@@ -101,6 +114,56 @@ export function useBillEditing(
     setHasManualEdits(true);
   }, [updateDiscrepancy]);
 
+  const handleItemNameChange = useCallback((itemIndex: number, newName: string) => {
+    const trimmedName = newName.trim();
+    if (trimmedName.length === 0) return;
+
+    setEditedBillData(prev => {
+      const updatedItems = [...prev.items];
+      updatedItems[itemIndex] = { ...updatedItems[itemIndex], name: trimmedName };
+      
+      return updateDiscrepancy({ ...prev, items: updatedItems });
+    });
+    
+    setHasManualEdits(true);
+  }, [updateDiscrepancy]);
+
+  const handleNameInputChange = useCallback((itemIndex: number, value: string) => {
+    // Allow user to type freely, store the string value
+    setEditingNames(prev => ({ ...prev, [itemIndex]: value }));
+  }, []);
+
+  const handleNameInputBlur = useCallback((itemIndex: number, value: string) => {
+    const trimmedName = value.trim();
+    
+    if (trimmedName.length === 0) {
+      // Reset to original name if invalid
+      setEditingNames(prev => {
+        const newState = { ...prev };
+        delete newState[itemIndex];
+        return newState;
+      });
+      return;
+    }
+
+    // Update the actual bill data
+    setEditedBillData(prev => {
+      const updatedItems = [...prev.items];
+      updatedItems[itemIndex] = { ...updatedItems[itemIndex], name: trimmedName };
+      
+      return updateDiscrepancy({ ...prev, items: updatedItems });
+    });
+    
+    // Clear the editing state
+    setEditingNames(prev => {
+      const newState = { ...prev };
+      delete newState[itemIndex];
+      return newState;
+    });
+    
+    setHasManualEdits(true);
+  }, [updateDiscrepancy]);
+
   const handleTaxInputChange = useCallback((value: string) => {
     setEditingTax(value);
   }, []);
@@ -139,6 +202,44 @@ export function useBillEditing(
     setHasManualEdits(true);
   }, [updateDiscrepancy]);
 
+  const handleTotalCostInputChange = useCallback((value: string) => {
+    setEditingTotalCost(value);
+  }, []);
+
+  const handleTotalCostInputBlur = useCallback((value: string) => {
+    const trimmedValue = value.replace(/[^0-9.]/g, '');
+    const totalCostValue = parseFloat(trimmedValue);
+    
+    if (isNaN(totalCostValue) || totalCostValue < 0) {
+      setEditingTotalCost(null);
+      return;
+    }
+
+    setEditedBillData(prev => updateDiscrepancy({ ...prev, totalCost: totalCostValue }));
+    
+    setEditingTotalCost(null);
+    setHasManualEdits(true);
+  }, [updateDiscrepancy]);
+
+  const handleDiscountInputChange = useCallback((value: string) => {
+    setEditingDiscount(value);
+  }, []);
+
+  const handleDiscountInputBlur = useCallback((value: string) => {
+    const trimmedValue = value.replace(/[^0-9.]/g, '');
+    const discountValue = parseFloat(trimmedValue);
+    
+    if (isNaN(discountValue) || discountValue < 0) {
+      setEditingDiscount(null);
+      return;
+    }
+
+    setEditedBillData(prev => updateDiscrepancy({ ...prev, discount: discountValue }));
+    
+    setEditingDiscount(null);
+    setHasManualEdits(true);
+  }, [updateDiscrepancy]);
+
   const handleKeyPress = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       (event.currentTarget as HTMLInputElement).blur(); // Trigger onBlur
@@ -148,24 +249,37 @@ export function useBillEditing(
   const resetEdits = useCallback(() => {
     setEditedBillData(originalBillData);
     setEditingPrices({});
+    setEditingNames({});
     setEditingTax(null);
     setEditingOtherCharges(null);
+    setEditingDiscount(null);
+    setEditingTotalCost(null);
     setHasManualEdits(false);
   }, [originalBillData]);
 
   return {
     editedBillData,
     editingPrices,
+    editingNames,
     editingTax,
     editingOtherCharges,
+    editingDiscount,
+    editingTotalCost,
     hasManualEdits,
     handleItemPriceChange,
     handlePriceInputChange,
     handlePriceInputBlur,
+    handleItemNameChange,
+    handleNameInputChange,
+    handleNameInputBlur,
     handleTaxInputChange,
     handleTaxInputBlur,
     handleOtherChargesInputChange,
     handleOtherChargesInputBlur,
+    handleDiscountInputChange,
+    handleDiscountInputBlur,
+    handleTotalCostInputChange,
+    handleTotalCostInputBlur,
     handleKeyPress,
     resetEdits
   };

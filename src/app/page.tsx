@@ -120,7 +120,7 @@ function BillSplitterFlow() {
       case 3:
         return expenseType === 'scan' && billData && (
           <ItemSplittingStep
-            billData={billData}
+            billData={updatedBillData || billData}
             selectedMembers={selectedMembers}
             itemSplits={itemSplits}
             taxSplit={taxSplit}

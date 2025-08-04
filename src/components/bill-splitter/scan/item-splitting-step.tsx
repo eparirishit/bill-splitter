@@ -122,16 +122,26 @@ export function ItemSplittingStep({
   const {
     editedBillData,
     editingPrices,
+    editingNames,
     editingTax,
     editingOtherCharges,
+    editingDiscount,
+    editingTotalCost,
     hasManualEdits,
     handleItemPriceChange,
     handlePriceInputChange,
     handlePriceInputBlur,
+    handleItemNameChange,
+    handleNameInputChange,
+    handleNameInputBlur,
     handleTaxInputChange,
     handleTaxInputBlur,
     handleOtherChargesInputChange,
     handleOtherChargesInputBlur,
+    handleDiscountInputChange,
+    handleDiscountInputBlur,
+    handleTotalCostInputChange,
+    handleTotalCostInputBlur,
     handleKeyPress
   } = useBillEditing(billData);
 
@@ -278,14 +288,16 @@ export function ItemSplittingStep({
         // Check item corrections
         editedBillData.items.forEach((item, index) => {
           const originalItem = billData.items[index];
-          if (originalItem && (item.name !== originalItem.name || item.price !== originalItem.price)) {
-            correctionCount++;
+          if (originalItem) {
+            if (item.name !== originalItem.name) correctionCount++;
+            if (item.price !== originalItem.price) correctionCount++;
           }
         });
         
         // Check other corrections
         if (editedBillData.taxes !== billData.taxes) correctionCount++;
         if (editedBillData.otherCharges !== billData.otherCharges) correctionCount++;
+        if (editedBillData.discount !== billData.discount) correctionCount++;
         if (editedBillData.totalCost !== billData.totalCost) correctionCount++;
         
         if (correctionCount > 0) {
@@ -304,6 +316,19 @@ export function ItemSplittingStep({
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
+  // Calculate the total based on current item prices, tax, other charges, and discount
+  const calculateTotalFromComponents = () => {
+    return editedBillData.items.reduce((sum, item) => sum + item.price, 0) +
+           (editedBillData.taxes ?? 0) +
+           (editedBillData.otherCharges ?? 0) -
+           (editedBillData.discount ?? 0);
+  };
+
+  // Calculate items subtotal
+  const calculateItemsSubtotal = () => {
+    return editedBillData.items.reduce((sum, item) => sum + item.price, 0);
+  };
+
   return (
     <div className="flex flex-col h-full space-y-6 animate-fade-in pt-2">
         <div className="px-1">
@@ -316,7 +341,7 @@ export function ItemSplittingStep({
           <Bot className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">AI-Extracted Data</p>
-            <p className="text-xs mt-1">This information was extracted using AI and may contain errors. Please review and edit prices if needed.</p>
+            <p className="text-xs mt-1">This information was extracted using AI and may contain errors. Please review and edit details if needed.</p>
           </div>
         </div>
 
@@ -334,20 +359,51 @@ export function ItemSplittingStep({
                 const itemId = `item-${index}`;
                 const currentSplit = localItemSplits.find(s => s.itemId === itemId);
                 const isEditingPrice = editingPrices[index] !== undefined;
+                const isEditingName = editingNames[index] !== undefined;
                 const displayPrice = isEditingPrice ? editingPrices[index] : item.price.toFixed(2);
+                const displayName = isEditingName ? editingNames[index] : item.name;
                 
                 return (
                   <AccordionItem value={itemId} key={itemId} className="border rounded-lg overflow-hidden bg-card shadow-sm">
                     <AccordionTrigger className="text-sm px-4 py-3 hover:bg-muted/50 transition-colors [&[data-state=open]]:bg-muted/50">
                         <div className="flex justify-between w-full items-start gap-3">
-                            <span className="font-medium text-foreground flex-1 text-left leading-tight">{item.name}</span>
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="flex-1 text-left leading-tight">
+                              {isEditingName ? (
+                                <input
+                                  type="text"
+                                  value={displayName}
+                                  onChange={(e) => handleNameInputChange(index, e.target.value)}
+                                  onBlur={(e) => handleNameInputBlur(index, e.target.value)}
+                                  onKeyDown={handleKeyPress}
+                                  onFocus={(e) => {
+                                    e.stopPropagation();
+                                    e.target.select();
+                                  }}
+                                  className="w-full text-sm font-medium text-blue-700 bg-transparent border-0 outline-none"
+                                  placeholder="Item name"
+                                  autoFocus
+                                />
+                              ) : (
+                                <span 
+                                  className="font-medium text-foreground cursor-pointer hover:text-blue-600 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!isEditingName) {
+                                      handleNameInputChange(index, item.name);
+                                    }
+                                  }}
+                                >
+                                  {item.name}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
                               <span 
                                 className={cn(
-                                  "text-sm font-semibold px-2 py-1 rounded cursor-pointer transition-colors",
+                                  "text-sm font-semibold cursor-pointer transition-colors",
                                   isEditingPrice 
-                                    ? "bg-blue-50 text-blue-700 border border-blue-200" 
-                                    : "text-gray-700 hover:bg-gray-100"
+                                    ? "text-blue-700" 
+                                    : "text-gray-700 hover:text-blue-600"
                                 )}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -376,7 +432,9 @@ export function ItemSplittingStep({
                                   `$${item.price.toFixed(2)}`
                                 )}
                               </span>
-                              <Edit3 className="h-3 w-3 text-gray-400" />
+                              {!isEditingName && !isEditingPrice && (
+                                <Edit3 className="h-3 w-3 text-gray-400" />
+                              )}
                             </div>
                         </div>
                     </AccordionTrigger>
@@ -433,7 +491,7 @@ export function ItemSplittingStep({
             </Accordion>
              {(typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) && (
                 <Card className="card-modern">
-                    <CardHeader className="flex-row items-center justify-between pb-2">
+                    <CardHeader className="flex-row items-center justify-between">
                         <CardTitle className="text-base font-medium">Tax</CardTitle>
                         <div className="flex items-center gap-1">
                           <span 
@@ -469,7 +527,7 @@ export function ItemSplittingStep({
                           <Edit3 className="h-3 w-3 text-gray-400" />
                         </div>
                     </CardHeader>
-                    <CardContent className="pt-0">
+                    {/* <CardContent className="pt-0">
                          <p className="text-xs text-muted-foreground mb-3">Select members to split tax equally.</p>
                          <MemberSelectionList
                              members={selectedMembers}
@@ -482,13 +540,13 @@ export function ItemSplittingStep({
                          {taxSplitMembers.length === 0 && (
                              <p className="text-xs text-destructive pt-2">Select at least one member.</p>
                          )}
-                    </CardContent>
+                    </CardContent> */}
                 </Card>
              )}
             
              {(typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) && (
                  <Card className="card-modern">
-                    <CardHeader className="flex-row items-center justify-between pb-2">
+                    <CardHeader className="flex-row items-center justify-between">
                         <CardTitle className="text-base font-medium">Other Charges</CardTitle>
                         <div className="flex items-center gap-1">
                           <span 
@@ -524,7 +582,7 @@ export function ItemSplittingStep({
                           <Edit3 className="h-3 w-3 text-gray-400" />
                         </div>
                     </CardHeader>
-                    <CardContent className="pt-0">
+                    {/* <CardContent className="pt-0">
                          <p className="text-xs text-muted-foreground mb-3">Select members to split charges equally.</p>
                           <MemberSelectionList
                              members={selectedMembers}
@@ -537,23 +595,157 @@ export function ItemSplittingStep({
                             {otherChargesSplitMembers.length === 0 && (
                                 <p className="text-xs text-destructive pt-2">Select at least one member.</p>
                              )}
-                    </CardContent>
+                    </CardContent> */}
                  </Card>
              )}
 
             {(typeof editedBillData.discount === 'number' && editedBillData.discount > 0) && (
                 <Card className="card-modern">
-                    <CardHeader className="flex-row items-center justify-between pb-2">
+                    <CardHeader className="flex-row items-center justify-between">
                         <CardTitle className="text-base font-medium">Discount</CardTitle>
-                        <span className="font-semibold text-green-600">-{formatCurrency(editedBillData.discount)}</span>
+                        <div className="flex items-center gap-1">
+                          <span 
+                            className={cn(
+                              "text-sm font-semibold px-2 py-1 rounded cursor-pointer transition-colors",
+                              editingDiscount !== null
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : "text-green-600 hover:bg-gray-100"
+                            )}
+                            onClick={() => {
+                              if (editingDiscount === null) {
+                                handleDiscountInputChange(editedBillData.discount?.toFixed(2) || '0.00');
+                              }
+                            }}
+                          >
+                            {editingDiscount !== null ? (
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editingDiscount}
+                                onChange={(e) => handleDiscountInputChange(e.target.value)}
+                                onBlur={(e) => handleDiscountInputBlur(e.target.value)}
+                                onKeyDown={handleKeyPress}
+                                onFocus={(e) => e.target.select()}
+                                className="w-16 text-sm font-semibold text-blue-700 bg-transparent border-0 outline-none text-center"
+                                placeholder="0.00"
+                                autoFocus
+                              />
+                            ) : (
+                              `-$${(editedBillData.discount ?? 0).toFixed(2)}`
+                            )}
+                          </span>
+                          <Edit3 className="h-3 w-3 text-gray-400" />
+                        </div>
                     </CardHeader>
-                    <CardContent className="pt-0">
+                    {/* <CardContent className="pt-0">
                          <p className="text-xs text-muted-foreground">
                             A discount of {formatCurrency(editedBillData.discount)} will be applied to the total.
                          </p>
-                    </CardContent>
+                    </CardContent> */}
                 </Card>
              )}
+
+            {/* Total Bill Summary */}
+            <Card className="card-modern">
+                <CardHeader className="flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-base font-medium">Total Bill</CardTitle>
+                    <div className="flex items-center gap-1">
+                      <span 
+                        className={cn(
+                          "text-lg font-bold px-2 py-1 rounded cursor-pointer transition-colors",
+                          editingTotalCost !== null
+                            ? "bg-blue-50 text-blue-700 border border-blue-200"
+                            : "text-gray-700 hover:bg-gray-100"
+                        )}
+                        onClick={() => {
+                          if (editingTotalCost === null) {
+                            handleTotalCostInputChange(editedBillData.totalCost.toFixed(2));
+                          }
+                        }}
+                      >
+                        {editingTotalCost !== null ? (
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={editingTotalCost}
+                            onChange={(e) => handleTotalCostInputChange(e.target.value)}
+                            onBlur={(e) => handleTotalCostInputBlur(e.target.value)}
+                            onKeyDown={handleKeyPress}
+                            onFocus={(e) => e.target.select()}
+                            className="w-20 text-lg font-bold text-blue-700 bg-transparent border-0 outline-none text-center"
+                            placeholder="0.00"
+                            autoFocus
+                          />
+                        ) : (
+                          `$${editedBillData.totalCost.toFixed(2)}`
+                        )}
+                      </span>
+                      <Edit3 className="h-4 w-4 text-gray-400" />
+                    </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Items Subtotal:</span>
+                            <span className="font-medium">{formatCurrency(calculateItemsSubtotal())}</span>
+                        </div>
+                        
+                        {/* Tax Row - Always show */}
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Tax:</span>
+                            <span className="font-medium">{formatCurrency(editedBillData.taxes ?? 0)}</span>
+                        </div>
+                        
+                        {/* Other Charges Row - Always show */}
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Other Charges:</span>
+                            <span className="font-medium">{formatCurrency(editedBillData.otherCharges ?? 0)}</span>
+                        </div>
+                        
+                        {/* Discount Row - Always show */}
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Discount:</span>
+                            <span className="font-medium text-green-600">-{formatCurrency(editedBillData.discount ?? 0)}</span>
+                        </div>
+                        
+                        {/* Calculated Total */}
+                        {(() => {
+                          const calculatedTotal = calculateTotalFromComponents();
+                          const extractedTotal = editedBillData.totalCost;
+                          const hasChanges = Math.abs(calculatedTotal - extractedTotal) > 0.01;
+                          
+                          return (
+                            <>
+                              <div className="border-t pt-2 flex justify-between">
+                                <span className="font-semibold">Calculated Total:</span>
+                                <span className={cn(
+                                  "font-bold text-lg",
+                                  hasChanges ? "text-primary" : "text-gray-700"
+                                )}>
+                                  {formatCurrency(calculatedTotal)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-muted-foreground">Extracted Total:</span>
+                                <span className={cn(
+                                  "text-sm font-medium",
+                                  hasChanges ? "text-orange-700 dark:text-orange-400" : "text-muted-foreground"
+                                )}>
+                                  {formatCurrency(extractedTotal)}
+                                </span>
+                              </div>
+                              {hasChanges && (
+                                <div className="text-xs border border-orange-500/50 bg-orange-500/10 p-2 rounded text-orange-700 dark:text-orange-400">
+                                  <strong>Note:</strong> The calculated total differs from the extracted total by {formatCurrency(Math.abs(calculatedTotal - extractedTotal))}. 
+                                  This may be due to rounding differences, missing items, or fees not captured in the breakdown.
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                    </div>
+                </CardContent>
+            </Card>
 
         </div>
 

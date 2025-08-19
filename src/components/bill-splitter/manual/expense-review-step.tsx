@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBillSplitting } from "@/contexts/bill-splitting-context";
 import { useToast } from "@/hooks/use-toast";
-import { SplitwiseService, type CreateExpense } from "@/types";
+import { SplitwiseService, ExpensePayloadService } from "@/types";
 import { ArrowLeft, Loader2, Send, UserCircle } from "lucide-react";
 import * as React from "react";
 
@@ -75,7 +75,6 @@ export function ManualExpenseReviewStep() {
     setLoading(true);
     try {
       const groupId = parseInt(manualExpenseData!.groupId);
-      const numericPayerId = parseInt(payerId);
 
       // Calculate individual amounts with proper rounding
       let memberAmounts: Record<string, number> = {};
@@ -106,32 +105,29 @@ export function ManualExpenseReviewStep() {
         });
       }
 
-      // Create the expense payload
-      const expensePayload: CreateExpense = {
-        group_id: groupId,
-        description: manualExpenseData!.title,
-        cost: manualExpenseData!.amount.toString(),
-        date: manualExpenseData!.date,
-        currency_code: 'USD',
-        category_id: 18,
-        split_equally: false,
-      };
+      // Convert to FinalSplit format for the service
+      const finalSplits = manualExpenseData!.members.map(member => ({
+        userId: member.id,
+        amountOwed: memberAmounts[member.id]
+      }));
 
-      // Add user data to the payload
-      manualExpenseData!.members.forEach((member, index) => {
-        const paidShare = parseInt(member.id) === numericPayerId ? manualExpenseData!.amount.toFixed(2) : '0.00';
-        const owedShare = memberAmounts[member.id].toFixed(2);
-        
-        expensePayload[`users__${index}__user_id`] = parseInt(member.id);
-        expensePayload[`users__${index}__paid_share`] = paidShare;
-        expensePayload[`users__${index}__owed_share`] = owedShare;
-      });
+      // Use the ExpensePayloadService to generate the payload
+      const expensePayload = ExpensePayloadService.generateExpensePayload(
+        finalSplits,
+        manualExpenseData!.amount,
+        {
+          storeName: manualExpenseData!.title,
+          date: manualExpenseData!.date,
+          expenseNotes: manualExpenseData!.notes || '',
+          payerId: payerId!,
+          groupId
+        }
+      );
 
       // Validate the expense payload
-      const validation = SplitwiseService.validateExpenseData(expensePayload);
+      const validation = ExpensePayloadService.validateExpensePayload(expensePayload, manualExpenseData!.amount);
       if (!validation.isValid) {
-        const errorMessage = Object.values(validation.errors).join('; ');
-        throw new Error(errorMessage);
+        throw new Error(validation.error || 'Validation failed');
       }
 
       console.log("Expense Payload:", JSON.stringify(expensePayload, null, 2));

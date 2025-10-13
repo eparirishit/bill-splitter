@@ -64,8 +64,8 @@ export interface ReceiptProcessingHistory {
   user_id: string; // Splitwise numeric ID as string
   image_url: string;
   image_hash: string;
-  original_filename: string;
-  file_size: number;
+  original_filename: string | null;
+  file_size: number | null;
   ai_extraction: ExtractReceiptDataOutput;
   user_corrections?: CorrectionData;
   feedback?: UserFeedback;

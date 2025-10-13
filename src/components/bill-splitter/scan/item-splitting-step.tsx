@@ -3,6 +3,8 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -11,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { UserTrackingService } from "@/services/user-tracking";
 import type { ExtractReceiptDataOutput, ItemSplit, SplitwiseUser } from "@/types";
-import { AlertTriangle, ArrowLeft, ArrowRight, Bot, Check, Edit3, Loader2, UserCheck, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Bot, Check, Edit3, Loader2, MoreVertical, Plus, Trash2, UserCheck, Users, X } from "lucide-react";
 import * as React from "react";
 
 interface ItemSplittingStepProps {
@@ -142,7 +144,9 @@ export function ItemSplittingStep({
     handleDiscountInputBlur,
     handleTotalCostInputChange,
     handleTotalCostInputBlur,
-    handleKeyPress
+    handleKeyPress,
+    handleAddItem,
+    handleRemoveItem
   } = useBillEditing(billData);
 
   // Get existing splits from context or initialize new ones
@@ -168,6 +172,16 @@ export function ItemSplittingStep({
   const [otherChargesSplitMembers, setOtherChargesSplitMembers] = React.useState<string[]>(
     contextOtherChargesSplit && contextOtherChargesSplit.length > 0 ? contextOtherChargesSplit : memberIds
   );
+
+  // Add item form state
+  const [showAddItemForm, setShowAddItemForm] = React.useState(false);
+  const [newItemName, setNewItemName] = React.useState("");
+  const [newItemPrice, setNewItemPrice] = React.useState("");
+
+  // Edit item state
+  const [editingItemIndex, setEditingItemIndex] = React.useState<number | null>(null);
+  const [editItemName, setEditItemName] = React.useState("");
+  const [editItemPrice, setEditItemPrice] = React.useState("");
 
   // Update local state when context state changes (e.g., when navigating back)
   React.useEffect(() => {
@@ -197,6 +211,23 @@ export function ItemSplittingStep({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editedBillData.items.length, memberIds.length]);
+
+  // Sync localItemSplits when editedBillData.items changes (for add/remove operations)
+  React.useEffect(() => {
+    // Only update if the number of items has changed
+    if (editedBillData.items.length !== localItemSplits.length) {
+      // If items were added, preserve existing splits and add new ones
+      if (editedBillData.items.length > localItemSplits.length) {
+        const newSplits = editedBillData.items.slice(localItemSplits.length).map((_, index) => ({
+          itemId: `item-${localItemSplits.length + index}`,
+          splitType: 'equal' as SplitType,
+          sharedBy: memberIds,
+        }));
+        setLocalItemSplits(prev => [...prev, ...newSplits]);
+      }
+      // If items were removed, the handleRemoveItemWithConfirmation already handles this
+    }
+  }, [editedBillData.items.length, localItemSplits.length, memberIds]);
 
   // Price editing handlers are now provided by useBillEditing hook
 
@@ -242,6 +273,139 @@ export function ItemSplittingStep({
           ? prev.filter(id => id !== memberId)
           : [...prev, memberId]
       );
+    }
+  };
+
+  const handleAddNewItem = () => {
+    const trimmedName = newItemName.trim();
+    const price = parseFloat(newItemPrice);
+    
+    if (trimmedName.length === 0) {
+      toast({
+        title: "Invalid Item Name",
+        description: "Please enter a valid item name.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (isNaN(price) || price <= 0) {
+      toast({
+        title: "Invalid Price",
+        description: "Please enter a valid price greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Add the item to the bill data
+    handleAddItem(trimmedName, price);
+    
+    // Add a new split for this item - use current length as the new index
+    const newItemIndex = editedBillData.items.length; // This will be the index after adding
+    const newSplit: ItemSplitState = {
+      itemId: `item-${newItemIndex}`,
+      splitType: 'equal',
+      sharedBy: memberIds,
+    };
+    
+    setLocalItemSplits(prev => [...prev, newSplit]);
+    
+    // Reset form
+    setNewItemName("");
+    setNewItemPrice("");
+    setShowAddItemForm(false);
+    
+    toast({
+      title: "Item Added",
+      description: `${trimmedName} has been added to the bill.`,
+      variant: "default",
+    });
+  };
+
+  const handleEditItem = (itemIndex: number) => {
+    const item = editedBillData.items[itemIndex];
+    setEditingItemIndex(itemIndex);
+    setEditItemName(item.name);
+    setEditItemPrice(item.price.toFixed(2));
+  };
+
+  const handleSaveItemEdit = () => {
+    if (editingItemIndex === null) return;
+    
+    const trimmedName = editItemName.trim();
+    const price = parseFloat(editItemPrice);
+    
+    if (trimmedName.length === 0) {
+      toast({
+        title: "Invalid Item Name",
+        description: "Please enter a valid item name.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (isNaN(price) || price <= 0) {
+      toast({
+        title: "Invalid Price",
+        description: "Please enter a valid price greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Update the item name and price
+    handleItemNameChange(editingItemIndex, trimmedName);
+    handleItemPriceChange(editingItemIndex, editItemPrice);
+    
+    setEditingItemIndex(null);
+    setEditItemName("");
+    setEditItemPrice("");
+    
+    toast({
+      title: "Item Updated",
+      description: `${trimmedName} has been updated.`,
+      variant: "default",
+    });
+  };
+
+  const handleCancelItemEdit = () => {
+    setEditingItemIndex(null);
+    setEditItemName("");
+    setEditItemPrice("");
+  };
+
+  const handleRemoveItemWithConfirmation = (itemIndex: number) => {
+    if (editedBillData.items.length <= 1) {
+      toast({
+        title: "Cannot Remove Item",
+        description: "At least one item must remain on the bill.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const itemName = editedBillData.items[itemIndex]?.name || "this item";
+    
+    if (window.confirm(`Are you sure you want to remove "${itemName}" from the bill?`)) {
+      // Remove the item from bill data
+      handleRemoveItem(itemIndex);
+      
+      // Remove the corresponding split and reindex remaining splits
+      setLocalItemSplits(prev => {
+        const updatedSplits = prev.filter((_, index) => index !== itemIndex);
+        // Reindex the remaining splits to match new item indices
+        return updatedSplits.map((split, index) => ({
+          ...split,
+          itemId: `item-${index}`
+        }));
+      });
+      
+      toast({
+        title: "Item Removed",
+        description: `${itemName} has been removed from the bill.`,
+        variant: "default",
+      });
     }
   };
 
@@ -354,99 +518,209 @@ export function ItemSplittingStep({
         )}
 
         <div className="flex-grow space-y-4 overflow-y-auto pb-24">
+            {/* Add Item Section */}
+            <Card className="card-modern">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-medium">Manage Items</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!showAddItemForm ? (
+                  <Button
+                    onClick={() => setShowAddItemForm(true)}
+                    variant="outline"
+                    className="w-full hover:bg-primary/10 hover:text-primary"
+                    disabled={isLoading}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add New Item
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="new-item-name">Item Name</Label>
+                      <Input
+                        id="new-item-name"
+                        value={newItemName}
+                        onChange={(e) => setNewItemName(e.target.value)}
+                        placeholder="Enter item name"
+                        disabled={isLoading}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddNewItem();
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-item-price">Price</Label>
+                      <Input
+                        id="new-item-price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={newItemPrice}
+                        onChange={(e) => setNewItemPrice(e.target.value)}
+                        placeholder="0.00"
+                        disabled={isLoading}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddNewItem();
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleAddNewItem}
+                        disabled={isLoading || !newItemName.trim() || !newItemPrice}
+                        className="flex-1"
+                      >
+                        Add Item
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setShowAddItemForm(false);
+                          setNewItemName("");
+                          setNewItemPrice("");
+                        }}
+                        variant="outline"
+                        disabled={isLoading}
+                        className="hover:bg-primary/10 hover:text-primary"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Accordion type="multiple" className="w-full space-y-3">
               {editedBillData.items.map((item, index) => {
                 const itemId = `item-${index}`;
                 const currentSplit = localItemSplits.find(s => s.itemId === itemId);
                 const isEditingPrice = editingPrices[index] !== undefined;
                 const isEditingName = editingNames[index] !== undefined;
+                const isEditingItem = editingItemIndex === index;
                 const displayPrice = isEditingPrice ? editingPrices[index] : item.price.toFixed(2);
                 const displayName = isEditingName ? editingNames[index] : item.name;
                 
                 return (
                   <AccordionItem value={itemId} key={itemId} className="border rounded-lg overflow-hidden bg-card shadow-sm">
-                    <AccordionTrigger className="text-sm px-4 py-3 hover:bg-muted/50 transition-colors [&[data-state=open]]:bg-muted/50">
-                        <div className="flex justify-between w-full items-start gap-3">
-                            <div className="flex-1 text-left leading-tight">
-                              {isEditingName ? (
-                                <input
-                                  type="text"
-                                  value={displayName}
-                                  onChange={(e) => handleNameInputChange(index, e.target.value)}
-                                  onBlur={(e) => handleNameInputBlur(index, e.target.value)}
-                                  onKeyDown={handleKeyPress}
-                                  onFocus={(e) => {
-                                    e.stopPropagation();
-                                    e.target.select();
-                                  }}
-                                  className="w-full text-sm font-medium text-blue-700 bg-transparent border-0 outline-none"
-                                  placeholder="Item name"
-                                  autoFocus
-                                />
-                              ) : (
-                                <span 
-                                  className="font-medium text-foreground cursor-pointer hover:text-blue-600 transition-colors"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!isEditingName) {
-                                      handleNameInputChange(index, item.name);
-                                    }
-                                  }}
-                                >
-                                  {item.name}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span 
-                                className={cn(
-                                  "text-sm font-semibold cursor-pointer transition-colors",
-                                  isEditingPrice 
-                                    ? "text-blue-700" 
-                                    : "text-gray-700 hover:text-blue-600"
-                                )}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!isEditingPrice) {
-                                    handlePriceInputChange(index, item.price.toFixed(2));
-                                  }
-                                }}
-                              >
-                                {isEditingPrice ? (
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={displayPrice}
-                                    onChange={(e) => handlePriceInputChange(index, e.target.value)}
-                                    onBlur={(e) => handlePriceInputBlur(index, e.target.value)}
-                                    onKeyDown={handleKeyPress}
-                                    onFocus={(e) => {
-                                      e.stopPropagation();
-                                      e.target.select();
-                                    }}
-                                    className="w-16 text-sm font-semibold text-blue-700 bg-transparent border-0 outline-none text-center"
-                                    placeholder="0.00"
-                                    autoFocus
-                                  />
+                    <div className="relative">
+                      <AccordionTrigger className="text-sm px-4 py-3 hover:bg-muted/50 transition-colors [&[data-state=open]]:bg-muted/50">
+                          <div className="flex justify-between w-full items-center gap-3">
+                              <div className="flex-1 text-left">
+                                {isEditingItem ? (
+                                  <div className="flex items-center gap-2 w-full">
+                                    <input
+                                      type="text"
+                                      value={editItemName}
+                                      onChange={(e) => setEditItemName(e.target.value)}
+                                      className="flex-1 text-sm font-medium text-primary bg-transparent border border-primary/30 rounded px-2 py-1 outline-none focus:border-primary"
+                                      placeholder="Item name"
+                                    />
+                                    <span className="text-sm font-semibold text-muted-foreground">$</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={editItemPrice}
+                                      onChange={(e) => setEditItemPrice(e.target.value)}
+                                      className="w-20 text-sm font-semibold text-primary bg-transparent border border-primary/30 rounded px-2 py-1 outline-none text-center focus:border-primary"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
                                 ) : (
-                                  `$${item.price.toFixed(2)}`
+                                  <span className="font-medium text-foreground text-sm">
+                                    {item.name}
+                                  </span>
                                 )}
-                              </span>
-                              {!isEditingName && !isEditingPrice && (
-                                <Edit3 className="h-3 w-3 text-gray-400" />
-                              )}
-                            </div>
-                        </div>
-                    </AccordionTrigger>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0 mr-8">
+                                {!isEditingItem && (
+                                  <span className="text-sm font-semibold text-foreground">
+                                    ${item.price.toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
+                          </div>
+                      </AccordionTrigger>
+                      
+                      {/* Settings dropdown */}
+                      <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-sm border-0 bg-transparent flex items-center justify-center disabled:opacity-50 disabled:pointer-events-none"
+                            onClick={(e) => e.stopPropagation()}
+                            disabled={isLoading}
+                          >
+                            <MoreVertical className="h-3 w-3" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditItem(index);
+                              }}
+                              disabled={isLoading}
+                              className="focus:bg-primary/10 focus:text-primary"
+                            >
+                              <Edit3 className="mr-2 h-4 w-4" />
+                              Edit Item
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveItemWithConfirmation(index);
+                              }}
+                              disabled={isLoading || editedBillData.items.length <= 1}
+                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Item
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
                     <AccordionContent className="space-y-4 p-4 bg-background border-t">
-                      <ToggleGroup
-                        type="single"
-                        value={currentSplit?.splitType ?? "equal"}
-                        onValueChange={(value) => handleSplitTypeChange(itemId, value as SplitType | null)}
-                        className="grid grid-cols-2 gap-3"
-                        aria-label={`Split type for ${item.name}`}
-                        disabled={isLoading}
-                      >
+                      {isEditingItem ? (
+                        <div className="space-y-3">
+                          <div className="text-sm text-muted-foreground">
+                            Edit item details:
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={handleSaveItemEdit}
+                              size="sm"
+                              disabled={isLoading}
+                            >
+                              Save Changes
+                            </Button>
+                            <Button
+                              onClick={handleCancelItemEdit}
+                              variant="outline"
+                              size="sm"
+                              disabled={isLoading}
+                              className="hover:bg-primary/10 hover:text-primary"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <ToggleGroup
+                            type="single"
+                            value={currentSplit?.splitType ?? "equal"}
+                            onValueChange={(value) => handleSplitTypeChange(itemId, value as SplitType | null)}
+                            className="grid grid-cols-2 gap-3"
+                            aria-label={`Split type for ${item.name}`}
+                            disabled={isLoading}
+                          >
                         <ToggleGroupItem
                            value="equal"
                            aria-label="Split equally"
@@ -484,6 +758,8 @@ export function ItemSplittingStep({
                        {currentSplit?.splitType === 'equal' && (
                          <p className="text-xs text-muted-foreground text-center pt-2">Item will be split equally among all {selectedMembers.length} members.</p>
                        )}
+                        </>
+                      )}
                     </AccordionContent>
                   </AccordionItem>
                 );

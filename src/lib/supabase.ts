@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import type { ExtractReceiptDataOutput } from '@/types';
+import type { CorrectionData, UserFeedback } from '@/types/analytics';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -65,9 +67,9 @@ export interface Database {
           image_hash: string;
           original_filename: string | null;
           file_size: number | null;
-          ai_extraction: any;
-          user_corrections: any | null;
-          feedback: any | null;
+          ai_extraction: ExtractReceiptDataOutput;
+          user_corrections: CorrectionData | null;
+          feedback: UserFeedback | null;
           processing_time_ms: number | null;
           ai_model_version: string;
           ai_provider: string | null;
@@ -84,9 +86,9 @@ export interface Database {
           image_hash: string;
           original_filename?: string | null;
           file_size?: number | null;
-          ai_extraction: any;
-          user_corrections?: any | null;
-          feedback?: any | null;
+          ai_extraction: ExtractReceiptDataOutput;
+          user_corrections?: CorrectionData | null;
+          feedback?: UserFeedback | null;
           processing_time_ms?: number | null;
           ai_model_version?: string;
           ai_provider?: string | null;
@@ -103,9 +105,9 @@ export interface Database {
           image_hash?: string;
           original_filename?: string | null;
           file_size?: number | null;
-          ai_extraction?: any;
-          user_corrections?: any | null;
-          feedback?: any | null;
+          ai_extraction?: ExtractReceiptDataOutput;
+          user_corrections?: CorrectionData | null;
+          feedback?: UserFeedback | null;
           processing_time_ms?: number | null;
           ai_model_version?: string;
           ai_provider?: string | null;

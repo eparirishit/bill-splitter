@@ -27,6 +27,8 @@ interface UseBillEditingReturn {
   handleTotalCostInputChange: (value: string) => void;
   handleTotalCostInputBlur: (value: string) => void;
   handleKeyPress: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  handleAddItem: (name: string, price: number) => void;
+  handleRemoveItem: (itemIndex: number) => void;
   resetEdits: () => void;
 }
 
@@ -246,6 +248,32 @@ export function useBillEditing(
     }
   }, []);
 
+  const handleAddItem = useCallback((name: string, price: number) => {
+    const trimmedName = name.trim();
+    if (trimmedName.length === 0 || price < 0) return;
+
+    setEditedBillData(prev => {
+      const newItem = { name: trimmedName, price };
+      const updatedItems = [...prev.items, newItem];
+      
+      return updateDiscrepancy({ ...prev, items: updatedItems });
+    });
+    
+    setHasManualEdits(true);
+  }, [updateDiscrepancy]);
+
+  const handleRemoveItem = useCallback((itemIndex: number) => {
+    if (itemIndex < 0 || itemIndex >= editedBillData.items.length) return;
+    
+    setEditedBillData(prev => {
+      const updatedItems = prev.items.filter((_, index) => index !== itemIndex);
+      
+      return updateDiscrepancy({ ...prev, items: updatedItems });
+    });
+    
+    setHasManualEdits(true);
+  }, [editedBillData.items.length, updateDiscrepancy]);
+
   const resetEdits = useCallback(() => {
     setEditedBillData(originalBillData);
     setEditingPrices({});
@@ -281,6 +309,8 @@ export function useBillEditing(
     handleTotalCostInputChange,
     handleTotalCostInputBlur,
     handleKeyPress,
+    handleAddItem,
+    handleRemoveItem,
     resetEdits
   };
 } 

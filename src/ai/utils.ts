@@ -25,19 +25,25 @@ export function extractAndParseJSON(aiResponseText: string): unknown {
     throw new ValidationError("AI returned empty response");
   }
 
+  const trimmed = aiResponseText.trim();
   let jsonString: string | null = null;
   
-  // Try to extract JSON from code blocks first
-  const codeBlockMatch = aiResponseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (codeBlockMatch) {
-    jsonString = codeBlockMatch[1].trim();
+  // If response starts with {, it's likely pure JSON (e.g., when responseMimeType is set)
+  if (trimmed.startsWith('{')) {
+    jsonString = trimmed;
   } else {
-    // Try to find JSON object directly
-    const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      jsonString = jsonMatch[0];
+    // Try to extract JSON from code blocks
+    const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) {
+      jsonString = codeBlockMatch[1].trim();
     } else {
-      throw new ValidationError("No JSON structure found in AI response");
+      // Try to find JSON object directly
+      const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonString = jsonMatch[0];
+      } else {
+        throw new ValidationError("No JSON structure found in AI response");
+      }
     }
   }
 

@@ -35,6 +35,7 @@ export class GoogleGeminiProvider implements AIProvider {
       generationConfig: {
         temperature: this.config.temperature || 0.1,
         maxOutputTokens: this.config.maxTokens || 8192,
+        responseMimeType: 'application/json', // Force JSON output for structured responses
       },
     });
 

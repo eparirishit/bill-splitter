@@ -58,21 +58,28 @@ export function createGoogleAIClient(): GoogleGenerativeAI {
   return new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 }
 
-export const EXTRACTION_PROMPT = `You are an expert receipt data extraction system. Analyze the provided receipt image and extract information with high accuracy.
+export const EXTRACTION_PROMPT = `You are an expert receipt data extraction system. Analyze the provided receipt image and extract information with high accuracy. Be precise and extract ONLY what is clearly visible on the receipt - do not guess or infer information that is not explicitly shown.
 
 **CRITICAL INSTRUCTIONS:**
 1. **Store Name**: Extract the exact business name as printed on the receipt header (not address or other info)
-2. **Date**: Find the transaction/purchase date in YYYY-MM-DD format only
+2. **Date**: Find the transaction/purchase date in YYYY-MM-DD format only. Only extract dates that are clearly visible - do not invent dates.
 3. **Items**: Extract ONLY purchased items with their individual prices:
-   - Use exact item names as printed
+   - Use exact item names as printed on the receipt
    - Include quantity in name if shown (e.g., "Bananas (3 lbs)")
-   - DO NOT include: subtotals, tax lines, fee lines, discounts, or category headers
+   - DO NOT include: subtotals, tax lines, fee lines, discounts, category headers, or summary lines
    - Each item should have ONE price (the final price for that line item)
+   - If an item name or price is unclear or partially obscured, do not guess - only extract clearly visible items
 4. **Financial Totals**:
-   - totalCost: The final amount charged (look for "Total", "Amount Due", "Final Total")
-   - taxes: Only explicit tax amounts (sales tax, VAT, etc.) - set to 0 if not found
-   - otherCharges: Service fees, delivery fees, tips if explicitly listed - set to 0 if not found  
-   - discount: Any promotional discounts, coupons, or credits - set to 0 if not found
+   - totalCost: The final amount charged (look for "Total", "Amount Due", "Final Total", "Amount Paid")
+   - taxes: Only explicit tax amounts (sales tax, VAT, etc.) that are clearly labeled - set to 0 if not found or unclear
+   - otherCharges: Service fees, delivery fees, tips if explicitly listed and clearly visible - set to 0 if not found
+   - discount: Any promotional discounts, coupons, or credits that are clearly labeled - set to 0 if not found
+
+**ACCURACY REQUIREMENTS:**
+- Extract ONLY information that is clearly visible and readable in the image
+- Do NOT hallucinate or invent information not present on the receipt
+- Do NOT infer or estimate values - use only what is explicitly shown
+- Double-check all numbers match exactly what appears on the receipt
 
 **VALIDATION RULES:**
 - All prices must be positive numbers
@@ -81,7 +88,7 @@ export const EXTRACTION_PROMPT = `You are an expert receipt data extraction syst
 - Date must be valid YYYY-MM-DD format
 
 **OUTPUT FORMAT:**
-Return ONLY valid JSON in this exact structure (no markdown, no explanations):
+Return ONLY valid JSON in this exact structure (no markdown, no explanations, no additional text):
 
 {
   "storeName": "Walmart Supercenter",
@@ -96,7 +103,7 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanations):
   "discount": 0
 }
 
-Analyze the receipt image now:`;
+Analyze the receipt image now and extract only the information clearly visible:`;
 
 // Validate required environment variables (server-side only)
 if (typeof window === 'undefined') {

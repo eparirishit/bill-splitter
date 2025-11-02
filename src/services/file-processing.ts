@@ -69,8 +69,8 @@ export class FileProcessingService {
             }
 
             // Calculate new dimensions while maintaining aspect ratio
-            const maxWidth = 800;
-            const maxHeight = 600;
+            const maxWidth = 2048;
+            const maxHeight = 2048;
             let { width, height } = img;
 
             if (width > maxWidth || height > maxHeight) {
@@ -82,11 +82,15 @@ export class FileProcessingService {
             canvas.width = width;
             canvas.height = height;
 
+            // Enable high-quality rendering for better text recognition
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
             // Draw image on canvas
             ctx.drawImage(img, 0, 0, width, height);
 
             // Convert to data URI
-            const dataUri = canvas.toDataURL('image/jpeg', 0.8);
+            const dataUri = canvas.toDataURL('image/jpeg', 0.9);
             resolve(dataUri);
           } catch (error) {
             reject(new Error('Failed to process image'));

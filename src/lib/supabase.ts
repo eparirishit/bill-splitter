@@ -234,4 +234,130 @@ export const uploadImageToStorage = async (
     console.error('Error uploading image:', error);
     throw error;
   }
-}; 
+};
+
+/**
+ * Downloads an image from Supabase storage URL and converts it to a data URI
+ * Used server-side for AI processing when images are stored in Supabase storage
+ * @param imageUrl - The Supabase storage public URL
+ * @returns Data URI string (data:image/jpeg;base64,...)
+ */
+export async function downloadImageAsDataUri(imageUrl: string): Promise<string> {
+  try {
+    // Check if this is a Supabase storage URL
+    // URL format: https://<project>.supabase.co/storage/v1/object/public/receipt-images/<userId>/<hash>.<ext>
+    const isSupabaseUrl = imageUrl.includes('supabase.co') && imageUrl.includes('/storage/');
+    
+    if (isSupabaseUrl) {
+      // Extract the file path from the Supabase storage URL
+      const urlMatch = imageUrl.match(/\/storage\/v1\/object\/public\/receipt-images\/(.+)$/);
+      
+      if (urlMatch) {
+        const filePath = urlMatch[1];
+        
+        // Use Supabase storage API for server-side access
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseServiceKey) {
+          throw new Error('Missing Supabase environment variables for server-side access');
+        }
+
+        // Create a server-side Supabase client
+        const { createClient } = await import('@supabase/supabase-js');
+        const serverSupabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // Download the file from Supabase storage
+        const { data, error } = await serverSupabase.storage
+          .from('receipt-images')
+          .download(filePath);
+
+        if (error) {
+          // If download fails with storage API, try fetching from public URL
+          // This handles cases where the bucket is public but API access has issues
+          const errorStatus = (error as any).statusCode || (error as any).status || 'unknown';
+          console.warn(`Supabase storage API download failed for ${filePath}, trying public URL fetch:`, {
+            error: error.message,
+            statusCode: errorStatus,
+            filePath
+          });
+          
+          try {
+            // Try fetching from public URL
+            const response = await fetch(imageUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'image/jpeg,image/jpg,image/png',
+              },
+            });
+            
+            if (!response.ok) {
+              // If public URL also fails, throw detailed error
+              const errorBody = await response.text().catch(() => '');
+              throw new Error(
+                `Storage API failed: ${error.message} (${errorStatus}). ` +
+                `Public URL fetch also failed: ${response.status} ${response.statusText}. ` +
+                `File path: ${filePath}. ` +
+                `Error details: ${errorBody.substring(0, 200)}`
+              );
+            }
+            
+            const blob = await response.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const base64 = Buffer.from(arrayBuffer).toString('base64');
+            const mimeType = blob.type || (filePath.endsWith('.png') ? 'image/png' : 'image/jpeg');
+            
+            return `data:${mimeType};base64,${base64}`;
+          } catch (fetchError) {
+            throw new Error(
+              `Failed to download image: Storage API error: ${error.message} (${errorStatus}). ` +
+              `Public URL fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
+            );
+          }
+        }
+
+        if (!data) {
+          throw new Error('No data received from storage');
+        }
+
+        // Convert blob to base64
+        const arrayBuffer = await data.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        
+        // Determine MIME type from file extension
+        const extension = filePath.split('.').pop()?.toLowerCase();
+        let mimeType = 'image/jpeg';
+        if (extension === 'png') {
+          mimeType = 'image/png';
+        } else if (extension === 'jpg' || extension === 'jpeg') {
+          mimeType = 'image/jpeg';
+        }
+        
+        return `data:${mimeType};base64,${base64}`;
+      }
+    }
+
+    // Fallback to direct fetch for non-Supabase URLs or if path extraction failed
+    const response = await fetch(imageUrl, {
+      headers: {
+        'Accept': 'image/jpeg,image/jpg,image/png',
+      },
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      throw new Error(`Failed to fetch image: ${response.statusText} (${response.status}). ${errorText.substring(0, 200)}`);
+    }
+    
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const mimeType = blob.type || 'image/jpeg';
+    
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    throw new Error(
+      `Failed to download and convert image from URL: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+} 

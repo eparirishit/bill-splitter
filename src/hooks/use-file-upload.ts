@@ -48,8 +48,12 @@ export function useFileUpload(
     // Validate file
     const validation: FileValidationResult = FileProcessingService.validateFile(file);
     if (!validation.isValid) {
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       setError(validation.error!);
-      clearFile();
       return;
     }
 

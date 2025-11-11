@@ -3,7 +3,7 @@ import { AppIcon } from "@/components/icons/app-icon";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { BillSplittingProvider } from "@/contexts/bill-splitting-context";
+import { BillSplittingProvider, useBillSplitting } from "@/contexts/bill-splitting-context";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { cn } from '@/lib/utils';
 import { ArrowLeft, Loader2, LogOut } from 'lucide-react';
@@ -21,6 +21,9 @@ function Header() {
   const router = useRouter();
   const { isAuthenticated, logout, isLoading: isAuthLoading } = useAuth(); // Get auth state and logout function
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  
+  // Get reset function from bill splitting context
+  const { reset: resetBillSplittingState } = useBillSplitting();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -29,6 +32,15 @@ function Header() {
     } catch (error) {
       console.error("Logout failed in layout:", error);
       setIsLoggingOut(false);
+    }
+  };
+
+  const handleLogoClick = () => {
+    // Reset all bill splitting state (clears all form data, selections, etc.)
+    resetBillSplittingState();
+    // Navigate to home page if not already there
+    if (pathname !== '/') {
+      router.push('/');
     }
   };
 
@@ -44,10 +56,15 @@ function Header() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
           ) : (
-            <div className="flex items-center gap-2">
+            <button
+              onClick={handleLogoClick}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer tap-scale focus:outline-none focus:ring-0 border-0 bg-transparent p-0 active:outline-none active:ring-0"
+              style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
+              aria-label="Go to home and reset"
+            >
               <AppIcon className="h-7 w-7 text-primary" />
-              <img className="hidden sm:block logo-img"  src="/assets/bill-splitter-logo.svg" />
-            </div>
+              <img className="hidden sm:block logo-img" src="/assets/bill-splitter-logo.svg" alt="Bill Splitter" />
+            </button>
           )}
         </div>
 

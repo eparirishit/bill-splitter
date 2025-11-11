@@ -2,8 +2,33 @@ import { AI_CONFIG } from '@/lib/config';
 import { ImageProcessingError, ValidationError } from './errors';
 import type { AIOutput, DiscrepancyCheck } from './types';
 
+/**
+ * Fetches an image from a URL and converts it to a data URI
+ * Used when images are stored in Supabase storage
+ */
+export async function fetchImageAsDataUri(imageUrl: string): Promise<string> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.statusText}`);
+    }
+    
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const mimeType = blob.type || 'image/jpeg';
+    
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    throw new ImageProcessingError(
+      `Failed to fetch and convert image from URL: ${error instanceof Error ? error.message : String(error)}`,
+      error as Error
+    );
+  }
+}
+
 export function validateImageDataUri(photoDataUri: string): { mimeType: string; base64Data: string } {
-  const match = photoDataUri.match(/^data:(image\/(?:jpeg|jpg|png|webp|heic|heif));base64,(.+)$/i);
+  const match = photoDataUri.match(/^data:(image\/(?:jpeg|jpg|png));base64,(.+)$/i);
   if (!match) {
     throw new ImageProcessingError('Invalid photoDataUri format. Expected data URI with supported image format and Base64 encoding.');
   }

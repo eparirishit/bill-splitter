@@ -25,7 +25,8 @@ export class AnalyticsService {
     aiProvider?: string,
     aiModelName?: string,
     aiTokensUsed?: number,
-    aiProcessingTimeMs?: number
+    aiProcessingTimeMs?: number,
+    existingImageUrl?: string // Optional: if image already uploaded, reuse the URL
   ): Promise<string> {
     // Track receipt processing
     const receiptId = await ReceiptTrackingService.trackReceiptProcessing(
@@ -37,7 +38,8 @@ export class AnalyticsService {
       aiProvider,
       aiModelName,
       aiTokensUsed,
-      aiProcessingTimeMs
+      aiProcessingTimeMs,
+      existingImageUrl
     );
 
     // Increment user's receipt count

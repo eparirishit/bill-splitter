@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useToast } from "@/hooks/use-toast";
+import { AI_CONFIG } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import type { ExtractReceiptDataOutput } from "@/types";
 import { AlertTriangle, ArrowLeft, ImagePlus, Loader2, Upload } from "lucide-react";
@@ -30,6 +31,25 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
     handleUpload,
     clearFile
   } = useFileUpload(onDataExtracted, onLoadingChange, userId);
+
+  // Show toast notification for file validation errors
+  React.useEffect(() => {
+    if (error) {
+      if (error.includes('exceeds the maximum')) {
+        toast({
+          title: "File Too Large",
+          description: error,
+          variant: "destructive",
+        });
+      } else if (error.includes('JPG and PNG')) {
+        toast({
+          title: "Invalid File Type",
+          description: error,
+          variant: "destructive",
+        });
+      }
+    }
+  }, [error, toast]);
 
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     handleFileChange(event);
@@ -78,10 +98,10 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
                       <div className="flex flex-col items-center justify-center py-6 text-center">
                           <ImagePlus className="w-12 h-12 mb-3 text-muted-foreground" strokeWidth={1.5} />
                           <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold text-primary">Tap to upload</span></p>
-                          <p className="text-xs text-muted-foreground">PNG, JPG, WEBP, HEIC (Max 10MB)</p>
+                          <p className="text-xs text-muted-foreground">PNG, JPG (Max {AI_CONFIG.MAX_FILE_SIZE_MB}MB)</p>
                       </div>
                   )}
-                  <Input id="dropzone-file" type="file" className="hidden" onChange={onFileChange} accept="image/*,.heic,.heif" ref={fileInputRef} disabled={isLoading} />
+                  <Input id="dropzone-file" type="file" className="hidden" onChange={onFileChange} accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png" ref={fileInputRef} disabled={isLoading} />
               </Label>
               {selectedFile && !previewUrl && !isLoading && (
                   <p className="text-sm text-muted-foreground mt-2 text-center">Selected: {selectedFile.name}</p>

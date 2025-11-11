@@ -1,5 +1,6 @@
 import { extractReceiptData } from '@/ai/extract-receipt-data';
 import { AnalyticsService } from '@/lib/analytics';
+import { uploadImageToStorage } from '@/lib/supabase';
 import { FileProcessingService, type FileValidationResult } from '@/services/file-processing';
 import type { ExtractReceiptDataOutput } from '@/types';
 import { useRef, useState } from 'react';
@@ -77,7 +78,29 @@ export function useFileUpload(
     const startTime = Date.now();
 
     try {
-      const result = await extractReceiptData({ photoDataUri: previewUrl }, userId);
+      // Upload image to Supabase storage first
+      // This prevents hitting Vercel's serverless function body size limit
+      let imageUrl: string | undefined;
+      
+      if (userId) {
+        try {
+          const { url } = await uploadImageToStorage(selectedFile, userId);
+          imageUrl = url;
+          console.log("Image uploaded to Supabase storage:", imageUrl);
+        } catch (uploadError) {
+          console.warn("Failed to upload to storage, falling back to data URI:", uploadError);
+          // Fallback to data URI if storage upload fails
+        }
+      } else {
+        console.warn("No userId provided - using data URI (may hit Vercel 4.5MB limit in production)");
+      }
+
+      // Use storage URL if available, otherwise fall back to data URI
+      const extractionInput = imageUrl 
+        ? { imageUrl } 
+        : { photoDataUri: previewUrl };
+
+      const result = await extractReceiptData(extractionInput, userId);
       console.log("Extraction Result:", result);
 
       // Basic validation of result structure
@@ -112,7 +135,8 @@ export function useFileUpload(
             result.aiMetadata?.provider,
             result.aiMetadata?.modelName,
             result.aiMetadata?.tokensUsed,
-            result.aiMetadata?.processingTimeMs
+            result.aiMetadata?.processingTimeMs,
+            imageUrl // Pass the already-uploaded image URL to avoid duplicate upload
           );
           console.log('Receipt processing tracked with ID:', receiptId);
         } catch (error) {

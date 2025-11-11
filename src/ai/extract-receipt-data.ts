@@ -19,6 +19,7 @@ import {
 import {
   checkDiscrepancy,
   extractAndParseJSON,
+  fetchImageAsDataUri,
   retryWithDelay,
   roundCurrency,
   validateExtractionResult
@@ -38,6 +39,7 @@ export async function extractReceiptData(
 }> {
   const startTime = Date.now();
   const logContext = { userId, receiptId, operation: 'extract_receipt_data' };
+  let photoDataUri: string | undefined;
 
   try {
     logger.info("Starting receipt data extraction", logContext);
@@ -45,8 +47,23 @@ export async function extractReceiptData(
     // Input validation
     ExtractReceiptDataInputSchema.parse(input);
 
-    // Validate image size for Vercel limits
-    validateImageSize(input.photoDataUri, AI_CONFIG.MAX_PAYLOAD_SIZE_KB);
+    // If imageUrl is provided, fetch and convert to data URI
+    photoDataUri = input.photoDataUri;
+    if (input.imageUrl && !photoDataUri) {
+      logger.debug("Fetching image from storage URL", { ...logContext, imageUrl: input.imageUrl });
+      photoDataUri = await fetchImageAsDataUri(input.imageUrl);
+      logger.debug("Image fetched and converted to data URI", logContext);
+    }
+
+    if (!photoDataUri) {
+      throw new ValidationError("Either photoDataUri or imageUrl must be provided");
+    }
+
+    // Validate image size for Vercel limits (only if using data URI directly)
+    // Skip validation if using storage URL as it's already stored
+    if (input.photoDataUri) {
+      validateImageSize(photoDataUri, AI_CONFIG.MAX_PAYLOAD_SIZE_KB);
+    }
     
     logger.debug("Input validation passed", logContext);
 
@@ -94,7 +111,7 @@ export async function extractReceiptData(
     try {
       const response = await aiProvider.generateContent({
         prompt: EXTRACTION_PROMPT,
-        imageDataUri: input.photoDataUri,
+        imageDataUri: photoDataUri!,
       });
 
       aiResponse = response;

@@ -1,4 +1,4 @@
-import { supabase, uploadImageToStorage } from '@/lib/supabase';
+import { supabase, uploadImageToStorage, generateImageHash } from '@/lib/supabase';
 import { ExtractReceiptDataOutput, ReceiptProcessingHistory } from '@/types/analytics';
 
 export class ReceiptTrackingService {
@@ -14,11 +14,25 @@ export class ReceiptTrackingService {
     aiProvider?: string,
     aiModelName?: string,
     aiTokensUsed?: number,
-    aiProcessingTimeMs?: number
+    aiProcessingTimeMs?: number,
+    existingImageUrl?: string // Optional: if image already uploaded, reuse the URL
   ): Promise<string> {
     try {
-      // Upload image to Supabase Storage
-      const { url: imageUrl, hash: imageHash } = await uploadImageToStorage(file, userId);
+      // Upload image to Supabase Storage (or reuse existing URL if provided)
+      let imageUrl: string;
+      let imageHash: string;
+      
+      if (existingImageUrl) {
+        // Reuse existing URL - extract hash from URL or generate it
+        imageUrl = existingImageUrl;
+        // Generate hash for deduplication tracking
+        imageHash = await generateImageHash(file);
+      } else {
+        // Upload new image
+        const uploadResult = await uploadImageToStorage(file, userId);
+        imageUrl = uploadResult.url;
+        imageHash = uploadResult.hash;
+      }
 
       // Store processing record
       const { data, error } = await supabase

@@ -3,10 +3,23 @@ import { z } from 'zod';
 export const ExtractReceiptDataInputSchema = z.object({
   photoDataUri: z
     .string()
+    .optional()
     .describe(
-      "A photo of a bill, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A photo of a bill, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'. Deprecated: use imageUrl instead."
     ),
-});
+  imageUrl: z
+    .string()
+    .url()
+    .optional()
+    .describe(
+      "A URL to the image stored in Supabase storage. Preferred over photoDataUri for production."
+    ),
+}).refine(
+  (data) => data.photoDataUri || data.imageUrl,
+  {
+    message: "Either photoDataUri or imageUrl must be provided",
+  }
+);
 
 export type ExtractReceiptDataInput = z.infer<typeof ExtractReceiptDataInputSchema>;
 

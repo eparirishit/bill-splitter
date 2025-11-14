@@ -175,28 +175,22 @@ export const uploadImageToStorage = async (
 
     console.log('Uploading image:', { fileName, userId, fileSize: file.size });
 
-    // First, check if the file already exists
-    const { data: existingFile } = await supabase.storage
+    // Check if file already exists by trying to generate a signed URL
+    const { data: existingSignedUrlData, error: existingSignedUrlError } = await supabase.storage
       .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
-      .list(userId, {
-        search: hash
-      });
+      .createSignedUrl(fileName, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
 
-    // If file already exists, generate a signed URL
-    if (existingFile && existingFile.length > 0) {
-      console.log('Image already exists, generating signed URL');
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
-        .createSignedUrl(fileName, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
-      
-      if (signedUrlError || !signedUrlData?.signedUrl) {
-        throw new Error(`Failed to generate signed URL for existing file: ${signedUrlError?.message || 'Unknown error'}`);
-      }
-      
+    // If signed URL generation succeeds, file exists
+    if (!existingSignedUrlError && existingSignedUrlData?.signedUrl) {
+      console.log('Image already exists, using existing file');
       return {
-        url: signedUrlData.signedUrl,
+        url: existingSignedUrlData.signedUrl,
         hash
       };
+    }
+
+    if (existingSignedUrlError && !existingSignedUrlError.message?.toLowerCase().includes('not found')) {
+      console.warn('Unexpected error checking for existing file, will attempt upload:', existingSignedUrlError.message);
     }
 
     // Upload new file

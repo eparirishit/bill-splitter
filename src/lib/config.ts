@@ -19,6 +19,13 @@ export const APP_CONFIG = {
   OAUTH_STATE_COOKIE_NAME: 'oauth_state',
 } as const;
 
+// Supabase Storage Configuration
+export const SUPABASE_STORAGE_CONFIG = {
+  BUCKET_NAME: process.env.SUPABASE_STORAGE_BUCKET_NAME || 'receipt-images',
+  SIGNED_URL_EXPIRY_SECONDS: parseInt(process.env.SUPABASE_SIGNED_URL_EXPIRY_SECONDS || '7200', 10), // Default: 2 hours (7200 seconds)
+  SIGNED_URL_EXPIRY_HOURS: parseFloat(process.env.SUPABASE_SIGNED_URL_EXPIRY_HOURS || '2'), // Default: 2 hours
+} as const;
+
 // AI Configuration (client-safe)
 export const AI_CONFIG = {
   DISCREPANCYY_TOLERANCE: 0.02,

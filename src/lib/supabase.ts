@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_STORAGE_CONFIG } from '@/lib/config';
 import type { ExtractReceiptDataOutput } from '@/types';
 import type { CorrectionData, UserFeedback } from '@/types/analytics';
 
@@ -162,6 +163,7 @@ export const generateImageHash = async (file: File): Promise<string> => {
 
 
 // Helper function to upload image to Supabase Storage
+// Returns a signed URL with 2 hour expiry for private bucket access
 export const uploadImageToStorage = async (
   file: File,
   userId: string
@@ -175,27 +177,31 @@ export const uploadImageToStorage = async (
 
     // First, check if the file already exists
     const { data: existingFile } = await supabase.storage
-      .from('receipt-images')
+      .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
       .list(userId, {
         search: hash
       });
 
-    // If file already exists, return the existing URL
+    // If file already exists, generate a signed URL
     if (existingFile && existingFile.length > 0) {
-      console.log('Image already exists, using existing file');
-      const { data: urlData } = supabase.storage
-        .from('receipt-images')
-        .getPublicUrl(fileName);
+      console.log('Image already exists, generating signed URL');
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
+        .createSignedUrl(fileName, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
+      
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        throw new Error(`Failed to generate signed URL for existing file: ${signedUrlError?.message || 'Unknown error'}`);
+      }
       
       return {
-        url: urlData.publicUrl,
+        url: signedUrlData.signedUrl,
         hash
       };
     }
 
     // Upload new file
     const { data, error } = await supabase.storage
-      .from('receipt-images')
+      .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
       .upload(fileName, file, {
         cacheControl: '3600',
         upsert: false // Don't overwrite existing files
@@ -204,15 +210,19 @@ export const uploadImageToStorage = async (
     if (error) {
       console.error('Storage upload error:', error);
       
-      // If it's a duplicate error, try to get the existing URL
+      // If it's a duplicate error, generate a signed URL
       if (error.message.includes('already exists') || error.message.includes('Duplicate')) {
-        console.log('Handling duplicate file error');
-        const { data: urlData } = supabase.storage
-          .from('receipt-images')
-          .getPublicUrl(fileName);
+        console.log('Handling duplicate file error, generating signed URL');
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
+          .createSignedUrl(fileName, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
+        
+        if (signedUrlError || !signedUrlData?.signedUrl) {
+          throw new Error(`Failed to generate signed URL for duplicate file: ${signedUrlError?.message || 'Unknown error'}`);
+        }
         
         return {
-          url: urlData.publicUrl,
+          url: signedUrlData.signedUrl,
           hash
         };
       }
@@ -222,12 +232,17 @@ export const uploadImageToStorage = async (
 
     console.log('Image uploaded successfully:', data);
 
-    const { data: urlData } = supabase.storage
-      .from('receipt-images')
-      .getPublicUrl(fileName);
+    // Generate a signed URL with configurable expiry for private bucket access
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
+      .createSignedUrl(fileName, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
+
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      throw new Error(`Failed to generate signed URL: ${signedUrlError?.message || 'Unknown error'}`);
+    }
 
     return {
-      url: urlData.publicUrl,
+      url: signedUrlData.signedUrl,
       hash
     };
   } catch (error) {
@@ -239,33 +254,62 @@ export const uploadImageToStorage = async (
 /**
  * Downloads an image from Supabase storage URL and converts it to a data URI
  * Used server-side for AI processing when images are stored in Supabase storage
- * @param imageUrl - The Supabase storage public URL
+ * @param imageUrl - The Supabase storage signed URL or file path
  * @returns Data URI string (data:image/jpeg;base64,...)
  */
 export async function downloadImageAsDataUri(imageUrl: string): Promise<string> {
   try {
-    // Check if this is a Supabase storage URL
-    // URL format: https://<project>.supabase.co/storage/v1/object/public/receipt-images/<userId>/<hash>.<ext>
+    // Check if this is a Supabase storage URL (signed URL or path)
+    // Signed URL format: https://<project>.supabase.co/storage/v1/object/sign/<bucket>/...?token=...
+    // Path format: <userId>/<hash>.<ext>
+    const bucketName = SUPABASE_STORAGE_CONFIG.BUCKET_NAME;
     const isSupabaseUrl = imageUrl.includes('supabase.co') && imageUrl.includes('/storage/');
+    const isSignedUrl = imageUrl.includes('/sign/') && imageUrl.includes('token=');
+    
+    if (isSupabaseUrl && isSignedUrl) {
+      // If it's already a signed URL, fetch directly
+      const response = await fetch(imageUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'image/jpeg,image/jpg,image/png',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => response.statusText);
+        throw new Error(`Failed to fetch image from signed URL: ${response.statusText} (${response.status}). ${errorText.substring(0, 200)}`);
+      }
+      
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      const mimeType = blob.type || 'image/jpeg';
+      
+      return `data:${mimeType};base64,${base64}`;
+    }
     
     if (isSupabaseUrl) {
       // Extract the file path from the Supabase storage URL
-      // Handle both /public/ and non-public URLs
-      let urlMatch = imageUrl.match(/\/storage\/v1\/object\/public\/receipt-images\/(.+)$/);
+      // Handle signed URLs, public URLs, and private URLs
+      const bucketRegex = new RegExp(`/storage/v1/object/sign/${bucketName}/(.+?)(\\?|$)`);
+      const publicRegex = new RegExp(`/storage/v1/object/public/${bucketName}/(.+)$`);
+      const privateRegex = new RegExp(`/storage/v1/object/${bucketName}/(.+)$`);
+      
+      let urlMatch = imageUrl.match(bucketRegex);
+      if (!urlMatch) {
+        urlMatch = imageUrl.match(publicRegex);
+      }
+      if (!urlMatch) {
+        urlMatch = imageUrl.match(privateRegex);
+      }
+      
       let filePath: string | null = null;
-      let publicUrl = imageUrl;
       
       if (urlMatch) {
         filePath = urlMatch[1];
-      } else {
-        // Try to extract from non-public URL and construct public URL
-        const nonPublicMatch = imageUrl.match(/\/storage\/v1\/object\/receipt-images\/(.+)$/);
-        if (nonPublicMatch) {
-          filePath = nonPublicMatch[1];
-          // Construct the public URL
-          const baseUrl = imageUrl.split('/storage/')[0];
-          publicUrl = `${baseUrl}/storage/v1/object/public/receipt-images/${filePath}`;
-        }
+      } else if (!imageUrl.includes('/storage/')) {
+        // If it's just a file path (userId/hash.ext), use it directly
+        filePath = imageUrl;
       }
       
       if (filePath) {
@@ -283,7 +327,7 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
 
         // Try to download the file from Supabase storage
         const { data, error } = await serverSupabase.storage
-          .from('receipt-images')
+          .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
           .download(filePath);
 
         if (error) {
@@ -309,10 +353,10 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
           });
           
           try {
-            // Generate a signed URL with 2 hour expiry for private bucket access
+            // Generate a signed URL with configurable expiry for private bucket access
             const { data: signedUrlData, error: signedUrlError } = await serverSupabase.storage
-              .from('receipt-images')
-              .createSignedUrl(filePath, 2 * 60 * 60); // 2 hours in seconds
+              .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
+              .createSignedUrl(filePath, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
             
             if (signedUrlError || !signedUrlData?.signedUrl) {
               throw new Error(

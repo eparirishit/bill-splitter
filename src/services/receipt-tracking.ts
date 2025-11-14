@@ -1,4 +1,5 @@
 import { supabase, uploadImageToStorage, generateImageHash } from '@/lib/supabase';
+import { SUPABASE_STORAGE_CONFIG } from '@/lib/config';
 import { ExtractReceiptDataOutput, ReceiptProcessingHistory } from '@/types/analytics';
 
 export class ReceiptTrackingService {
@@ -252,7 +253,7 @@ export class ReceiptTrackingService {
 
         // Delete from storage
         const { error: storageError } = await supabase.storage
-          .from('receipt-images')
+          .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
           .remove([fullPath]);
 
         if (storageError) {

@@ -281,7 +281,7 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
         const { createClient } = await import('@supabase/supabase-js');
         const serverSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Download the file from Supabase storage
+        // Try to download the file from Supabase storage
         const { data, error } = await serverSupabase.storage
           .from('receipt-images')
           .download(filePath);
@@ -300,19 +300,32 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
             // Not JSON, use as-is
           }
           
-          // If download fails with storage API, try fetching from public URL
-          // This handles cases where the bucket is public but API access has issues
+          // If download fails, try generating a signed URL (for private buckets)
           const errorStatus = (error as any).statusCode || (error as any).status || 'unknown';
-          console.warn(`Supabase storage API download failed for ${filePath}, trying public URL fetch:`, {
+          console.warn(`Supabase storage API download failed for ${filePath}, trying signed URL:`, {
             error: errorMessage,
             statusCode: errorStatus,
-            filePath,
-            publicUrl
+            filePath
           });
           
           try {
-            // Try fetching from public URL (use constructed publicUrl if we had to fix it)
-            const response = await fetch(publicUrl, {
+            // Generate a signed URL with 2 hour expiry for private bucket access
+            const { data: signedUrlData, error: signedUrlError } = await serverSupabase.storage
+              .from('receipt-images')
+              .createSignedUrl(filePath, 2 * 60 * 60); // 2 hours in seconds
+            
+            if (signedUrlError || !signedUrlData?.signedUrl) {
+              throw new Error(
+                `Failed to generate signed URL: ${signedUrlError?.message || 'Unknown error'}. ` +
+                `Original error: ${errorMessage} (${errorStatus})`
+              );
+            }
+            
+            const signedUrl = signedUrlData.signedUrl;
+            console.log(`Generated signed URL for ${filePath}, fetching image...`);
+            
+            // Fetch the image using the signed URL
+            const response = await fetch(signedUrl, {
               method: 'GET',
               headers: {
                 'Accept': 'image/jpeg,image/jpg,image/png',
@@ -320,13 +333,11 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
             });
             
             if (!response.ok) {
-              // If public URL also fails, throw detailed error
               const errorBody = await response.text().catch(() => '');
               throw new Error(
                 `Storage API failed: ${errorMessage} (${errorStatus}). ` +
-                `Public URL fetch also failed: ${response.status} ${response.statusText}. ` +
+                `Signed URL fetch also failed: ${response.status} ${response.statusText}. ` +
                 `File path: ${filePath}. ` +
-                `Public URL: ${publicUrl}. ` +
                 `Error details: ${errorBody.substring(0, 200)}`
               );
             }
@@ -340,8 +351,7 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
           } catch (fetchError) {
             throw new Error(
               `Failed to download image: Storage API error: ${errorMessage} (${errorStatus}). ` +
-              `Public URL fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}. ` +
-              `Tried URL: ${publicUrl}`
+              `Signed URL generation/fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
             );
           }
         }

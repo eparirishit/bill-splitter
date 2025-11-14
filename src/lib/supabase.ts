@@ -250,11 +250,25 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
     
     if (isSupabaseUrl) {
       // Extract the file path from the Supabase storage URL
-      const urlMatch = imageUrl.match(/\/storage\/v1\/object\/public\/receipt-images\/(.+)$/);
+      // Handle both /public/ and non-public URLs
+      let urlMatch = imageUrl.match(/\/storage\/v1\/object\/public\/receipt-images\/(.+)$/);
+      let filePath: string | null = null;
+      let publicUrl = imageUrl;
       
       if (urlMatch) {
-        const filePath = urlMatch[1];
-        
+        filePath = urlMatch[1];
+      } else {
+        // Try to extract from non-public URL and construct public URL
+        const nonPublicMatch = imageUrl.match(/\/storage\/v1\/object\/receipt-images\/(.+)$/);
+        if (nonPublicMatch) {
+          filePath = nonPublicMatch[1];
+          // Construct the public URL
+          const baseUrl = imageUrl.split('/storage/')[0];
+          publicUrl = `${baseUrl}/storage/v1/object/public/receipt-images/${filePath}`;
+        }
+      }
+      
+      if (filePath) {
         // Use Supabase storage API for server-side access
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -273,18 +287,32 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
           .download(filePath);
 
         if (error) {
+          // Parse error message - it might be a JSON string
+          let errorMessage = error.message;
+          try {
+            const parsedError = JSON.parse(error.message);
+            if (parsedError.message) {
+              errorMessage = parsedError.message;
+            } else if (parsedError.error) {
+              errorMessage = parsedError.error;
+            }
+          } catch {
+            // Not JSON, use as-is
+          }
+          
           // If download fails with storage API, try fetching from public URL
           // This handles cases where the bucket is public but API access has issues
           const errorStatus = (error as any).statusCode || (error as any).status || 'unknown';
           console.warn(`Supabase storage API download failed for ${filePath}, trying public URL fetch:`, {
-            error: error.message,
+            error: errorMessage,
             statusCode: errorStatus,
-            filePath
+            filePath,
+            publicUrl
           });
           
           try {
-            // Try fetching from public URL
-            const response = await fetch(imageUrl, {
+            // Try fetching from public URL (use constructed publicUrl if we had to fix it)
+            const response = await fetch(publicUrl, {
               method: 'GET',
               headers: {
                 'Accept': 'image/jpeg,image/jpg,image/png',
@@ -295,9 +323,10 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
               // If public URL also fails, throw detailed error
               const errorBody = await response.text().catch(() => '');
               throw new Error(
-                `Storage API failed: ${error.message} (${errorStatus}). ` +
+                `Storage API failed: ${errorMessage} (${errorStatus}). ` +
                 `Public URL fetch also failed: ${response.status} ${response.statusText}. ` +
                 `File path: ${filePath}. ` +
+                `Public URL: ${publicUrl}. ` +
                 `Error details: ${errorBody.substring(0, 200)}`
               );
             }
@@ -310,8 +339,9 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
             return `data:${mimeType};base64,${base64}`;
           } catch (fetchError) {
             throw new Error(
-              `Failed to download image: Storage API error: ${error.message} (${errorStatus}). ` +
-              `Public URL fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
+              `Failed to download image: Storage API error: ${errorMessage} (${errorStatus}). ` +
+              `Public URL fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}. ` +
+              `Tried URL: ${publicUrl}`
             );
           }
         }

@@ -259,15 +259,16 @@ export const uploadImageToStorage = async (
  */
 export async function downloadImageAsDataUri(imageUrl: string): Promise<string> {
   try {
-    // Check if this is a Supabase storage URL (signed URL or path)
+    // Extract file path from URL or use URL directly if it's already a file path
     // Signed URL format: https://<project>.supabase.co/storage/v1/object/sign/<bucket>/...?token=...
-    // Path format: <userId>/<hash>.<ext>
+    // Private URL format: https://<project>.supabase.co/storage/v1/object/<bucket>/...
+    // File path format: <userId>/<hash>.<ext>
     const bucketName = SUPABASE_STORAGE_CONFIG.BUCKET_NAME;
     const isSupabaseUrl = imageUrl.includes('supabase.co') && imageUrl.includes('/storage/');
     const isSignedUrl = imageUrl.includes('/sign/') && imageUrl.includes('token=');
     
+    // If it's already a signed URL, fetch directly
     if (isSupabaseUrl && isSignedUrl) {
-      // If it's already a signed URL, fetch directly
       const response = await fetch(imageUrl, {
         method: 'GET',
         headers: {
@@ -288,9 +289,11 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
       return `data:${mimeType};base64,${base64}`;
     }
     
+    // Extract file path from URL or use as-is if it's already a path
+    let filePath: string | null = null;
+    
     if (isSupabaseUrl) {
-      // Extract the file path from the Supabase storage URL
-      // Handle signed URLs, public URLs, and private URLs
+      // Extract file path from various URL formats
       const bucketRegex = new RegExp(`/storage/v1/object/sign/${bucketName}/(.+?)(\\?|$)`);
       const publicRegex = new RegExp(`/storage/v1/object/public/${bucketName}/(.+)$`);
       const privateRegex = new RegExp(`/storage/v1/object/${bucketName}/(.+)$`);
@@ -303,140 +306,80 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
         urlMatch = imageUrl.match(privateRegex);
       }
       
-      let filePath: string | null = null;
-      
       if (urlMatch) {
         filePath = urlMatch[1];
-      } else if (!imageUrl.includes('/storage/')) {
-        // If it's just a file path (userId/hash.ext), use it directly
-        filePath = imageUrl;
       }
-      
-      if (filePath) {
-        // Use Supabase storage API for server-side access
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-        if (!supabaseUrl || !supabaseServiceKey) {
-          throw new Error('Missing Supabase environment variables for server-side access');
-        }
-
-        // Create a server-side Supabase client
-        const { createClient } = await import('@supabase/supabase-js');
-        const serverSupabase = createClient(supabaseUrl, supabaseServiceKey);
-
-        // Try to download the file from Supabase storage
-        const { data, error } = await serverSupabase.storage
-          .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
-          .download(filePath);
-
-        if (error) {
-          // Parse error message - it might be a JSON string
-          let errorMessage = error.message;
-          try {
-            const parsedError = JSON.parse(error.message);
-            if (parsedError.message) {
-              errorMessage = parsedError.message;
-            } else if (parsedError.error) {
-              errorMessage = parsedError.error;
-            }
-          } catch {
-            // Not JSON, use as-is
-          }
-          
-          // If download fails, try generating a signed URL (for private buckets)
-          const errorStatus = (error as any).statusCode || (error as any).status || 'unknown';
-          console.warn(`Supabase storage API download failed for ${filePath}, trying signed URL:`, {
-            error: errorMessage,
-            statusCode: errorStatus,
-            filePath
-          });
-          
-          try {
-            // Generate a signed URL with configurable expiry for private bucket access
-            const { data: signedUrlData, error: signedUrlError } = await serverSupabase.storage
-              .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
-              .createSignedUrl(filePath, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
-            
-            if (signedUrlError || !signedUrlData?.signedUrl) {
-              throw new Error(
-                `Failed to generate signed URL: ${signedUrlError?.message || 'Unknown error'}. ` +
-                `Original error: ${errorMessage} (${errorStatus})`
-              );
-            }
-            
-            const signedUrl = signedUrlData.signedUrl;
-            console.log(`Generated signed URL for ${filePath}, fetching image...`);
-            
-            // Fetch the image using the signed URL
-            const response = await fetch(signedUrl, {
-              method: 'GET',
-              headers: {
-                'Accept': 'image/jpeg,image/jpg,image/png',
-              },
-            });
-            
-            if (!response.ok) {
-              const errorBody = await response.text().catch(() => '');
-              throw new Error(
-                `Storage API failed: ${errorMessage} (${errorStatus}). ` +
-                `Signed URL fetch also failed: ${response.status} ${response.statusText}. ` +
-                `File path: ${filePath}. ` +
-                `Error details: ${errorBody.substring(0, 200)}`
-              );
-            }
-            
-            const blob = await response.blob();
-            const arrayBuffer = await blob.arrayBuffer();
-            const base64 = Buffer.from(arrayBuffer).toString('base64');
-            const mimeType = blob.type || (filePath.endsWith('.png') ? 'image/png' : 'image/jpeg');
-            
-            return `data:${mimeType};base64,${base64}`;
-          } catch (fetchError) {
-            throw new Error(
-              `Failed to download image: Storage API error: ${errorMessage} (${errorStatus}). ` +
-              `Signed URL generation/fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
-            );
-          }
-        }
-
-        if (!data) {
-          throw new Error('No data received from storage');
-        }
-
-        // Convert blob to base64
-        const arrayBuffer = await data.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        
-        // Determine MIME type from file extension
-        const extension = filePath.split('.').pop()?.toLowerCase();
-        let mimeType = 'image/jpeg';
-        if (extension === 'png') {
-          mimeType = 'image/png';
-        } else if (extension === 'jpg' || extension === 'jpeg') {
-          mimeType = 'image/jpeg';
-        }
-        
-        return `data:${mimeType};base64,${base64}`;
-      }
+    } else {
+      // If it's not a Supabase URL, assume it's a file path
+      filePath = imageUrl;
+    }
+    
+    if (!filePath) {
+      throw new Error(`Unable to extract file path from URL: ${imageUrl}`);
     }
 
-    // Fallback to direct fetch for non-Supabase URLs or if path extraction failed
-    const response = await fetch(imageUrl, {
+    // Generate signed URL and fetch image
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables for server-side access');
+    }
+
+    // Create a server-side Supabase client
+    const { createClient } = await import('@supabase/supabase-js');
+    const serverSupabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    console.log(`Generating signed URL for image:`, {
+      filePath,
+      bucketName: SUPABASE_STORAGE_CONFIG.BUCKET_NAME,
+      expirySeconds: SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS
+    });
+
+    // Generate signed URL
+    const { data: signedUrlData, error: signedUrlError } = await serverSupabase.storage
+      .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
+      .createSignedUrl(filePath, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
+    
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      throw new Error(
+        `Failed to generate signed URL: ${signedUrlError?.message || 'Unknown error'}. ` +
+        `File path: ${filePath}, Bucket: ${SUPABASE_STORAGE_CONFIG.BUCKET_NAME}`
+      );
+    }
+    
+    const signedUrl = signedUrlData.signedUrl;
+    console.log(`Generated signed URL for ${filePath}, fetching image...`);
+    
+    // Fetch the image using the signed URL
+    const response = await fetch(signedUrl, {
+      method: 'GET',
       headers: {
         'Accept': 'image/jpeg,image/jpg,image/png',
       },
     });
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => response.statusText);
-      throw new Error(`Failed to fetch image: ${response.statusText} (${response.status}). ${errorText.substring(0, 200)}`);
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `Failed to fetch image from signed URL: ${response.status} ${response.statusText}. ` +
+        `File path: ${filePath}. ` +
+        `Error details: ${errorBody.substring(0, 200)}`
+      );
     }
     
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString('base64');
-    const mimeType = blob.type || 'image/jpeg';
+    
+    // Determine MIME type from file extension
+    const extension = filePath.split('.').pop()?.toLowerCase();
+    let mimeType = 'image/jpeg';
+    if (extension === 'png') {
+      mimeType = 'image/png';
+    } else if (extension === 'jpg' || extension === 'jpeg') {
+      mimeType = 'image/jpeg';
+    }
     
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {

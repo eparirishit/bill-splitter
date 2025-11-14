@@ -83,26 +83,30 @@ export function useFileUpload(
 
     try {
       // Upload image to Supabase storage first
-      // This prevents hitting Vercel's serverless function body size limit
       let imageUrl: string | undefined;
       
-      if (userId) {
-        try {
-          const { url } = await uploadImageToStorage(selectedFile, userId);
-          imageUrl = url;
-          console.log("Image uploaded to Supabase storage:", imageUrl);
-        } catch (uploadError) {
-          console.warn("Failed to upload to storage, falling back to data URI:", uploadError);
-          // Fallback to data URI if storage upload fails
-        }
-      } else {
-        console.warn("No userId provided - using data URI (may hit Vercel 4.5MB limit in production)");
+      if (!userId) {
+        throw new Error("User authentication required. Please log in to upload images.");
       }
 
-      // Use storage URL if available, otherwise fall back to data URI
-      const extractionInput = imageUrl 
-        ? { imageUrl } 
-        : { photoDataUri: previewUrl };
+      try {
+        const { url } = await uploadImageToStorage(selectedFile, userId);
+        imageUrl = url;
+        console.log("Image uploaded to Supabase storage:", imageUrl);
+      } catch (uploadError) {
+        console.error("Failed to upload to storage:", uploadError);
+        throw new Error(
+          `Failed to upload image to storage: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}. ` +
+          `Please try again or use a smaller image.`
+        );
+      }
+
+      // Always use storage URL - never fall back to data URI to avoid 1MB Server Actions limit
+      if (!imageUrl) {
+        throw new Error("Failed to get image URL from storage");
+      }
+
+      const extractionInput = { imageUrl };
 
       const result = await extractReceiptData(extractionInput, userId);
       console.log("Extraction Result:", result);

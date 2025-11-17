@@ -41,6 +41,7 @@ export function ManualExpenseSplitStep() {
   const {
     splitType,
     customAmounts,
+getInputValue,
     setSplitType,
     handleCustomAmountChange,
     validateAndProceed
@@ -123,12 +124,6 @@ export function ManualExpenseSplitStep() {
     const remainderCents = totalCents % memberCount;
     const extraCent = memberIndex < remainderCents ? 1 : 0;
     return (baseCents + extraCent) / 100;
-  };
-
-  // Helper function to format display value
-  const getDisplayValue = (amount: number): string => {
-    if (amount === 0) return '';
-    return amount.toString();
   };
 
   if (!manualExpenseData) {
@@ -220,8 +215,8 @@ export function ManualExpenseSplitStep() {
                           type="text"
                           inputMode="decimal"
                           placeholder="0.00"
-                          value={getDisplayValue(customAmounts[member.id] || 0)}
-                          onChange={(e) => handleCustomAmountChange(member.id, e.target.value)}
+                          value={getInputValue(member.id)}
+                          onChange={(e) => handleCustomAmountChange(member.id, e.target.value, e.target)}
                           className="pl-8 pr-3 h-11 text-base w-full max-w-none"
                           style={{
                             // Remove spinner arrows for webkit browsers

@@ -1,11 +1,12 @@
 import type { ManualExpenseData } from '@/types';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface UseManualExpenseSplittingReturn {
   splitType: 'equal' | 'custom';
   customAmounts: Record<string, number>;
+  getInputValue: (memberId: string) => string;
   setSplitType: (type: 'equal' | 'custom') => void;
-  handleCustomAmountChange: (memberId: string, value: string) => void;
+  handleCustomAmountChange: (memberId: string, value: string, inputElement?: HTMLInputElement) => void;
   validateAndProceed: () => { isValid: boolean; splitType: 'equal' | 'custom'; customAmounts?: Record<string, number> };
 }
 
@@ -14,6 +15,8 @@ export function useManualExpenseSplitting(
 ): UseManualExpenseSplittingReturn {
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
   const [customAmounts, setCustomAmounts] = useState<Record<string, number>>({});
+  const inputValuesRef = useRef<Record<string, string>>({});
+  const [, setRenderTrigger] = useState(0);
 
   useEffect(() => {
     // Initialize custom amounts with equal split
@@ -21,44 +24,51 @@ export function useManualExpenseSplitting(
     const initialAmounts: Record<string, number> = {};
     expenseData.members.forEach(member => {
       initialAmounts[member.id] = equalAmount;
+      inputValuesRef.current[member.id] = equalAmount.toString();
     });
     setCustomAmounts(initialAmounts);
   }, [expenseData.amount, expenseData.members]);
 
-  const handleCustomAmountChange = (memberId: string, value: string) => {
-    // Allow empty string for better UX
-    if (value === '') {
-      setCustomAmounts(prev => ({ ...prev, [memberId]: 0 }));
-      return;
-    }
+  const handleCustomAmountChange = (memberId: string, value: string, inputElement?: HTMLInputElement) => {
+    // Store cursor position before update
+    const cursorPosition = inputElement?.selectionStart ?? null;
     
     // Remove any non-numeric characters except decimal point
-    const cleanValue = value.replace(/[^0-9.]/g, '');
+    let cleanValue = value.replace(/[^0-9.]/g, '');
     
-    // Ensure only one decimal point
     const parts = cleanValue.split('.');
     if (parts.length > 2) {
-      return; // Invalid input, don't update
+      const firstDecimalIndex = cleanValue.indexOf('.');
+      cleanValue = cleanValue.substring(0, firstDecimalIndex + 1) + cleanValue.substring(firstDecimalIndex + 1).replace(/\./g, '');
     }
+    inputValuesRef.current[memberId] = cleanValue;
+    setRenderTrigger(prev => prev + 1);
     
-    // Allow up to 2 decimal places
-    if (parts.length === 2 && parts[1].length > 2) {
-      return; // Too many decimal places, don't update
-    }
-    
-    // Parse the cleaned value - allow partial decimal input
-    const numValue = parseFloat(cleanValue);
-    
-    // Update the state - allow NaN for partial input like "0." or "."
-    if (isNaN(numValue)) {
-      // If it's just a decimal point or partial decimal, store as 0
-      if (cleanValue === '.' || cleanValue === '0.') {
-        setCustomAmounts(prev => ({ ...prev, [memberId]: 0 }));
+    if (cleanValue === '' || cleanValue === '.') {
+      setCustomAmounts(prev => ({ ...prev, [memberId]: 0 }));
+      if (inputElement && cursorPosition !== null) {
+        setTimeout(() => {
+          inputElement.setSelectionRange(cursorPosition, cursorPosition);
+        }, 0);
       }
       return;
     }
     
-    setCustomAmounts(prev => ({ ...prev, [memberId]: numValue }));
+
+    const numValue = parseFloat(cleanValue);
+    
+    if (!isNaN(numValue) && numValue >= 0) {
+      setCustomAmounts(prev => ({ ...prev, [memberId]: numValue }));
+    } else if (cleanValue === '0.' || cleanValue.startsWith('0.') || cleanValue === '0') {
+      setCustomAmounts(prev => ({ ...prev, [memberId]: 0 }));
+    }
+
+    if (inputElement && cursorPosition !== null) {
+      setTimeout(() => {
+        const newPosition = Math.min(cursorPosition, cleanValue.length);
+        inputElement.setSelectionRange(newPosition, newPosition);
+      }, 0);
+    }
   };
 
   const validateAndProceed = (): { isValid: boolean; splitType: 'equal' | 'custom'; customAmounts?: Record<string, number> } => {
@@ -92,11 +102,16 @@ export function useManualExpenseSplitting(
     };
   };
 
+  const getInputValue = (memberId: string): string => {
+    return inputValuesRef.current[memberId] ?? (customAmounts[memberId]?.toString() ?? '');
+  };
+
   return {
     splitType,
     customAmounts,
+    getInputValue,
     setSplitType,
     handleCustomAmountChange,
     validateAndProceed
   };
-} 
+}

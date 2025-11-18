@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 import { CorrectionData, CorrectionPattern, ExtractReceiptDataOutput } from '@/types/analytics';
 
 export class CorrectionTrackingService {
@@ -167,6 +167,7 @@ export class CorrectionTrackingService {
 
       // Insert all patterns
       if (patterns.length > 0) {
+        const supabase = getSupabaseClient();
         const { error } = await supabase
           .from('correction_patterns')
           .insert(patterns);
@@ -189,6 +190,7 @@ export class CorrectionTrackingService {
     limit: number = 100
   ): Promise<CorrectionPattern[]> {
     try {
+      const supabase = getSupabaseClient();
       let query = supabase
         .from('correction_patterns')
         .select('*')
@@ -229,6 +231,7 @@ export class CorrectionTrackingService {
     }>;
   }> {
     try {
+      const supabase = getSupabaseClient();
       // Get total corrections
       const { count: totalCorrections } = await supabase
         .from('correction_patterns')
@@ -276,6 +279,7 @@ export class CorrectionTrackingService {
    */
   static async getCorrectionsForReceipt(receiptId: string): Promise<CorrectionPattern[]> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('correction_patterns')
         .select('*')

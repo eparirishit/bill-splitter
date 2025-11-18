@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 import { SplitwiseService } from '@/services/splitwise';
 import { UserAnalytics } from '@/types/analytics';
 
@@ -8,6 +8,7 @@ export class UserTrackingService {
    */
   static async trackUserSignin(userId: string): Promise<void> {
     try {
+      const supabase = getSupabaseClient();
       const now = new Date().toISOString();
       
       // Get user profile from Splitwise
@@ -81,6 +82,7 @@ export class UserTrackingService {
    */
   static async incrementReceiptProcessed(userId: string): Promise<void> {
     try {
+      const supabase = getSupabaseClient();
       const { data: existingRecord } = await supabase
         .from('user_analytics')
         .select('total_receipts_processed')
@@ -106,6 +108,7 @@ export class UserTrackingService {
    */
   static async incrementCorrectionsMade(userId: string, correctionCount: number = 1): Promise<void> {
     try {
+      const supabase = getSupabaseClient();
       const { data: existingRecord } = await supabase
         .from('user_analytics')
         .select('total_corrections_made')
@@ -131,6 +134,7 @@ export class UserTrackingService {
    */
   static async updateAccuracyRating(userId: string, newRating: number): Promise<void> {
     try {
+      const supabase = getSupabaseClient();
       const { data: existingRecord } = await supabase
         .from('user_analytics')
         .select('average_accuracy_rating, total_receipts_processed')
@@ -162,6 +166,7 @@ export class UserTrackingService {
    */
   static async updatePerformanceMetrics(userId: string, processingTimeMs: number): Promise<void> {
     try {
+      const supabase = getSupabaseClient();
       const { data: existingRecord } = await supabase
         .from('user_analytics')
         .select('performance_metrics')
@@ -205,6 +210,7 @@ export class UserTrackingService {
    */
   static async getUserAnalytics(userId: string): Promise<UserAnalytics | null> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('user_analytics')
         .select('*')
@@ -240,6 +246,7 @@ export class UserTrackingService {
     active_users_last_30_days: number;
   }> {
     try {
+      const supabase = getSupabaseClient();
       // Get total users
       const { count: totalUsers } = await supabase
         .from('user_analytics')

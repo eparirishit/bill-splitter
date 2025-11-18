@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 import { UserFeedback } from '@/types/analytics';
 
 export class FeedbackService {
@@ -16,6 +16,7 @@ export class FeedbackService {
       };
 
       // Update existing record with feedback
+      const supabase = getSupabaseClient();
       const { error } = await supabase
         .from('receipt_processing_history')
         .update({
@@ -51,6 +52,7 @@ export class FeedbackService {
     confidence_breakdown: Record<string, number>;
   }> {
     try {
+      const supabase = getSupabaseClient();
       // Get all feedback
       const { data: feedbackData, error } = await supabase
         .from('receipt_processing_history')
@@ -151,6 +153,7 @@ export class FeedbackService {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
+      const supabase = getSupabaseClient();
       const { data: feedbackData, error } = await supabase
         .from('receipt_processing_history')
         .select('feedback, created_at')
@@ -199,6 +202,7 @@ export class FeedbackService {
    */
   static async getFeedbackForReceipt(receiptId: string): Promise<UserFeedback | null> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('receipt_processing_history')
         .select('feedback')
@@ -229,6 +233,7 @@ export class FeedbackService {
     created_at: Date;
   }>> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('receipt_processing_history')
         .select('id, feedback, created_at')

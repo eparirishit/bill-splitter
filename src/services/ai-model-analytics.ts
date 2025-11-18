@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 
 export interface AIModelStats {
   ai_provider: string;
@@ -27,6 +27,7 @@ export class AIModelAnalyticsService {
    */
   static async getModelStats(): Promise<AIModelStats[]> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('ai_model_analytics')
         .select('*')
@@ -48,6 +49,7 @@ export class AIModelAnalyticsService {
    */
   static async getModelComparison(): Promise<AIModelComparison[]> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('receipt_processing_history')
         .select(`
@@ -130,6 +132,7 @@ export class AIModelAnalyticsService {
    */
   static async getProviderStats(provider: string): Promise<AIModelStats[]> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('ai_model_analytics')
         .select('*')
@@ -152,6 +155,7 @@ export class AIModelAnalyticsService {
    */
   static async getRecentUsage(limit: number = 10): Promise<any[]> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('receipt_processing_history')
         .select(`

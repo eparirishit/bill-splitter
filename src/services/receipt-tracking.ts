@@ -1,4 +1,4 @@
-import { supabase, uploadImageToStorage, generateImageHash } from '@/lib/supabase';
+import { getSupabaseClient, uploadImageToStorage, generateImageHash } from '@/lib/supabase';
 import { SUPABASE_STORAGE_CONFIG } from '@/lib/config';
 import { ExtractReceiptDataOutput, ReceiptProcessingHistory } from '@/types/analytics';
 
@@ -36,6 +36,7 @@ export class ReceiptTrackingService {
       }
 
       // Store processing record
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('receipt_processing_history')
         .insert({
@@ -74,6 +75,7 @@ export class ReceiptTrackingService {
     corrections: any
   ): Promise<void> {
     try {
+      const supabase = getSupabaseClient();
       const { error } = await supabase
         .from('receipt_processing_history')
         .update({
@@ -99,6 +101,7 @@ export class ReceiptTrackingService {
     feedback: any
   ): Promise<void> {
     try {
+      const supabase = getSupabaseClient();
       const { error } = await supabase
         .from('receipt_processing_history')
         .update({
@@ -121,6 +124,7 @@ export class ReceiptTrackingService {
    */
   static async getUserReceiptHistory(userId: string): Promise<ReceiptProcessingHistory[]> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('receipt_processing_history')
         .select('*')
@@ -148,6 +152,7 @@ export class ReceiptTrackingService {
    */
   static async getReceiptById(receiptId: string): Promise<ReceiptProcessingHistory | null> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('receipt_processing_history')
         .select('*')
@@ -183,6 +188,7 @@ export class ReceiptTrackingService {
     };
   }> {
     try {
+      const supabase = getSupabaseClient();
       // Get total receipts
       const { count: totalReceipts } = await supabase
         .from('receipt_processing_history')
@@ -251,7 +257,8 @@ export class ReceiptTrackingService {
         const userId = record.user_id;
         const fullPath = `${userId}/${fileName}`;
 
-        // Delete from storage
+        // Delete from storage (use server client for storage operations too)
+        const supabase = getSupabaseClient();
         const { error: storageError } = await supabase.storage
           .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
           .remove([fullPath]);
@@ -262,6 +269,7 @@ export class ReceiptTrackingService {
       }
 
       // Delete from database
+      const supabase = getSupabaseClient();
       const { error } = await supabase
         .from('receipt_processing_history')
         .delete()

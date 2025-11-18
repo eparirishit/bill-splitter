@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBillSplitting } from "@/contexts/bill-splitting-context";
 import { useToast } from "@/hooks/use-toast";
-import { SplitwiseService, ExpensePayloadService } from "@/types";
+import { SplitwiseService, ExpensePayloadService, type SplitwiseUser } from "@/types";
 import { ArrowLeft, Loader2, Send, UserCircle } from "lucide-react";
 import * as React from "react";
 
@@ -23,7 +23,8 @@ export function ManualExpenseReviewStep() {
     setComplete,
     goToPreviousStep,
     selectedGroupId,
-    selectedMembers
+    selectedMembers,
+    reset
   } = useBillSplitting();
 
   // Guard: If required state is missing, show a message
@@ -36,11 +37,59 @@ export function ManualExpenseReviewStep() {
     );
   }
 
+  // Fetch all group members if this is a group expense
+  const [allGroupMembers, setAllGroupMembers] = React.useState<SplitwiseUser[]>([]);
+  const [isLoadingGroupMembers, setIsLoadingGroupMembers] = React.useState(false);
+
   React.useEffect(() => {
-    if (manualExpenseData?.members.length > 0 && !payerId) {
-      setPayerId(manualExpenseData.members[0].id);
+    const fetchGroupMembers = async () => {
+      // Only fetch if it's a group expense (groupId is not null, not '0', and not undefined)
+      if (selectedGroupId && selectedGroupId !== '0' && selectedGroupId !== null) {
+        setIsLoadingGroupMembers(true);
+        try {
+          const members = await SplitwiseService.getGroupMembers(selectedGroupId);
+          setAllGroupMembers(members);
+        } catch (error) {
+          console.error('Failed to fetch group members:', error);
+          // Fallback to selected members if fetch fails
+          setAllGroupMembers(manualExpenseData?.members || []);
+        } finally {
+          setIsLoadingGroupMembers(false);
+        }
+      } else {
+        // For friend expenses, use selected members
+        setAllGroupMembers(manualExpenseData?.members || []);
+      }
+    };
+
+    if (manualExpenseData) {
+      fetchGroupMembers();
     }
-  }, [manualExpenseData?.members, payerId, setPayerId]);
+  }, [selectedGroupId, manualExpenseData]);
+
+  // Determine which members to show in "Who paid?" dropdown
+  // For groups: show all group members (even if expense involves only one person)
+  // For friends: show only selected friends
+  const payerOptions = React.useMemo(() => {
+    if (selectedGroupId && selectedGroupId !== '0' && selectedGroupId !== null) {
+      // Group expense: show all group members
+      return allGroupMembers.length > 0 ? allGroupMembers : (manualExpenseData?.members || []);
+    } else {
+      // Friend expense: show only selected members
+      return manualExpenseData?.members || [];
+    }
+  }, [selectedGroupId, allGroupMembers, manualExpenseData?.members]);
+
+  React.useEffect(() => {
+    // Set default payer if not set and we have payer options
+    if (payerOptions.length > 0 && !payerId) {
+      // Prefer selecting the first member from the expense, or fallback to first in payer options
+      const defaultPayer = manualExpenseData?.members[0]?.id || payerOptions[0]?.id;
+      if (defaultPayer) {
+        setPayerId(defaultPayer);
+      }
+    }
+  }, [payerOptions, payerId, setPayerId, manualExpenseData?.members]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { 
@@ -74,7 +123,7 @@ export function ManualExpenseReviewStep() {
 
     setLoading(true);
     try {
-      const groupId = parseInt(manualExpenseData!.groupId);
+      const groupId = manualExpenseData!.groupId === '0' ? 0 : parseInt(manualExpenseData!.groupId);
 
       // Calculate individual amounts with proper rounding
       let memberAmounts: Record<string, number> = {};
@@ -111,9 +160,26 @@ export function ManualExpenseReviewStep() {
         amountOwed: memberAmounts[member.id]
       }));
 
+      // Check if payer is in the selected members
+      const payerIsInSelectedMembers = manualExpenseData!.members.some(m => m.id === payerId);
+      
+      // If payer is not in selected members, add them to finalSplits with amountOwed = 0
+      // This handles the case where someone else in the group paid for an expense involving only one person
+      let adjustedFinalSplits = [...finalSplits];
+      if (!payerIsInSelectedMembers && payerId) {
+        // Find the payer in the all group members
+        const payerMember = payerOptions.find(m => m.id === payerId);
+        if (payerMember) {
+          adjustedFinalSplits.push({
+            userId: payerMember.id,
+            amountOwed: 0 // Payer doesn't owe anything since they paid
+          });
+        }
+      }
+
       // Use the ExpensePayloadService to generate the payload
       const expensePayload = ExpensePayloadService.generateExpensePayload(
-        finalSplits,
+        adjustedFinalSplits,
         manualExpenseData!.amount,
         {
           storeName: manualExpenseData!.title,
@@ -259,12 +325,12 @@ export function ManualExpenseReviewStep() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Select value={payerId} onValueChange={setPayerId}>
+            <Select value={payerId} onValueChange={setPayerId} disabled={isLoadingGroupMembers}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select who paid" />
+                <SelectValue placeholder={isLoadingGroupMembers ? "Loading members..." : "Select who paid"} />
               </SelectTrigger>
               <SelectContent>
-                {manualExpenseData.members.map((member) => (
+                {payerOptions.map((member) => (
                   <SelectItem 
                     key={member.id} 
                     value={member.id}

@@ -30,9 +30,7 @@ export function useManualExpenseSplitting(
   }, [expenseData.amount, expenseData.members]);
 
   const handleCustomAmountChange = (memberId: string, value: string, inputElement?: HTMLInputElement) => {
-    // Store cursor position before update
     const cursorPosition = inputElement?.selectionStart ?? null;
-    
     // Remove any non-numeric characters except decimal point
     let cleanValue = value.replace(/[^0-9.]/g, '');
     
@@ -54,7 +52,6 @@ export function useManualExpenseSplitting(
       return;
     }
     
-
     const numValue = parseFloat(cleanValue);
     
     if (!isNaN(numValue) && numValue >= 0) {

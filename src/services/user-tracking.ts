@@ -13,18 +13,25 @@ export class UserTrackingService {
       
       // Get user profile from Splitwise
       let userProfile = null;
-      try {
-        const splitwiseUser = await SplitwiseService.getCurrentUser();
-        userProfile = {
-          first_name: splitwiseUser.first_name,
-          last_name: splitwiseUser.last_name,
-          email: splitwiseUser.email,
-          registration_status: splitwiseUser.registration_status,
-          profile_picture_url: splitwiseUser.picture?.medium,
-          account_created_at: new Date() // Note: Splitwise doesn't provide account creation date
-        };
-      } catch (error) {
-        console.warn('Could not fetch Splitwise user profile:', error);
+      if (typeof window !== 'undefined') {
+        // Only fetch user profile on client-side where relative URLs work
+        // On server-side, we skip this to avoid "Failed to parse URL" errors
+        try {
+          const splitwiseUser = await SplitwiseService.getCurrentUser();
+          userProfile = {
+            first_name: splitwiseUser.first_name,
+            last_name: splitwiseUser.last_name,
+            email: splitwiseUser.email,
+            registration_status: splitwiseUser.registration_status,
+            profile_picture_url: splitwiseUser.picture?.medium,
+            account_created_at: new Date() // Note: Splitwise doesn't provide account creation date
+          };
+        } catch (error) {
+          console.warn('Could not fetch Splitwise user profile (continuing without it):', 
+            error instanceof Error ? error.message : String(error));
+        }
+      } else {
+        console.log('Skipping user profile fetch on server-side (userId already available)');
       }
       
       // Check if user analytics record exists

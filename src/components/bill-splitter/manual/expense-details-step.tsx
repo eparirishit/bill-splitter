@@ -27,20 +27,21 @@ export function ManualExpenseDetailsStep() {
   } = useBillSplitting();
 
   // Guard: If required state is missing, show a message
-  if (!selectedGroupId || !selectedMembers || selectedMembers.length === 0) {
+  // Note: selectedGroupId can be null for friend expenses (groupId: 0)
+  if (!selectedMembers || selectedMembers.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)]">
-        <p className="text-muted-foreground mb-4">Please select a group and members first.</p>
-        <Button onClick={goToPreviousStep} variant="outline">Back to Group Selection</Button>
+        <p className="text-muted-foreground mb-4">Please select a group or friends first.</p>
+        <Button onClick={goToPreviousStep} variant="outline">Back to Selection</Button>
       </div>
     );
   }
 
   const handleProceed = () => {
-    if (!selectedMembers.length || !selectedGroupId) {
+    if (!selectedMembers.length) {
       toast({
         title: "Missing Data",
-        description: "Please select group and members first.",
+        description: "Please select members or friends first.",
         variant: "destructive",
       });
       return;

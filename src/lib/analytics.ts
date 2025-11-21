@@ -18,7 +18,7 @@ export class AnalyticsService {
    */
   static async trackReceiptProcessing(
     userId: string,
-    file: File,
+    file: File | null,
     aiExtraction: ExtractReceiptDataOutput,
     processingTimeMs: number,
     aiModelVersion: string = AI_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
@@ -26,7 +26,10 @@ export class AnalyticsService {
     aiModelName?: string,
     aiTokensUsed?: number,
     aiProcessingTimeMs?: number,
-    existingImageUrl?: string // Optional: if image already uploaded, reuse the URL
+    existingImageUrl?: string, // Optional: if image already uploaded, reuse the URL
+    existingImageHash?: string, // Optional: hash if image already uploaded
+    originalFilename?: string, // Optional: filename if file not provided
+    fileSize?: number // Optional: file size if file not provided
   ): Promise<string> {
     // Track receipt processing
     const receiptId = await ReceiptTrackingService.trackReceiptProcessing(
@@ -39,7 +42,10 @@ export class AnalyticsService {
       aiModelName,
       aiTokensUsed,
       aiProcessingTimeMs,
-      existingImageUrl
+      existingImageUrl,
+      existingImageHash,
+      originalFilename,
+      fileSize
     );
 
     // Increment user's receipt count

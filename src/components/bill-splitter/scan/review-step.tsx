@@ -62,7 +62,7 @@ export function ReviewStep({
   const [localStoreName, setLocalStoreName] = React.useState<string>(contextStoreName || billData.storeName);
   const [localDate, setLocalDate] = React.useState<string>(contextDate || billData.date);
   const hasUserEditedNotesRef = React.useRef<boolean>(false);
-  const { setExpenseNotes, setStoreName, setDate, setPayerId } = useBillSplitting();
+  const { setExpenseNotes, setStoreName, setDate, setPayerId, selectedGroupId } = useBillSplitting();
 
   // Update local state when context state changes
   React.useEffect(() => {
@@ -91,11 +91,68 @@ export function ReviewStep({
     }, {} as Record<string, SplitwiseUser>);
   }, [selectedMembers]);
 
+  // Fetch all group members if this is a group expense
+  const [allGroupMembers, setAllGroupMembers] = React.useState<SplitwiseUser[]>([]);
+  const [isLoadingGroupMembers, setIsLoadingGroupMembers] = React.useState(false);
+
+  // Extract groupId from selectedMembers (they have _groupDetails)
+  const groupIdFromMembers = React.useMemo(() => {
+    const groupIdStr = selectedMembers[0]?._groupDetails?.id;
+    return groupIdStr && groupIdStr !== '0' ? groupIdStr : null;
+  }, [selectedMembers]);
+
+  // Use selectedGroupId from context, or fallback to groupId from members
+  const effectiveGroupId = selectedGroupId && selectedGroupId !== '0' ? selectedGroupId : groupIdFromMembers;
+
   React.useEffect(() => {
-    if (selectedMembers.length > 0 && !localPayerId) {
-      setLocalPayerId(selectedMembers[0].id);
+    const fetchGroupMembers = async () => {
+      // Only fetch if it's a group expense (groupId is not null, not '0', and not undefined)
+      if (effectiveGroupId && effectiveGroupId !== '0' && effectiveGroupId !== null) {
+        setIsLoadingGroupMembers(true);
+        try {
+          const members = await SplitwiseService.getGroupMembers(effectiveGroupId);
+          setAllGroupMembers(members);
+        } catch (error) {
+          console.error('Failed to fetch group members:', error);
+          // Fallback to selected members if fetch fails
+          setAllGroupMembers(selectedMembers);
+        } finally {
+          setIsLoadingGroupMembers(false);
+        }
+      } else {
+        // For friend expenses, use selected members
+        setAllGroupMembers(selectedMembers);
+      }
+    };
+
+    if (selectedMembers.length > 0) {
+      fetchGroupMembers();
     }
-  }, [selectedMembers, localPayerId]);
+  }, [effectiveGroupId, selectedMembers]);
+
+  // Determine which members to show in "Who paid?" dropdown
+  // For groups: show all group members (even if expense involves only one person)
+  // For friends: show only selected friends
+  const payerOptions = React.useMemo(() => {
+    if (effectiveGroupId && effectiveGroupId !== '0' && effectiveGroupId !== null) {
+      // Group expense: show all group members
+      return allGroupMembers.length > 0 ? allGroupMembers : selectedMembers;
+    } else {
+      // Friend expense: show only selected members
+      return selectedMembers;
+    }
+  }, [effectiveGroupId, allGroupMembers, selectedMembers]);
+
+  React.useEffect(() => {
+    // Set default payer if not set and we have payer options
+    if (payerOptions.length > 0 && !localPayerId) {
+      // Prefer selecting the first member from selectedMembers, or fallback to first in payer options
+      const defaultPayer = selectedMembers[0]?.id || payerOptions[0]?.id;
+      if (defaultPayer) {
+        setLocalPayerId(defaultPayer);
+      }
+    }
+  }, [payerOptions, localPayerId, selectedMembers]);
 
 // Helper function to format a date string or Date object to "YYYY-MM-DD"
   const formatToLocalDateString = (dateInput: string | Date): string => {
@@ -153,21 +210,38 @@ export function ReviewStep({
            throw new Error("Payer not selected.");
        }
 
-       const groupIdStr = selectedMembers.find(m => m.id === localPayerId)?._groupDetails?.id || selectedMembers[0]?._groupDetails?.id;
+       const groupIdStr = selectedMembers.find(m => m.id === localPayerId)?._groupDetails?.id || selectedMembers[0]?._groupDetails?.id || effectiveGroupId;
        if (!groupIdStr) throw new Error("Group ID not found for payer or any member.");
-       const groupId = parseInt(groupIdStr);
+       const groupId = groupIdStr === '0' ? 0 : parseInt(groupIdStr);
+
+       // Check if payer is in the selected members
+       const payerIsInSelectedMembers = selectedMembers.some(m => m.id === localPayerId);
+       
+       // If payer is not in selected members, add them to finalSplits with amountOwed = 0
+       // This handles the case where someone else in the group paid for an expense involving only one person
+       let adjustedFinalSplits = [...finalSplits];
+       if (!payerIsInSelectedMembers && localPayerId) {
+         // Find the payer in the all group members
+         const payerMember = payerOptions.find(m => m.id === localPayerId);
+         if (payerMember) {
+           adjustedFinalSplits.push({
+             userId: payerMember.id,
+             amountOwed: 0 // Payer doesn't owe anything since they paid
+           });
+         }
+       }
 
        const totalCostForPayload = activeBillData.totalCost;
 
        const expensePayload = ExpensePayloadService.generateExpensePayload(
-         finalSplits,
+         adjustedFinalSplits,
          totalCostForPayload,
          {
            storeName: localStoreName,
            date: localDate,
            expenseNotes: localExpenseNotes,
            payerId: localPayerId,
-           groupId
+           groupId: groupId === 0 ? undefined : groupId // Pass undefined for friend expenses
          }
        );
 
@@ -335,13 +409,13 @@ export function ReviewStep({
                       setLocalPayerId(value);
                       setPayerId(value);
                     }}
-                    disabled={isLoading || selectedMembers.length === 0}
+                    disabled={isLoading || payerOptions.length === 0 || isLoadingGroupMembers}
                   >
                     <SelectTrigger id="payer-select" className="w-full">
-                      <SelectValue placeholder="Select who paid" />
+                      <SelectValue placeholder={isLoadingGroupMembers ? "Loading members..." : "Select who paid"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {selectedMembers.map((member) => (
+                      {payerOptions.map((member) => (
                         <SelectItem key={member.id} value={member.id} className="dropdownItem">
                           {member.first_name} {member.last_name}
                         </SelectItem>
@@ -349,7 +423,9 @@ export function ReviewStep({
                     </SelectContent>
                   </Select>
                 </div>
-                {selectedMembers.length === 0 && <p className="text-xs text-destructive pt-1">No members available to select as payer.</p>}
+                {payerOptions.length === 0 && !isLoadingGroupMembers && (
+                  <p className="text-xs text-destructive pt-1">No members available to select as payer.</p>
+                )}
               </CardContent>
             </Card>
 

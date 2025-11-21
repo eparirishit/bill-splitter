@@ -1,6 +1,6 @@
 import { extractReceiptData } from '@/ai/extract-receipt-data';
-import { AnalyticsService } from '@/lib/analytics';
-import { uploadImageToStorage } from '@/lib/supabase';
+import { uploadImageToStorage, generateImageHash } from '@/lib/supabase';
+import { AnalyticsClientService } from '@/services/analytics-client';
 import { FileProcessingService, type FileValidationResult } from '@/services/file-processing';
 import type { ExtractReceiptDataOutput } from '@/types';
 import { useRef, useState } from 'react';
@@ -133,22 +133,26 @@ export function useFileUpload(
       let receiptId: string | undefined;
       if (userId && selectedFile) {
         const processingTimeMs = Date.now() - startTime;
-        try {
-          receiptId = await AnalyticsService.trackReceiptProcessing(
-            userId,
-            selectedFile,
-            processedResult,
-            processingTimeMs,
-            result.aiMetadata?.modelName || 'unknown',
-            result.aiMetadata?.provider,
-            result.aiMetadata?.modelName,
-            result.aiMetadata?.tokensUsed,
-            result.aiMetadata?.processingTimeMs,
-            imageUrl // Pass the already-uploaded image URL to avoid duplicate upload
-          );
+        // Generate image hash for tracking
+        const imageHash = await generateImageHash(selectedFile);
+        
+        receiptId = await AnalyticsClientService.trackReceiptProcessing({
+          userId,
+          aiExtraction: processedResult,
+          processingTimeMs,
+          aiModelVersion: result.aiMetadata?.modelName || 'unknown',
+          aiProvider: result.aiMetadata?.provider,
+          aiModelName: result.aiMetadata?.modelName,
+          aiTokensUsed: result.aiMetadata?.tokensUsed,
+          aiProcessingTimeMs: result.aiMetadata?.processingTimeMs,
+          existingImageUrl: imageUrl,
+          existingImageHash: imageHash,
+          originalFilename: selectedFile.name,
+          fileSize: selectedFile.size,
+        });
+        
+        if (receiptId) {
           console.log('Receipt processing tracked with ID:', receiptId);
-        } catch (error) {
-          console.warn('Failed to track receipt processing:', error);
         }
       }
 

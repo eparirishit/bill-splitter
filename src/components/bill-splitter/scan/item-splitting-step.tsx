@@ -197,23 +197,17 @@ export function ItemSplittingStep({
     setOtherChargesSplitType(otherChargesMembers.length === memberIds.length ? 'equal' : 'custom');
   }, [existingItemSplits, contextTaxSplit, contextOtherChargesSplit, memberIds]);
 
-  // Reset splits if members or items change (but preserve existing splits if possible)
+  // Handle member changes - reset tax and other charges splits when members change
   React.useEffect(() => {
-    if (editedBillData.items.length !== localItemSplits.length) {
-      // Items changed, need to reinitialize
-      setLocalItemSplits(editedBillData.items.map((item, index) => ({
-        itemId: `item-${index}`,
-        splitType: 'equal' as SplitType,
-        sharedBy: memberIds,
-      })));
-    }
     if (memberIds.length !== selectedMembers.length) {
-      // Members changed, need to reinitialize
+      // Members changed, need to reinitialize tax and other charges
       setTaxSplitMembers(memberIds);
       setOtherChargesSplitMembers(memberIds);
+      setTaxSplitType('equal');
+      setOtherChargesSplitType('equal');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editedBillData.items.length, memberIds.length]);
+  }, [memberIds.length, selectedMembers.length]);
 
   // Sync localItemSplits when editedBillData.items changes (for add/remove operations)
   React.useEffect(() => {
@@ -227,8 +221,18 @@ export function ItemSplittingStep({
           sharedBy: memberIds,
         }));
         setLocalItemSplits(prev => [...prev, ...newSplits]);
+      } else if (editedBillData.items.length < localItemSplits.length) {
+        // If items were removed, remove the corresponding splits and reindex
+        setLocalItemSplits(prev => {
+          // Keep only the splits that correspond to remaining items
+          const updatedSplits = prev.slice(0, editedBillData.items.length);
+          // Reindex the remaining splits to match new item indices
+          return updatedSplits.map((split, index) => ({
+            ...split,
+            itemId: `item-${index}`
+          }));
+        });
       }
-      // If items were removed, the handleRemoveItemWithConfirmation already handles this
     }
   }, [editedBillData.items.length, localItemSplits.length, memberIds]);
 
@@ -327,17 +331,8 @@ export function ItemSplittingStep({
     }
 
     // Add the item to the bill data
+    // The useEffect will automatically add the split for the new item
     handleAddItem(trimmedName, price);
-    
-    // Add a new split for this item - use current length as the new index
-    const newItemIndex = editedBillData.items.length; // This will be the index after adding
-    const newSplit: ItemSplitState = {
-      itemId: `item-${newItemIndex}`,
-      splitType: 'equal',
-      sharedBy: memberIds,
-    };
-    
-    setLocalItemSplits(prev => [...prev, newSplit]);
     
     // Reset form
     setNewItemName("");

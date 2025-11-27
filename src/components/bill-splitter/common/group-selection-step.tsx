@@ -53,7 +53,7 @@ export function GroupSelectionStep({
   const [isFetchingGroups, setIsFetchingGroups] = React.useState(false);
   const [isFetchingMembers, setIsFetchingMembers] = React.useState(false);
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
 
   // Update local state when context state changes
   React.useEffect(() => {
@@ -154,7 +154,7 @@ export function GroupSelectionStep({
     );
   };
 
-  const handleProceed = () => {
+  const handleProceed = async () => {
     if (localSelectionType === 'group') {
       if (!localSelectedGroupId) {
         toast({ title: "No Group Selected", description: "Please select a group.", variant: "destructive"});
@@ -171,17 +171,52 @@ export function GroupSelectionStep({
         toast({ title: "No Friends Selected", description: "Please select at least one friend.", variant: "destructive"});
         return;
       }
-      // Convert friends to users for compatibility
-      const friendsAsUsers: SplitwiseUser[] = localSelectedFriends.map(friend => ({
-        id: friend.id,
-        first_name: friend.first_name || '',
-        last_name: friend.last_name || '',
-        email: friend.email || '',
-        registration_status: friend.registration_status,
-        picture: friend.picture,
-        _groupDetails: { id: '0', name: 'Friends' }
-      }));
-      onGroupAndMembersSelected(null, friendsAsUsers, localSelectedFriends);
+      
+      // Get current user and add them to the expense along with selected friends
+      onLoadingChange(true);
+      try {
+        const currentUser = await SplitwiseService.getCurrentUser();
+        
+        // Check if current user is already in selected friends (shouldn't happen, but handle it)
+        const currentUserInFriends = localSelectedFriends.find(f => f.id === currentUser.id.toString());
+        
+        // Convert friends to users for compatibility
+        const friendsAsUsers: SplitwiseUser[] = localSelectedFriends.map(friend => ({
+          id: friend.id,
+          first_name: friend.first_name || '',
+          last_name: friend.last_name || '',
+          email: friend.email || '',
+          registration_status: friend.registration_status,
+          picture: friend.picture,
+          _groupDetails: { id: '0', name: 'Friends' }
+        }));
+        
+        // Add current user to the list if not already included
+        if (!currentUserInFriends) {
+          const currentUserAsUser: SplitwiseUser = {
+            id: currentUser.id.toString(),
+            first_name: currentUser.first_name || '',
+            last_name: currentUser.last_name || '',
+            email: currentUser.email || '',
+            registration_status: currentUser.registration_status,
+            picture: currentUser.picture,
+            _groupDetails: { id: '0', name: 'Friends' }
+          };
+          // Add current user first, then friends
+          friendsAsUsers.unshift(currentUserAsUser);
+        }
+        
+        onGroupAndMembersSelected(null, friendsAsUsers, localSelectedFriends);
+      } catch (error) {
+        console.error('Failed to get current user:', error);
+        toast({ 
+          title: "Error", 
+          description: "Failed to get your user information. Please try again.", 
+          variant: "destructive"
+        });
+      } finally {
+        onLoadingChange(false);
+      }
     }
   };
 

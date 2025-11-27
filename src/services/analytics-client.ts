@@ -117,11 +117,20 @@ export class AnalyticsClientService {
    */
   static async submitFeedback(params: SubmitFeedbackParams): Promise<void> {
     try {
+      // Validate required parameters
+      if (!params.userId) {
+        console.error('submitFeedback called without userId:', params);
+        throw new Error('userId is required for feedback submission');
+      }
+
+      // Ensure userId is a string (can be number from Splitwise)
+      const userIdString = String(params.userId);
+
       await this.makeApiRequest('/api/analytics/submit-feedback', {
         method: 'POST',
         body: JSON.stringify({
           receiptId: params.receiptId,
-          userId: params.userId,
+          userId: userIdString,
           feedback: params.feedback,
         }),
       });

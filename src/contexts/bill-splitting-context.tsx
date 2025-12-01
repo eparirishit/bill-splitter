@@ -1,6 +1,6 @@
 "use client";
 
-import type { ExtractReceiptDataOutput, ItemSplit, ManualExpenseData, SplitwiseUser } from '@/types';
+import type { ExtractReceiptDataOutput, ItemSplit, ManualExpenseData, SplitwiseUser, SplitwiseFriend, SelectionType } from '@/types';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface BillSplittingState {
@@ -40,6 +40,8 @@ interface BillSplittingState {
   // Shared state
   selectedGroupId: string | null;
   selectedMembers: SplitwiseUser[];
+  selectionType: SelectionType | null;
+  selectedFriends: SplitwiseFriend[];
 }
 
 interface BillSplittingContextType extends BillSplittingState {
@@ -78,6 +80,8 @@ interface BillSplittingContextType extends BillSplittingState {
   // Shared actions
   setSelectedGroupId: (groupId: string | null) => void;
   setSelectedMembers: (members: SplitwiseUser[]) => void;
+  setSelectionType: (type: SelectionType | null) => void;
+  setSelectedFriends: (friends: SplitwiseFriend[]) => void;
   
   // Utility actions
   reset: () => void;
@@ -118,7 +122,9 @@ const initialState: BillSplittingState = {
     date: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD format in local timezone
   },
   selectedGroupId: null,
-  selectedMembers: []
+  selectedMembers: [],
+  selectionType: null,
+  selectedFriends: []
 };
 
 // State persistence keys
@@ -307,6 +313,14 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
     setState(prev => ({ ...prev, selectedMembers: members }));
   }, []);
 
+  const setSelectionType = useCallback((type: SelectionType | null) => {
+    setState(prev => ({ ...prev, selectionType: type }));
+  }, []);
+
+  const setSelectedFriends = useCallback((friends: SplitwiseFriend[]) => {
+    setState(prev => ({ ...prev, selectedFriends: friends }));
+  }, []);
+
   // Utility actions
   const reset = useCallback(() => {
     setState(initialState);
@@ -400,6 +414,8 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
     clearManualExpenseForm,
     setSelectedGroupId,
     setSelectedMembers,
+    setSelectionType,
+    setSelectedFriends,
     reset,
     goToNextStep,
     goToPreviousStep,

@@ -28,10 +28,11 @@ export function ManualExpenseReviewStep() {
   } = useBillSplitting();
 
   // Guard: If required state is missing, show a message
-  if (!manualExpenseData || !selectedGroupId || !selectedMembers || selectedMembers.length === 0) {
+  // Note: selectedGroupId can be null for friend expenses (groupId: 0)
+  if (!manualExpenseData || !selectedMembers || selectedMembers.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)]">
-        <p className="text-muted-foreground mb-4">Please complete the expense details and group selection first.</p>
+        <p className="text-muted-foreground mb-4">Please complete the expense details and selection first.</p>
         <Button onClick={goToPreviousStep} variant="outline">Back</Button>
       </div>
     );
@@ -186,7 +187,7 @@ export function ManualExpenseReviewStep() {
           date: manualExpenseData!.date,
           expenseNotes: manualExpenseData!.notes || '',
           payerId: payerId!,
-          groupId
+          groupId: groupId === 0 ? undefined : groupId // Pass undefined for friend expenses
         }
       );
 
@@ -224,6 +225,11 @@ export function ManualExpenseReviewStep() {
       });
 
       setComplete(true);
+      
+      // Reset state after showing success message (delay to allow user to see completion)
+      setTimeout(() => {
+        reset();
+      }, 2500);
     } catch (error: any) {
       console.error('Failed to create expense:', error);
       toast({

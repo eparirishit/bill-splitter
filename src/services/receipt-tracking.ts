@@ -8,7 +8,7 @@ export class ReceiptTrackingService {
    */
   static async trackReceiptProcessing(
     userId: string,
-    file: File,
+    file: File | null,
     aiExtraction: ExtractReceiptDataOutput,
     processingTimeMs: number,
     aiModelVersion: string = 'v1.0',
@@ -16,23 +16,43 @@ export class ReceiptTrackingService {
     aiModelName?: string,
     aiTokensUsed?: number,
     aiProcessingTimeMs?: number,
-    existingImageUrl?: string // Optional: if image already uploaded, reuse the URL
+    existingImageUrl?: string, // Optional: if image already uploaded, reuse the URL
+    existingImageHash?: string, // Optional: hash if image already uploaded
+    originalFilename?: string, // Optional: filename if file not provided
+    fileSize?: number // Optional: file size if file not provided
   ): Promise<string> {
     try {
       // Upload image to Supabase Storage (or reuse existing URL if provided)
       let imageUrl: string;
       let imageHash: string;
+      let filename: string;
+      let size: number;
       
       if (existingImageUrl) {
-        // Reuse existing URL - extract hash from URL or generate it
+        // Reuse existing URL
         imageUrl = existingImageUrl;
-        // Generate hash for deduplication tracking
-        imageHash = await generateImageHash(file);
-      } else {
+        if (existingImageHash) {
+          imageHash = existingImageHash;
+        } else if (file) {
+          // Generate hash from file if provided
+          imageHash = await generateImageHash(file);
+        } else {
+          // Extract hash from URL path if possible, otherwise generate a placeholder
+          const urlParts = existingImageUrl.split('/');
+          const fileName = urlParts[urlParts.length - 1]?.split('?')[0] || '';
+          imageHash = fileName.split('.')[0] || 'unknown';
+        }
+        filename = originalFilename || 'uploaded-image';
+        size = fileSize || 0;
+      } else if (file) {
         // Upload new image
         const uploadResult = await uploadImageToStorage(file, userId);
         imageUrl = uploadResult.url;
         imageHash = uploadResult.hash;
+        filename = file.name;
+        size = file.size;
+      } else {
+        throw new Error('Either file or existingImageUrl must be provided');
       }
 
       // Store processing record
@@ -43,8 +63,8 @@ export class ReceiptTrackingService {
           user_id: userId,
           image_url: imageUrl,
           image_hash: imageHash,
-          original_filename: file.name,
-          file_size: file.size,
+          original_filename: filename,
+          file_size: size,
           ai_extraction: aiExtraction,
           processing_time_ms: processingTimeMs,
           ai_model_version: aiModelVersion,

@@ -5,7 +5,7 @@ export interface ExpensePayloadOptions {
   date: string;
   expenseNotes: string;
   payerId: string;
-  groupId: number;
+  groupId?: number; // Optional for friend expenses (defaults to 0)
 }
 
 export class ExpensePayloadService {
@@ -35,7 +35,7 @@ export class ExpensePayloadService {
     const expensePayload: CreateExpense = {
       cost: totalCost.toFixed(2),
       description: storeName,
-      group_id: groupId,
+      group_id: groupId ?? 0, // Default to 0 for friend expenses
       date: this.formatToLocalDateString(date),
       details: expenseNotes,
       currency_code: 'USD',

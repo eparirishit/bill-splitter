@@ -39,6 +39,24 @@ export interface SplitwiseUser {
   };
 }
 
+export interface SplitwiseFriend {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  registration_status: string;
+  picture: {
+    medium: string;
+    large: string;
+  };
+  balance: Array<{
+    currency_code: string;
+    amount: string;
+  }>;
+}
+
+export type SelectionType = 'group' | 'friends';
+
 // Bill/Receipt Types
 export interface ReceiptItem {
   name: string;
@@ -73,7 +91,7 @@ export interface CreateExpense {
   currency_code?: string;
   category_id?: number;
   date?: string;
-  group_id?: number;
+  group_id?: number; // Optional for friend expenses (0 or omitted)
   split_equally?: boolean;
   // Dynamic user fields - will be populated based on actual users
   [key: `users__${number}__user_id`]: number;

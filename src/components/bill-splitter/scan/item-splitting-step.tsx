@@ -166,9 +166,11 @@ export function ItemSplittingStep({
   }, [contextItemSplits, editedBillData.items, memberIds]);
 
   const [localItemSplits, setLocalItemSplits] = React.useState<ItemSplitState[]>(existingItemSplits);
+  const [taxSplitType, setTaxSplitType] = React.useState<SplitType>('equal');
   const [taxSplitMembers, setTaxSplitMembers] = React.useState<string[]>(
     contextTaxSplit && contextTaxSplit.length > 0 ? contextTaxSplit : memberIds
   );
+  const [otherChargesSplitType, setOtherChargesSplitType] = React.useState<SplitType>('equal');
   const [otherChargesSplitMembers, setOtherChargesSplitMembers] = React.useState<string[]>(
     contextOtherChargesSplit && contextOtherChargesSplit.length > 0 ? contextOtherChargesSplit : memberIds
   );
@@ -186,31 +188,26 @@ export function ItemSplittingStep({
   // Update local state when context state changes (e.g., when navigating back)
   React.useEffect(() => {
     setLocalItemSplits(existingItemSplits);
-    setTaxSplitMembers(
-      contextTaxSplit && contextTaxSplit.length > 0 ? contextTaxSplit : memberIds
-    );
-    setOtherChargesSplitMembers(
-      contextOtherChargesSplit && contextOtherChargesSplit.length > 0 ? contextOtherChargesSplit : memberIds
-    );
+    const taxMembers = contextTaxSplit && contextTaxSplit.length > 0 ? contextTaxSplit : memberIds;
+    setTaxSplitMembers(taxMembers);
+    setTaxSplitType(taxMembers.length === memberIds.length ? 'equal' : 'custom');
+    
+    const otherChargesMembers = contextOtherChargesSplit && contextOtherChargesSplit.length > 0 ? contextOtherChargesSplit : memberIds;
+    setOtherChargesSplitMembers(otherChargesMembers);
+    setOtherChargesSplitType(otherChargesMembers.length === memberIds.length ? 'equal' : 'custom');
   }, [existingItemSplits, contextTaxSplit, contextOtherChargesSplit, memberIds]);
 
-  // Reset splits if members or items change (but preserve existing splits if possible)
+  // Handle member changes - reset tax and other charges splits when members change
   React.useEffect(() => {
-    if (editedBillData.items.length !== localItemSplits.length) {
-      // Items changed, need to reinitialize
-      setLocalItemSplits(editedBillData.items.map((item, index) => ({
-        itemId: `item-${index}`,
-        splitType: 'equal' as SplitType,
-        sharedBy: memberIds,
-      })));
-    }
     if (memberIds.length !== selectedMembers.length) {
-      // Members changed, need to reinitialize
+      // Members changed, need to reinitialize tax and other charges
       setTaxSplitMembers(memberIds);
       setOtherChargesSplitMembers(memberIds);
+      setTaxSplitType('equal');
+      setOtherChargesSplitType('equal');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editedBillData.items.length, memberIds.length]);
+  }, [memberIds.length, selectedMembers.length]);
 
   // Sync localItemSplits when editedBillData.items changes (for add/remove operations)
   React.useEffect(() => {
@@ -224,8 +221,18 @@ export function ItemSplittingStep({
           sharedBy: memberIds,
         }));
         setLocalItemSplits(prev => [...prev, ...newSplits]);
+      } else if (editedBillData.items.length < localItemSplits.length) {
+        // If items were removed, remove the corresponding splits and reindex
+        setLocalItemSplits(prev => {
+          // Keep only the splits that correspond to remaining items
+          const updatedSplits = prev.slice(0, editedBillData.items.length);
+          // Reindex the remaining splits to match new item indices
+          return updatedSplits.map((split, index) => ({
+            ...split,
+            itemId: `item-${index}`
+          }));
+        });
       }
-      // If items were removed, the handleRemoveItemWithConfirmation already handles this
     }
   }, [editedBillData.items.length, localItemSplits.length, memberIds]);
 
@@ -258,6 +265,31 @@ export function ItemSplittingStep({
         return split;
       })
     );
+  };
+
+  const handleChargeSplitTypeChange = (chargeType: 'tax' | 'other', type: SplitType | null) => {
+    if (type === null) return;
+    if (chargeType === 'tax') {
+      setTaxSplitType(type);
+      if (type === 'equal') {
+        setTaxSplitMembers(memberIds);
+      } else {
+        // Keep current selection or default to empty for custom
+        if (taxSplitMembers.length === 0) {
+          setTaxSplitMembers(memberIds);
+        }
+      }
+    } else {
+      setOtherChargesSplitType(type);
+      if (type === 'equal') {
+        setOtherChargesSplitMembers(memberIds);
+      } else {
+        // Keep current selection or default to empty for custom
+        if (otherChargesSplitMembers.length === 0) {
+          setOtherChargesSplitMembers(memberIds);
+        }
+      }
+    }
   };
 
   const handleChargeMemberSelection = (chargeType: 'tax' | 'other', memberId: string) => {
@@ -299,17 +331,8 @@ export function ItemSplittingStep({
     }
 
     // Add the item to the bill data
+    // The useEffect will automatically add the split for the new item
     handleAddItem(trimmedName, price);
-    
-    // Add a new split for this item - use current length as the new index
-    const newItemIndex = editedBillData.items.length; // This will be the index after adding
-    const newSplit: ItemSplitState = {
-      itemId: `item-${newItemIndex}`,
-      splitType: 'equal',
-      sharedBy: memberIds,
-    };
-    
-    setLocalItemSplits(prev => [...prev, newSplit]);
     
     // Reset form
     setNewItemName("");
@@ -424,15 +447,19 @@ export function ItemSplittingStep({
         return;
       }
     }
-    if (typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0 && taxSplitMembers.length === 0) {
-      toast({ title: "Incomplete Split", description: "Please select members to split the tax.", variant: "destructive" });
-      onLoadingChange(false);
-      return;
+    if (typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) {
+      if (taxSplitType === 'custom' && taxSplitMembers.length === 0) {
+        toast({ title: "Incomplete Split", description: "Please select members to split the tax.", variant: "destructive" });
+        onLoadingChange(false);
+        return;
+      }
     }
-    if (typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0 && otherChargesSplitMembers.length === 0) {
-      toast({ title: "Incomplete Split", description: "Please select members to split other charges.", variant: "destructive" });
-      onLoadingChange(false);
-      return;
+    if (typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) {
+      if (otherChargesSplitType === 'custom' && otherChargesSplitMembers.length === 0) {
+        toast({ title: "Incomplete Split", description: "Please select members to split other charges.", variant: "destructive" });
+        onLoadingChange(false);
+        return;
+      }
     }
     const finalItemSplits: ItemSplit[] = localItemSplits.map(({ itemId, sharedBy, splitType }) => ({
       itemId,
@@ -440,8 +467,12 @@ export function ItemSplittingStep({
       splitType
     }));
 
-    const finalTaxSplitMembers = (typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) ? taxSplitMembers : [];
-    const finalOtherChargesSplitMembers = (typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) ? otherChargesSplitMembers : [];
+    const finalTaxSplitMembers = (typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) 
+      ? (taxSplitType === 'equal' ? memberIds : taxSplitMembers) 
+      : [];
+    const finalOtherChargesSplitMembers = (typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0)
+      ? (otherChargesSplitType === 'equal' ? memberIds : otherChargesSplitMembers)
+      : [];
 
     // Track corrections if any were made
     if (hasManualEdits && userId) {
@@ -764,12 +795,17 @@ export function ItemSplittingStep({
                   </AccordionItem>
                 );
               })}
-            </Accordion>
-             {(typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) && (
-                <Card className="card-modern">
-                    <CardHeader className="flex-row items-center justify-between">
-                        <CardTitle className="text-base font-medium">Tax</CardTitle>
-                        <div className="flex items-center gap-1">
+              
+              {/* Tax Split Section */}
+              {(typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) && (
+                <AccordionItem value="tax-split" className="border rounded-lg overflow-hidden bg-card shadow-sm">
+                  <div className="relative">
+                    <AccordionTrigger className="text-sm px-4 py-3 hover:bg-muted/50 transition-colors [&[data-state=open]]:bg-muted/50">
+                      <div className="flex justify-between w-full items-center gap-3">
+                        <div className="flex-1 text-left">
+                          <span className="font-medium text-foreground text-sm">Tax</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0 mr-2">
                           <span 
                             className={cn(
                               "text-sm font-semibold px-2 py-1 rounded cursor-pointer transition-colors",
@@ -777,7 +813,8 @@ export function ItemSplittingStep({
                                 ? "bg-blue-50 text-blue-700 border border-blue-200"
                                 : "text-gray-700 hover:bg-gray-100"
                             )}
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               if (editingTax === null) {
                                 handleTaxInputChange(editedBillData.taxes?.toFixed(2) || '0.00');
                               }
@@ -795,6 +832,7 @@ export function ItemSplittingStep({
                                 className="w-16 text-sm font-semibold text-blue-700 bg-transparent border-0 outline-none text-center"
                                 placeholder="0.00"
                                 autoFocus
+                                onClick={(e) => e.stopPropagation()}
                               />
                             ) : (
                               `$${(editedBillData.taxes ?? 0).toFixed(2)}`
@@ -802,29 +840,73 @@ export function ItemSplittingStep({
                           </span>
                           <Edit3 className="h-3 w-3 text-gray-400" />
                         </div>
-                    </CardHeader>
-                    {/* <CardContent className="pt-0">
-                         <p className="text-xs text-muted-foreground mb-3">Select members to split tax equally.</p>
-                         <MemberSelectionList
-                             members={selectedMembers}
-                             selectedIds={taxSplitMembers}
-                             onSelect={(memberId) => handleChargeMemberSelection('tax', memberId)}
-                             disabled={isLoading}
-                             itemIdPrefix="tax-split"
-                             listHeight="max-h-40"
-                         />
-                         {taxSplitMembers.length === 0 && (
-                             <p className="text-xs text-destructive pt-2">Select at least one member.</p>
-                         )}
-                    </CardContent> */}
-                </Card>
-             )}
-            
-             {(typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) && (
-                 <Card className="card-modern">
-                    <CardHeader className="flex-row items-center justify-between">
-                        <CardTitle className="text-base font-medium">Other Charges</CardTitle>
-                        <div className="flex items-center gap-1">
+                      </div>
+                    </AccordionTrigger>
+                  </div>
+                  <AccordionContent className="space-y-4 p-4 bg-background border-t">
+                    <ToggleGroup
+                      type="single"
+                      value={taxSplitType}
+                      onValueChange={(value) => handleChargeSplitTypeChange('tax', value as SplitType | null)}
+                      className="grid grid-cols-2 gap-3"
+                      aria-label="Tax split type"
+                      disabled={isLoading}
+                    >
+                      <ToggleGroupItem
+                        value="equal"
+                        aria-label="Split equally"
+                        className="flex flex-col items-center justify-center h-auto p-3 rounded-lg border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-md tap-scale"
+                      >
+                        <Users className="h-5 w-5 mb-1" />
+                        <span className="text-xs font-medium">Equally</span>
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="custom"
+                        aria-label="Split custom"
+                        className="flex flex-col items-center justify-center h-auto p-3 rounded-lg border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-md tap-scale"
+                      >
+                        <UserCheck className="h-5 w-5 mb-1"/>
+                        <span className="text-xs font-medium">Custom</span>
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+
+                    {taxSplitType === 'custom' && (
+                      <div className="space-y-2 pt-2 flex flex-col">
+                        <Label className="text-xs font-medium text-muted-foreground block mb-1.5">
+                          Select who should pay the tax:
+                        </Label>
+                        <MemberSelectionList
+                          members={selectedMembers}
+                          selectedIds={taxSplitMembers}
+                          onSelect={(memberId) => handleChargeMemberSelection('tax', memberId)}
+                          disabled={isLoading}
+                          listHeight="max-h-40"
+                          itemIdPrefix="tax-split"
+                        />
+                        {taxSplitMembers.length === 0 && (
+                          <p className="text-xs text-destructive pt-1">Select at least one member.</p>
+                        )}
+                      </div>
+                    )}
+                    {taxSplitType === 'equal' && (
+                      <p className="text-xs text-muted-foreground text-center pt-2">
+                        Tax will be split equally among all {selectedMembers.length} members.
+                      </p>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+              
+              {/* Other Charges Split Section */}
+              {(typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) && (
+                <AccordionItem value="other-charges-split" className="border rounded-lg overflow-hidden bg-card shadow-sm">
+                  <div className="relative">
+                    <AccordionTrigger className="text-sm px-4 py-3 hover:bg-muted/50 transition-colors [&[data-state=open]]:bg-muted/50">
+                      <div className="flex justify-between w-full items-center gap-3">
+                        <div className="flex-1 text-left">
+                          <span className="font-medium text-foreground text-sm">Other Charges</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0 mr-2">
                           <span 
                             className={cn(
                               "text-sm font-semibold px-2 py-1 rounded cursor-pointer transition-colors",
@@ -832,7 +914,8 @@ export function ItemSplittingStep({
                                 ? "bg-blue-50 text-blue-700 border border-blue-200"
                                 : "text-gray-700 hover:bg-gray-100"
                             )}
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               if (editingOtherCharges === null) {
                                 handleOtherChargesInputChange(editedBillData.otherCharges?.toFixed(2) || '0.00');
                               }
@@ -850,6 +933,7 @@ export function ItemSplittingStep({
                                 className="w-16 text-sm font-semibold text-blue-700 bg-transparent border-0 outline-none text-center"
                                 placeholder="0.00"
                                 autoFocus
+                                onClick={(e) => e.stopPropagation()}
                               />
                             ) : (
                               `$${(editedBillData.otherCharges ?? 0).toFixed(2)}`
@@ -857,23 +941,63 @@ export function ItemSplittingStep({
                           </span>
                           <Edit3 className="h-3 w-3 text-gray-400" />
                         </div>
-                    </CardHeader>
-                    {/* <CardContent className="pt-0">
-                         <p className="text-xs text-muted-foreground mb-3">Select members to split charges equally.</p>
-                          <MemberSelectionList
-                             members={selectedMembers}
-                             selectedIds={otherChargesSplitMembers}
-                             onSelect={(memberId) => handleChargeMemberSelection('other', memberId)}
-                             disabled={isLoading}
-                             itemIdPrefix="other-split"
-                             listHeight="max-h-40"
-                           />
-                            {otherChargesSplitMembers.length === 0 && (
-                                <p className="text-xs text-destructive pt-2">Select at least one member.</p>
-                             )}
-                    </CardContent> */}
-                 </Card>
-             )}
+                      </div>
+                    </AccordionTrigger>
+                  </div>
+                  <AccordionContent className="space-y-4 p-4 bg-background border-t">
+                    <ToggleGroup
+                      type="single"
+                      value={otherChargesSplitType}
+                      onValueChange={(value) => handleChargeSplitTypeChange('other', value as SplitType | null)}
+                      className="grid grid-cols-2 gap-3"
+                      aria-label="Other charges split type"
+                      disabled={isLoading}
+                    >
+                      <ToggleGroupItem
+                        value="equal"
+                        aria-label="Split equally"
+                        className="flex flex-col items-center justify-center h-auto p-3 rounded-lg border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-md tap-scale"
+                      >
+                        <Users className="h-5 w-5 mb-1" />
+                        <span className="text-xs font-medium">Equally</span>
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="custom"
+                        aria-label="Split custom"
+                        className="flex flex-col items-center justify-center h-auto p-3 rounded-lg border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-md tap-scale"
+                      >
+                        <UserCheck className="h-5 w-5 mb-1"/>
+                        <span className="text-xs font-medium">Custom</span>
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+
+                    {otherChargesSplitType === 'custom' && (
+                      <div className="space-y-2 pt-2 flex flex-col">
+                        <Label className="text-xs font-medium text-muted-foreground block mb-1.5">
+                          Select who should pay other charges:
+                        </Label>
+                        <MemberSelectionList
+                          members={selectedMembers}
+                          selectedIds={otherChargesSplitMembers}
+                          onSelect={(memberId) => handleChargeMemberSelection('other', memberId)}
+                          disabled={isLoading}
+                          listHeight="max-h-40"
+                          itemIdPrefix="other-split"
+                        />
+                        {otherChargesSplitMembers.length === 0 && (
+                          <p className="text-xs text-destructive pt-1">Select at least one member.</p>
+                        )}
+                      </div>
+                    )}
+                    {otherChargesSplitType === 'equal' && (
+                      <p className="text-xs text-muted-foreground text-center pt-2">
+                        Charges will be split equally among all {selectedMembers.length} members.
+                      </p>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+            </Accordion>
 
             {(typeof editedBillData.discount === 'number' && editedBillData.discount > 0) && (
                 <Card className="card-modern">

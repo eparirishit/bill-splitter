@@ -1,4 +1,4 @@
-import type { CreateExpense, SplitwiseGroup, SplitwiseUser } from '@/types';
+import type { CreateExpense, SplitwiseGroup, SplitwiseUser, SplitwiseFriend } from '@/types';
 
 export class SplitwiseService {
   private static async makeApiRequest(endpoint: string, options: RequestInit = {}) {
@@ -79,6 +79,33 @@ export class SplitwiseService {
     }
   }
 
+  // Fetch all friends
+  static async getFriends(): Promise<SplitwiseFriend[]> {
+    try {
+      const data = await this.makeApiRequest('/api/splitwise/getFriends');
+      return data.friends || [];
+    } catch (error) {
+      throw new Error(`Failed to fetch friends: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // Add a new friend
+  static async addFriend(email: string, firstName?: string, lastName?: string): Promise<SplitwiseFriend> {
+    try {
+      const requestBody: any = { user_email: email };
+      if (firstName) requestBody.first_name = firstName;
+      if (lastName) requestBody.last_name = lastName;
+
+      const data = await this.makeApiRequest('/api/splitwise/addFriend', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      });
+      return data.friend;
+    } catch (error) {
+      throw new Error(`Failed to add friend: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   // Validate expense data before sending to API
   static validateExpenseData(expense: CreateExpense): { isValid: boolean; errors: Record<string, string> } {
     const errors: Record<string, string> = {};
@@ -95,10 +122,12 @@ export class SplitwiseService {
       errors.description = 'Description is required';
     }
 
-    if (!expense.group_id) {
-      errors.group_id = 'Group ID is required';
-    } else if (isNaN(Number(expense.group_id))) {
-      errors.group_id = 'Group ID must be a valid number';
+    if (expense.group_id !== undefined && expense.group_id !== null) {
+      if (isNaN(Number(expense.group_id))) {
+        errors.group_id = 'Group ID must be a valid number';
+      } else if (expense.group_id < 0) {
+        errors.group_id = 'Group ID must be 0 or greater';
+      }
     }
 
     // Check for user data using dynamic keys

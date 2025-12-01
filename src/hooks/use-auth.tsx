@@ -1,6 +1,6 @@
 "use client";
     
-import { AnalyticsService } from '@/lib/analytics';
+import { AnalyticsClientService } from '@/services/analytics-client';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -44,11 +44,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
           // Track user signin for analytics
           if (data.userId) {
-            try {
-              await AnalyticsService.trackUserSignin(data.userId);
-            } catch (error) {
-              console.warn('Failed to track user signin:', error);
-            }
+            await AnalyticsClientService.trackUserSignin(data.userId);
           }
         }
       } else {

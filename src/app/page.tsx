@@ -41,6 +41,8 @@ function BillSplitterFlow() {
     customAmounts,
     selectedGroupId,
     selectedMembers,
+    selectionType,
+    selectedFriends,
     
     // Handlers
     handleExpenseTypeSelect,
@@ -93,6 +95,8 @@ function BillSplitterFlow() {
             <GroupSelectionStep 
               selectedGroupId={selectedGroupId}
               selectedMembers={selectedMembers}
+              selectedFriends={selectedFriends}
+              selectionType={selectionType}
               onGroupAndMembersSelected={handleGroupAndMembersSelected} 
               onLoadingChange={handleLoadingChange} 
               isLoading={isLoading} 
@@ -108,6 +112,8 @@ function BillSplitterFlow() {
             <GroupSelectionStep 
               selectedGroupId={selectedGroupId}
               selectedMembers={selectedMembers}
+              selectedFriends={selectedFriends}
+              selectionType={selectionType}
               onGroupAndMembersSelected={handleGroupAndMembersSelected} 
               onLoadingChange={handleLoadingChange} 
               isLoading={isLoading} 

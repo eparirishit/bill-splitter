@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useToast } from "@/hooks/use-toast";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { useEffect, useState } from "react";
-import { AnalyticsService } from "../../lib/analytics";
+import { AnalyticsClientService } from "@/services/analytics-client";
 
 // Helper function to generate a UUID
 const generateUUID = (): string => {
@@ -40,11 +40,11 @@ export function FeedbackModal({ isOpen, onClose, userId, receiptId }: FeedbackMo
         ? receiptId 
         : generateUUID();
       
-      await AnalyticsService.submitFeedback(
-        actualReceiptId,
+      await AnalyticsClientService.submitFeedback({
+        receiptId: actualReceiptId,
         userId,
-        { overall_accuracy: selectedRating }
-      );
+        feedback: { overall_accuracy: selectedRating },
+      });
 
       toast({
         title: "Thank you!",

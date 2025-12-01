@@ -10,49 +10,52 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  const expenseData = await request.json();
+  const { user_email, first_name, last_name } = await request.json();
 
-  // Core fields validation
-  if (!expenseData || !expenseData.cost || !expenseData.description) {
+  if (!user_email) {
     return NextResponse.json(
-      { error: 'Invalid expense data payload: missing cost or description' },
-      { status: 400 }
-    );
-  }
-
-  // Allow group_id to be 0 for friend expenses
-  if (expenseData.group_id !== undefined && expenseData.group_id < 0) {
-    return NextResponse.json(
-      { error: 'Invalid group_id: must be 0 or greater' },
+      { error: 'Email is required' },
       { status: 400 }
     );
   }
 
   try {
-    const response = await fetch(`${SPLITWISE_CONFIG.API_BASE_URL}/create_expense`, {
+    const requestBody: any = {
+      user_email,
+    };
+
+    if (first_name) {
+      requestBody.first_name = first_name;
+    }
+    if (last_name) {
+      requestBody.last_name = last_name;
+    }
+
+    const response = await fetch(`${SPLITWISE_CONFIG.API_BASE_URL}/create_friend`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(expenseData),
+      body: JSON.stringify(requestBody),
     });
 
     const result = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: result.error || 'Failed to create expense' },
+        { error: result.error || 'Failed to add friend' },
         { status: response.status }
       );
     }
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error creating expense:', error);
+    console.error('Error adding friend:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
+

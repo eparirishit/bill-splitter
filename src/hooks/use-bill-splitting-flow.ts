@@ -1,5 +1,5 @@
 import { useBillSplitting } from '@/contexts/bill-splitting-context';
-import type { ExtractReceiptDataOutput, ItemSplit, SplitwiseUser } from '@/types';
+import type { ExtractReceiptDataOutput, ItemSplit, SplitwiseUser, SplitwiseFriend } from '@/types';
 import { useCallback } from 'react';
 
 export const useBillSplittingFlow = () => {
@@ -23,6 +23,8 @@ export const useBillSplittingFlow = () => {
     customAmounts,
     selectedGroupId,
     selectedMembers,
+    selectionType,
+    selectedFriends,
     
     // Actions
     setExpenseType,
@@ -39,6 +41,8 @@ export const useBillSplittingFlow = () => {
     setCustomAmounts,
     setSelectedGroupId,
     setSelectedMembers,
+    setSelectionType,
+    setSelectedFriends,
     reset,
     handleEditStep
   } = useBillSplitting();
@@ -61,21 +65,30 @@ export const useBillSplittingFlow = () => {
     setLoading(false);
   }, [setBillData, setReceiptId, setCurrentStep, setLoading]);
 
-  const handleGroupAndMembersSelected = useCallback((groupId: string, members: SplitwiseUser[]) => {
+  const handleGroupAndMembersSelected = useCallback((groupId: string | null, members: SplitwiseUser[], friends?: SplitwiseFriend[]) => {
     setSelectedGroupId(groupId);
     const membersWithGroup = members.map(m => ({ 
       ...m, 
-      _groupDetails: { id: groupId, name: "Selected Group" } 
+      _groupDetails: { id: groupId || '0', name: groupId ? "Selected Group" : "Friends" } 
     }));
     setSelectedMembers(membersWithGroup);
+    
+    // Set selection type and friends if provided
+    if (friends) {
+      setSelectionType('friends');
+      setSelectedFriends(friends);
+    } else {
+      setSelectionType('group');
+      setSelectedFriends([]);
+    }
     
     if (expenseType === 'scan') {
       setCurrentStep(3); // Go to Item Splitting step
     } else if (expenseType === 'manual') {
-      setCurrentStep(5);
+      setCurrentStep(5); // Go to Manual Expense Details step
     }
     setLoading(false);
-  }, [expenseType, setSelectedGroupId, setSelectedMembers, setCurrentStep, setLoading]);
+  }, [expenseType, setSelectedGroupId, setSelectedMembers, setSelectionType, setSelectedFriends, setCurrentStep, setLoading]);
 
   const handleSplitsDefined = useCallback((
     definedItemSplits: ItemSplit[],
@@ -111,9 +124,13 @@ export const useBillSplittingFlow = () => {
       // Trigger success callback after a short delay to show completion first
       setTimeout(() => {
         onSuccess?.();
+        // Reset state after showing success message (delay to allow user to see completion)
+        setTimeout(() => {
+          reset();
+        }, 1500);
       }, 1000);
     }, 500);
-  }, [setLoading, setComplete]);
+  }, [setLoading, setComplete, reset]);
 
   const handleRestart = useCallback(() => {
     reset();
@@ -187,6 +204,8 @@ export const useBillSplittingFlow = () => {
     customAmounts,
     selectedGroupId,
     selectedMembers,
+    selectionType,
+    selectedFriends,
     
     // Handlers
     handleExpenseTypeSelect,

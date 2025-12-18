@@ -118,8 +118,10 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
       onDataExtracted(result.data, result.receiptId);
       toast({
         title: "Extraction Complete",
-        description: "Bill data processed successfully. Please review the extracted information for accuracy.",
-        variant: 'default'
+        description: result.data.storeNameInferred
+          ? "Bill data processed successfully, but we couldn't detect the store name. We've set a placeholder—please update it before finalizing."
+          : "Bill data processed successfully. Please review the extracted information for accuracy.",
+        variant: result.data.storeNameInferred ? "destructive" : "default",
       });
     } else {
       toast({

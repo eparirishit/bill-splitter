@@ -142,6 +142,7 @@ export function useFileUpload(
         discount: result.discount === null ? undefined : result.discount,
         discrepancyFlag: result.discrepancyFlag,
         discrepancyMessage: result.discrepancyMessage,
+        storeNameInferred: result.storeNameInferred,
       };
 
       // Track receipt processing for analytics

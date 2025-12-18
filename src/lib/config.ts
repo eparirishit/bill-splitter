@@ -33,6 +33,7 @@ export const AI_CONFIG = {
   MAX_PAYLOAD_SIZE_KB: 3072, // 3MB for Vercel limits
   MAX_RETRIES: 3,
   RETRY_DELAY_MS: 1000,
+  DEFAULT_STORE_NAME: "Unknown Store",
   
   // File upload configuration
   MAX_FILE_SIZE_MB: parseFloat(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5'), // (default: 5MB)

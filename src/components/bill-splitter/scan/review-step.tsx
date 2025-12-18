@@ -2,8 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -15,7 +17,8 @@ import { cn } from "@/lib/utils";
 import { ExpenseCalculationService } from "@/services/expense-calculations";
 import { ExpensePayloadService } from "@/services/expense-payload";
 import { SplitwiseService, type ExtractReceiptDataOutput, type FinalSplit, type ItemSplit, type SplitwiseUser } from "@/types";
-import { AlertTriangle, ArrowLeft, Bot, Edit, Loader2, Send, UserCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bot, Edit, Loader2, Send, UserCircle, Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 import * as React from "react";
 
 interface ReviewStepProps {
@@ -173,6 +176,16 @@ export function ReviewStep({
      const value = (typeof amount === 'number' && !isNaN(amount)) ? amount : 0;
      return ExpenseCalculationService.formatCurrency(value);
   };
+
+  const parseDateStringToDate = (value: string): Date | undefined => {
+    if (!value) return undefined;
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return undefined;
+    const date = new Date(year, month - 1, day);
+    return isNaN(date.getTime()) ? undefined : date;
+  };
+
+  const parsedExpenseDate = parseDateStringToDate(localDate);
 
    // Calculate final splits whenever relevant props change
   React.useEffect(() => {
@@ -368,18 +381,48 @@ export function ReviewStep({
                       <Label htmlFor="expense-date" className="text-xs text-muted-foreground">Date</Label>
                       <Edit className="h-3 w-3 text-muted-foreground" />
                     </div>
-                    <Input
-                      id="expense-date"
-                      type="date"
-                      value={localDate}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        setLocalDate(newValue);
-                        setDate(newValue);
-                      }}
-                      disabled={isLoading}
-                      className="text-sm font-medium"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="expense-date"
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left text-sm font-medium transition-colors hover:bg-muted/40 hover:text-foreground",
+                            parsedExpenseDate
+                              ? "text-foreground"
+                              : "text-muted-foreground"
+                          )}
+                          disabled={isLoading}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {parsedExpenseDate ? (
+                            format(parsedExpenseDate, "MMM d, yyyy")
+                          ) : (
+                            <span>Select date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={parsedExpenseDate}
+                          onSelect={(date) => {
+                            if (!date) {
+                              setLocalDate("");
+                              setDate("");
+                              return;
+                            }
+                            const year = date.getFullYear();
+                            const month = `${date.getMonth() + 1}`.padStart(2, "0");
+                            const day = `${date.getDate()}`.padStart(2, "0");
+                            const formatted = `${year}-${month}-${day}`;
+                            setLocalDate(formatted);
+                            setDate(formatted);
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <Separator className="my-3"/>
                   <div className="flex justify-between text-muted-foreground"><span>Items Subtotal:</span> <strong className="text-foreground">{formatCurrency(activeBillData.items.reduce((s: number, i: any) => s + i.price, 0))}</strong></div>

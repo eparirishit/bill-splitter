@@ -17,6 +17,12 @@ interface BillSplittingState {
   taxSplit: string[];
   otherChargesSplit: string[];
   receiptId: string | undefined;
+  lastUploadedFile: {
+    name: string;
+    size: number;
+    type: string;
+    url?: string;
+  } | null;
   
   // Review step state
   storeName: string;
@@ -58,6 +64,7 @@ interface BillSplittingContextType extends BillSplittingState {
   setTaxSplit: (split: string[]) => void;
   setOtherChargesSplit: (split: string[]) => void;
   setReceiptId: (id: string | undefined) => void;
+  setLastUploadedFile: (file: BillSplittingState["lastUploadedFile"]) => void;
   
   // Review step actions
   setStoreName: (name: string) => void;
@@ -108,6 +115,7 @@ const initialState: BillSplittingState = {
   taxSplit: [],
   otherChargesSplit: [],
   receiptId: undefined,
+  lastUploadedFile: null,
   storeName: '',
   date: '',
   expenseNotes: '',
@@ -231,6 +239,10 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setReceiptId = useCallback((id: string | undefined) => {
     setState(prev => ({ ...prev, receiptId: id }));
+  }, []);
+
+  const setLastUploadedFile = useCallback((file: BillSplittingState["lastUploadedFile"]) => {
+    setState(prev => ({ ...prev, lastUploadedFile: file }));
   }, []);
 
   // Review step actions
@@ -400,6 +412,7 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
     setTaxSplit,
     setOtherChargesSplit,
     setReceiptId,
+    setLastUploadedFile,
     setStoreName,
     setDate,
     setExpenseNotes,

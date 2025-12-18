@@ -3,12 +3,22 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useBillSplitting } from "@/contexts/bill-splitting-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useToast } from "@/hooks/use-toast";
 import { AI_CONFIG } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import type { ExtractReceiptDataOutput } from "@/types";
-import { AlertTriangle, ArrowLeft, ImagePlus, Loader2, Upload } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ExternalLink,
+  FileText,
+  ImagePlus,
+  Loader2,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import * as React from "react";
 
 interface UploadStepProps {
@@ -21,6 +31,7 @@ interface UploadStepProps {
 
 export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack, userId }: UploadStepProps) {
   const { toast } = useToast();
+  const { lastUploadedFile, setLastUploadedFile } = useBillSplitting();
   const {
     selectedFile,
     previewUrl,
@@ -31,6 +42,18 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
     handleUpload,
     clearFile
   } = useFileUpload(onDataExtracted, onLoadingChange, userId);
+  const fileDisplay = selectedFile ?? lastUploadedFile ?? null;
+
+  const isPdf =
+    !!fileDisplay &&
+    (fileDisplay.type === "application/pdf" ||
+      fileDisplay.name.toLowerCase().endsWith(".pdf"));
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   // Show toast notification for file validation errors
   React.useEffect(() => {
@@ -41,7 +64,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
           description: error,
           variant: "destructive",
         });
-      } else if (error.includes('JPG and PNG')) {
+      } else if (error.includes('JPG, PNG, or PDF')) {
         toast({
           title: "Invalid File Type",
           description: error,
@@ -50,6 +73,39 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
       }
     }
   }, [error, toast]);
+
+  const handleViewFile = React.useCallback(() => {
+    if (selectedFile) {
+      try {
+        const objectUrl = URL.createObjectURL(selectedFile);
+        window.open(objectUrl, "_blank", "noopener,noreferrer");
+        // Revoke the object URL after the new tab has had time to load
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+        return;
+      } catch (viewError) {
+        console.error("Failed to open file preview:", viewError);
+        toast({
+          title: "Unable to open file",
+          description: "We couldn't open a preview for this file.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (lastUploadedFile?.url) {
+      try {
+        window.open(lastUploadedFile.url, "_blank", "noopener,noreferrer");
+      } catch (viewError) {
+        console.error("Failed to open uploaded file URL:", viewError);
+        toast({
+          title: "Unable to open file",
+          description: "We couldn't open the uploaded file.",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [lastUploadedFile, selectedFile, toast]);
 
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     handleFileChange(event);
@@ -79,7 +135,7 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
         {/* Step Title */}
         <div className="px-1">
           <h2 className="text-2xl font-semibold mb-1">Upload Receipt</h2>
-          <p className="text-muted-foreground text-sm">Take a photo or upload an image of your bill.</p>
+          <p className="text-muted-foreground text-sm">Take a photo, upload an image, or upload a PDF of your bill.</p>
         </div>
 
         {/* Upload Area with proper spacing */}
@@ -88,7 +144,9 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
                   htmlFor="dropzone-file"
                   className={cn(
                     "flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl cursor-pointer transition-colors duration-200 ease-in-out",
-                    previewUrl ? "border-primary/50 bg-primary/5 hover:bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/60",
+                    (previewUrl || fileDisplay)
+                      ? "border-primary/50 bg-primary/5 hover:bg-primary/10"
+                      : "border-border bg-muted/30 hover:bg-muted/60",
                     error ? "border-destructive bg-destructive/5" : ""
                    )}
               >
@@ -98,13 +156,71 @@ export function UploadStep({ onDataExtracted, onLoadingChange, isLoading, onBack
                       <div className="flex flex-col items-center justify-center py-6 text-center">
                           <ImagePlus className="w-12 h-12 mb-3 text-muted-foreground" strokeWidth={1.5} />
                           <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold text-primary">Tap to upload</span></p>
-                          <p className="text-xs text-muted-foreground">PNG, JPG (Max {AI_CONFIG.MAX_FILE_SIZE_MB}MB)</p>
+                          <p className="text-xs text-muted-foreground">PNG, JPG, or PDF (Max {AI_CONFIG.MAX_FILE_SIZE_MB}MB)</p>
                       </div>
                   )}
-                  <Input id="dropzone-file" type="file" className="hidden" onChange={onFileChange} accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png" ref={fileInputRef} disabled={isLoading} />
+                  <Input
+                    id="dropzone-file"
+                    type="file"
+                    className="hidden"
+                    onChange={onFileChange}
+                    accept="image/jpeg,image/jpg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"
+                    ref={fileInputRef}
+                    disabled={isLoading}
+                  />
               </Label>
-              {selectedFile && !previewUrl && !isLoading && (
-                  <p className="text-sm text-muted-foreground mt-2 text-center">Selected: {selectedFile.name}</p>
+              {fileDisplay && (
+                <div className="w-full mt-3">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 px-3 py-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full text-primary">
+                        {isPdf ? (
+                          <FileText className="h-4 w-4" />
+                        ) : (
+                          <ImagePlus className="h-4 w-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {fileDisplay.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {isPdf ? "PDF document" : "Image file"} •{" "}
+                          {formatFileSize(fileDisplay.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isPdf && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-transparent"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleViewFile();
+                          }}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-transparent"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          clearFile();
+                          setLastUploadedFile(null);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {error && (

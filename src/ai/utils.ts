@@ -19,9 +19,9 @@ export async function fetchImageAsDataUri(imageUrl: string): Promise<string> {
 }
 
 export function validateImageDataUri(photoDataUri: string): { mimeType: string; base64Data: string } {
-  const match = photoDataUri.match(/^data:(image\/(?:jpeg|jpg|png));base64,(.+)$/i);
+  const match = photoDataUri.match(/^data:(image\/(?:jpeg|jpg|png)|application\/pdf);base64,(.+)$/i);
   if (!match) {
-    throw new ImageProcessingError('Invalid photoDataUri format. Expected data URI with supported image format and Base64 encoding.');
+    throw new ImageProcessingError('Invalid photoDataUri format. Expected data URI with supported image or PDF format and Base64 encoding.');
   }
 
   const [, mimeType, base64Data] = match;

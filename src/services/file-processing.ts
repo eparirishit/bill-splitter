@@ -15,7 +15,8 @@ export interface ImageProcessingResult {
 export class FileProcessingService {
   private static readonly MIN_FILE_SIZE_BYTES = 1024; // 1KB
   private static readonly ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
-  private static readonly ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png'];
+  private static readonly ALLOWED_FILE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+  private static readonly ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'pdf'];
 
   /**
    * Get the maximum file size in bytes from configuration
@@ -51,15 +52,16 @@ export class FileProcessingService {
       };
     }
 
-    // Validate MIME type
-    if (!this.ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      const fileExtension = this.getFileExtension(file.name).toLowerCase();
-      if (!this.ALLOWED_EXTENSIONS.includes(fileExtension)) {
-        return {
-          isValid: false,
-          error: 'Please select a JPG or PNG file.'
-        };
-      }
+    // Validate MIME type and extension
+    const fileExtension = this.getFileExtension(file.name).toLowerCase();
+    const isAllowedMimeType = this.ALLOWED_FILE_TYPES.includes(file.type);
+    const isAllowedExtension = this.ALLOWED_EXTENSIONS.includes(fileExtension);
+
+    if (!isAllowedMimeType && !isAllowedExtension) {
+      return {
+        isValid: false,
+        error: 'Please select a JPG, PNG, or PDF file.'
+      };
     }
 
     return { isValid: true, error: null };

@@ -67,9 +67,9 @@ export class GoogleGeminiProvider implements AIProvider {
   }
 
   private parseDataUri(dataUri: string): { mimeType: string; base64Data: string } {
-    const match = dataUri.match(/^data:(image\/(?:jpeg|jpg|png|webp|heic|heif));base64,(.+)$/i);
+    const match = dataUri.match(/^data:(image\/(?:jpeg|jpg|png)|application\/pdf);base64,(.+)$/i);
     if (!match) {
-      throw new Error('Invalid image data URI format');
+      throw new Error('Invalid image or PDF data URI format');
     }
     return { mimeType: match[1], base64Data: match[2] };
   }

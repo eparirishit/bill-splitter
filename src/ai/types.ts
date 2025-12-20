@@ -24,7 +24,9 @@ export const ExtractReceiptDataInputSchema = z.object({
 export type ExtractReceiptDataInput = z.infer<typeof ExtractReceiptDataInputSchema>;
 
 export const AIOutputSchema = z.object({
-  storeName: z.string().min(1).describe('The name of the store.'),
+  // Store name may be missing or empty if the model couldn't read it;
+  // we'll apply a sensible default later in the pipeline.
+  storeName: z.string().optional().default("").describe('The name of the store, if detected.'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('The date of the purchase (YYYY-MM-DD).'),
   items: z.array(
     z.object({
@@ -43,6 +45,7 @@ export type AIOutput = z.infer<typeof AIOutputSchema>;
 export const ExtractReceiptDataOutputSchema = AIOutputSchema.extend({
   discrepancyFlag: z.boolean().describe('Whether there is a discrepancy between the printed total cost and the sum of item prices + taxes + other charges - discount.'),
   discrepancyMessage: z.string().optional().describe('A message describing the discrepancy, if any.'),
+  storeNameInferred: z.boolean().optional().describe('True if a default store name was applied because none was detected on the receipt.'),
 });
 
 export type ExtractReceiptDataOutput = z.infer<typeof ExtractReceiptDataOutputSchema>;

@@ -1,4 +1,5 @@
 import { extractReceiptData } from '@/ai/extract-receipt-data';
+import { useBillSplitting } from '@/contexts/bill-splitting-context';
 import { uploadImageToStorage, generateImageHash } from '@/lib/supabase';
 import { AnalyticsClientService } from '@/services/analytics-client';
 import { FileProcessingService, type FileValidationResult } from '@/services/file-processing';
@@ -21,6 +22,7 @@ export function useFileUpload(
   onLoadingChange: (isLoading: boolean) => void,
   userId?: string
 ): UseFileUploadReturn {
+  const { setLastUploadedFile } = useBillSplitting();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,18 +61,23 @@ export function useFileUpload(
 
     setSelectedFile(file);
     
-    // Process image
-    FileProcessingService.processImage(file).then((dataUri: string) => {
-      setPreviewUrl(dataUri);
-    }).catch((error) => {
-      console.error('Image processing error:', error);
-      setError('Failed to process image');
-      clearFile();
-    });
+    // Only process and preview image files (skip PDFs)
+    if (FileProcessingService.isValidImageType(file.type)) {
+      FileProcessingService.processImage(file).then((dataUri: string) => {
+        setPreviewUrl(dataUri);
+      }).catch((error) => {
+        console.error('Image processing error:', error);
+        setError('Failed to process image');
+        clearFile();
+      });
+    } else {
+      // For non-image files like PDFs, we allow upload but don't generate a preview
+      setPreviewUrl(null);
+    }
   };
 
   const handleUpload = async (): Promise<{ data: ExtractReceiptDataOutput; receiptId?: string } | null> => {
-    if (!selectedFile || !previewUrl) {
+    if (!selectedFile) {
       setError("No file selected");
       return null;
     }
@@ -106,6 +113,14 @@ export function useFileUpload(
         throw new Error("Failed to get image URL from storage");
       }
 
+      // Persist basic file info so the upload UI can be restored when navigating back
+      setLastUploadedFile({
+        name: selectedFile.name,
+        size: selectedFile.size,
+        type: selectedFile.type,
+        url: imageUrl,
+      });
+
       const extractionInput = { imageUrl };
 
       const result = await extractReceiptData(extractionInput, userId);
@@ -127,6 +142,7 @@ export function useFileUpload(
         discount: result.discount === null ? undefined : result.discount,
         discrepancyFlag: result.discrepancyFlag,
         discrepancyMessage: result.discrepancyMessage,
+        storeNameInferred: result.storeNameInferred,
       };
 
       // Track receipt processing for analytics

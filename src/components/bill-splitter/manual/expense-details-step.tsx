@@ -2,14 +2,18 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { useBillSplitting } from "@/contexts/bill-splitting-context";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { ExpenseCalculationService } from "@/services/expense-calculations";
 import { ExpenseValidationService } from "@/services/expense-validation";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { format } from "date-fns";
+import { ArrowLeft, ArrowRight, Calendar as CalendarIcon } from "lucide-react";
 
 export function ManualExpenseDetailsStep() {
   const { toast } = useToast();
@@ -85,6 +89,16 @@ export function ManualExpenseDetailsStep() {
     return ExpenseCalculationService.formatCurrency(num);
   };
 
+  const parseDateStringToDate = (value: string): Date | undefined => {
+    if (!value) return undefined;
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return undefined;
+    const date = new Date(year, month - 1, day);
+    return isNaN(date.getTime()) ? undefined : date;
+  };
+
+  const parsedExpenseDate = parseDateStringToDate(manualExpenseForm.date);
+
   return (
     <div className="flex flex-col min-h-full space-y-6 animate-fade-in pt-2">
       <div className="px-1">
@@ -137,13 +151,45 @@ export function ManualExpenseDetailsStep() {
               <Label htmlFor="expense-date" className="text-sm font-medium">
                 Date
               </Label>
-              <Input
-                id="expense-date"
-                type="date"
-                value={manualExpenseForm.date}
-                onChange={(e) => setManualExpenseFormDate(e.target.value)}
-                className="text-base"
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="expense-date"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left text-base font-normal transition-colors hover:bg-muted/40 hover:text-foreground",
+                      parsedExpenseDate
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {parsedExpenseDate ? (
+                      format(parsedExpenseDate, "MMM d, yyyy")
+                    ) : (
+                      <span>Select date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={parsedExpenseDate}
+                    onSelect={(date) => {
+                      if (!date) {
+                        setManualExpenseFormDate("");
+                        return;
+                      }
+                      const year = date.getFullYear();
+                      const month = `${date.getMonth() + 1}`.padStart(2, "0");
+                      const day = `${date.getDate()}`.padStart(2, "0");
+                      const formatted = `${year}-${month}-${day}`;
+                      setManualExpenseFormDate(formatted);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">

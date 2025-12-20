@@ -287,7 +287,7 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
       const response = await fetch(imageUrl, {
         method: 'GET',
         headers: {
-          'Accept': 'image/jpeg,image/jpg,image/png',
+          'Accept': 'image/jpeg,image/jpg,image/png,application/pdf',
         },
       });
       
@@ -370,7 +370,7 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
     const response = await fetch(signedUrl, {
       method: 'GET',
       headers: {
-        'Accept': 'image/jpeg,image/jpg,image/png',
+        'Accept': 'image/jpeg,image/jpg,image/png,application/pdf',
       },
     });
     
@@ -394,6 +394,8 @@ export async function downloadImageAsDataUri(imageUrl: string): Promise<string> 
       mimeType = 'image/png';
     } else if (extension === 'jpg' || extension === 'jpeg') {
       mimeType = 'image/jpeg';
+    } else if (extension === 'pdf') {
+      mimeType = 'application/pdf';
     }
     
     return `data:${mimeType};base64,${base64}`;

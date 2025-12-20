@@ -175,8 +175,10 @@ export async function extractReceiptData(
   }
 
   // Format and return final result
+  const rawStoreName = (aiOutput.storeName ?? "").trim();
+  const inferredStoreName = rawStoreName.length === 0;
   const result = {
-    storeName: aiOutput.storeName.trim(),
+    storeName: inferredStoreName ? AI_CONFIG.DEFAULT_STORE_NAME : rawStoreName,
     date: aiOutput.date,
     items: aiOutput.items.map((item) => ({
       name: item.name.trim(),
@@ -197,6 +199,7 @@ export async function extractReceiptData(
         : undefined,
     discrepancyFlag: discrepancyCheck.flag,
     discrepancyMessage: discrepancyCheck.message,
+    storeNameInferred: inferredStoreName || undefined,
     aiMetadata: aiResponse ? {
       provider: aiResponse.providerName || aiProvider.name,
       modelName: aiResponse.modelUsed || providerConfig.modelName,

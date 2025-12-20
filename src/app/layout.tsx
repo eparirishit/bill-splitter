@@ -49,7 +49,7 @@ function Header() {
   const showLogoutButton = isAuthenticated && pathname !== '/login';
 
   return (
-    <header className="sticky z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b" style={{ top: 'var(--pwa-banner-height, 0px)' }}>
+    <header className="sticky top-0 z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-2">
           {showBackButton ? (
@@ -134,11 +134,11 @@ export default function RootLayout({
       <body className={cn(inter.variable, 'font-sans antialiased bg-background min-h-dvh flex flex-col')}>
         <AuthProvider>
           <BillSplittingProvider>
-            <InstallPrompt />
             <Header />
             <main className="flex-1 w-full max-w-md mx-auto p-4 md:p-6">
               {children}
             </main>
+            <InstallPrompt />
             <Toaster />
           </BillSplittingProvider>
         </AuthProvider>

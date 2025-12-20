@@ -1,5 +1,6 @@
 "use client";
 import { AppIcon } from "@/components/icons/app-icon";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -48,7 +49,7 @@ function Header() {
   const showLogoutButton = isAuthenticated && pathname !== '/login';
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
+    <header className="sticky z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b" style={{ top: 'var(--pwa-banner-height, 0px)' }}>
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-2">
           {showBackButton ? (
@@ -107,9 +108,33 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="hsl(var(--primary))" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Bill Splitter" />
+        <meta name="description" content="AI-Powered Bill Splitting for Splitwise - Simplify and automate the process of splitting shared expenses" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="msapplication-TileColor" content="hsl(var(--primary))" />
+        <meta name="msapplication-tap-highlight" content="no" />
+        
+        {/* Apple Touch Icons */}
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <link rel="apple-touch-icon" sizes="72x72" href="/icons/icon-72x72.png" />
+        <link rel="apple-touch-icon" sizes="96x96" href="/icons/icon-96x96.png" />
+        <link rel="apple-touch-icon" sizes="128x128" href="/icons/icon-128x128.png" />
+        <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144x144.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" sizes="384x384" href="/icons/icon-384x384.png" />
+        <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png" />
+      </head>
       <body className={cn(inter.variable, 'font-sans antialiased bg-background min-h-dvh flex flex-col')}>
         <AuthProvider>
           <BillSplittingProvider>
+            <InstallPrompt />
             <Header />
             <main className="flex-1 w-full max-w-md mx-auto p-4 md:p-6">
               {children}

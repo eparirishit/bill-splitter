@@ -9,6 +9,9 @@ body {
 
 @layer base {
   :root {
+    /* PWA Banner Height - dynamically updated by InstallPrompt component */
+    --pwa-banner-height: 0px;
+    
     /* Uizard Template Inspired Theme */
     /* Background: Very light gray/off-white */
     --background-h: 220; --background-s: 15%; --background-l: 98%;

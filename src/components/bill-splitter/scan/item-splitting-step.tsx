@@ -120,7 +120,6 @@ export function ItemSplittingStep({
   const { toast } = useToast();
   const memberIds = React.useMemo(() => selectedMembers.map(m => m.id), [selectedMembers]);
 
-  // Use the bill editing hook
   const {
     editedBillData,
     editingPrices,
@@ -149,23 +148,20 @@ export function ItemSplittingStep({
     handleRemoveItem
   } = useBillEditing(billData);
 
-  // Get existing splits from context or initialize new ones
-  const existingItemSplits = React.useMemo(() => {
+  const [localItemSplits, setLocalItemSplits] = React.useState<ItemSplitState[]>(() => {
     if (contextItemSplits && contextItemSplits.length > 0) {
-      // Convert context ItemSplit to ItemSplitState
       return contextItemSplits.map(split => ({
         ...split,
         splitType: split.splitType || 'equal'
       }));
     }
-    return editedBillData.items.map((item, index) => ({
+    return billData.items.map((item, index) => ({
       itemId: `item-${index}`,
       splitType: 'equal' as SplitType,
-      sharedBy: memberIds,
+      sharedBy: selectedMembers.map(m => m.id),
     }));
-  }, [contextItemSplits, editedBillData.items, memberIds]);
-
-  const [localItemSplits, setLocalItemSplits] = React.useState<ItemSplitState[]>(existingItemSplits);
+  });
+  
   const [taxSplitType, setTaxSplitType] = React.useState<SplitType>('equal');
   const [taxSplitMembers, setTaxSplitMembers] = React.useState<string[]>(
     contextTaxSplit && contextTaxSplit.length > 0 ? contextTaxSplit : memberIds
@@ -175,19 +171,40 @@ export function ItemSplittingStep({
     contextOtherChargesSplit && contextOtherChargesSplit.length > 0 ? contextOtherChargesSplit : memberIds
   );
 
-  // Add item form state
   const [showAddItemForm, setShowAddItemForm] = React.useState(false);
   const [newItemName, setNewItemName] = React.useState("");
   const [newItemPrice, setNewItemPrice] = React.useState("");
-
-  // Edit item state
   const [editingItemIndex, setEditingItemIndex] = React.useState<number | null>(null);
   const [editItemName, setEditItemName] = React.useState("");
   const [editItemPrice, setEditItemPrice] = React.useState("");
 
-  // Update local state when context state changes (e.g., when navigating back)
+  const prevContextItemSplitsRef = React.useRef(contextItemSplits);
+  const currentItemsLengthRef = React.useRef(editedBillData.items.length);
+  const prevMemberIdsRef = React.useRef(memberIds);
+  
   React.useEffect(() => {
-    setLocalItemSplits(existingItemSplits);
+    currentItemsLengthRef.current = editedBillData.items.length;
+  }, [editedBillData.items.length]);
+  
+  // Sync from context only when contextItemSplits reference changes (e.g., navigating back from review)
+  // This prevents resetting splits when items are added/removed
+  React.useEffect(() => {
+    const contextSplitsChanged = prevContextItemSplitsRef.current !== contextItemSplits;
+    
+    if (contextSplitsChanged) {
+      prevContextItemSplitsRef.current = contextItemSplits;
+      
+      if (contextItemSplits && contextItemSplits.length > 0 && contextItemSplits.length === currentItemsLengthRef.current) {
+        const updatedSplits = contextItemSplits.map(split => ({
+          ...split,
+          splitType: split.splitType || 'equal'
+        }));
+        setLocalItemSplits(updatedSplits);
+      }
+    }
+  }, [contextItemSplits]);
+  
+  React.useEffect(() => {
     const taxMembers = contextTaxSplit && contextTaxSplit.length > 0 ? contextTaxSplit : memberIds;
     setTaxSplitMembers(taxMembers);
     setTaxSplitType(taxMembers.length === memberIds.length ? 'equal' : 'custom');
@@ -195,25 +212,26 @@ export function ItemSplittingStep({
     const otherChargesMembers = contextOtherChargesSplit && contextOtherChargesSplit.length > 0 ? contextOtherChargesSplit : memberIds;
     setOtherChargesSplitMembers(otherChargesMembers);
     setOtherChargesSplitType(otherChargesMembers.length === memberIds.length ? 'equal' : 'custom');
-  }, [existingItemSplits, contextTaxSplit, contextOtherChargesSplit, memberIds]);
+  }, [contextTaxSplit, contextOtherChargesSplit, memberIds]);
 
-  // Handle member changes - reset tax and other charges splits when members change
+  // Reset tax and other charges when members change (deep comparison to avoid false positives)
   React.useEffect(() => {
-    if (memberIds.length !== selectedMembers.length) {
-      // Members changed, need to reinitialize tax and other charges
+    const memberIdsChanged = 
+      prevMemberIdsRef.current.length !== memberIds.length ||
+      prevMemberIdsRef.current.some((id, index) => id !== memberIds[index]);
+    
+    if (memberIdsChanged) {
+      prevMemberIdsRef.current = memberIds;
       setTaxSplitMembers(memberIds);
       setOtherChargesSplitMembers(memberIds);
       setTaxSplitType('equal');
       setOtherChargesSplitType('equal');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memberIds.length, selectedMembers.length]);
+  }, [memberIds]);
 
-  // Sync localItemSplits when editedBillData.items changes (for add/remove operations)
+  // Preserve existing splits when items are added/removed
   React.useEffect(() => {
-    // Only update if the number of items has changed
     if (editedBillData.items.length !== localItemSplits.length) {
-      // If items were added, preserve existing splits and add new ones
       if (editedBillData.items.length > localItemSplits.length) {
         const newSplits = editedBillData.items.slice(localItemSplits.length).map((_, index) => ({
           itemId: `item-${localItemSplits.length + index}`,
@@ -222,11 +240,8 @@ export function ItemSplittingStep({
         }));
         setLocalItemSplits(prev => [...prev, ...newSplits]);
       } else if (editedBillData.items.length < localItemSplits.length) {
-        // If items were removed, remove the corresponding splits and reindex
         setLocalItemSplits(prev => {
-          // Keep only the splits that correspond to remaining items
           const updatedSplits = prev.slice(0, editedBillData.items.length);
-          // Reindex the remaining splits to match new item indices
           return updatedSplits.map((split, index) => ({
             ...split,
             itemId: `item-${index}`
@@ -236,9 +251,7 @@ export function ItemSplittingStep({
     }
   }, [editedBillData.items.length, localItemSplits.length, memberIds]);
 
-  // Price editing handlers are now provided by useBillEditing hook
-
-  const handleSplitTypeChange = (itemId: string, type: SplitType | null) => {
+  const handleSplitTypeChange = React.useCallback((itemId: string, type: SplitType | null) => {
     if (type === null) return;
     setLocalItemSplits(prev =>
       prev.map(split =>
@@ -251,9 +264,9 @@ export function ItemSplittingStep({
           : split
       )
     );
-  };
+  }, [memberIds]);
 
-  const handleMemberSelectionChange = (itemId: string, memberId: string) => {
+  const handleMemberSelectionChange = React.useCallback((itemId: string, memberId: string) => {
     setLocalItemSplits(prev =>
       prev.map(split => {
         if (split.itemId === itemId && split.splitType === 'custom') {
@@ -265,34 +278,28 @@ export function ItemSplittingStep({
         return split;
       })
     );
-  };
+  }, []);
 
-  const handleChargeSplitTypeChange = (chargeType: 'tax' | 'other', type: SplitType | null) => {
+  const handleChargeSplitTypeChange = React.useCallback((chargeType: 'tax' | 'other', type: SplitType | null) => {
     if (type === null) return;
     if (chargeType === 'tax') {
       setTaxSplitType(type);
       if (type === 'equal') {
         setTaxSplitMembers(memberIds);
       } else {
-        // Keep current selection or default to empty for custom
-        if (taxSplitMembers.length === 0) {
-          setTaxSplitMembers(memberIds);
-        }
+        setTaxSplitMembers(prev => prev.length === 0 ? memberIds : prev);
       }
     } else {
       setOtherChargesSplitType(type);
       if (type === 'equal') {
         setOtherChargesSplitMembers(memberIds);
       } else {
-        // Keep current selection or default to empty for custom
-        if (otherChargesSplitMembers.length === 0) {
-          setOtherChargesSplitMembers(memberIds);
-        }
+        setOtherChargesSplitMembers(prev => prev.length === 0 ? memberIds : prev);
       }
     }
-  };
+  }, [memberIds]);
 
-  const handleChargeMemberSelection = (chargeType: 'tax' | 'other', memberId: string) => {
+  const handleChargeMemberSelection = React.useCallback((chargeType: 'tax' | 'other', memberId: string) => {
     if (chargeType === 'tax') {
       setTaxSplitMembers(prev =>
         prev.includes(memberId)
@@ -306,7 +313,7 @@ export function ItemSplittingStep({
           : [...prev, memberId]
       );
     }
-  };
+  }, []);
 
   const handleAddNewItem = () => {
     const trimmedName = newItemName.trim();
@@ -330,11 +337,7 @@ export function ItemSplittingStep({
       return;
     }
 
-    // Add the item to the bill data
-    // The useEffect will automatically add the split for the new item
     handleAddItem(trimmedName, price);
-    
-    // Reset form
     setNewItemName("");
     setNewItemPrice("");
     setShowAddItemForm(false);
@@ -377,7 +380,6 @@ export function ItemSplittingStep({
       return;
     }
 
-    // Update the item name and price
     handleItemNameChange(editingItemIndex, trimmedName);
     handleItemPriceChange(editingItemIndex, editItemPrice);
     
@@ -411,13 +413,10 @@ export function ItemSplittingStep({
     const itemName = editedBillData.items[itemIndex]?.name || "this item";
     
     if (window.confirm(`Are you sure you want to remove "${itemName}" from the bill?`)) {
-      // Remove the item from bill data
       handleRemoveItem(itemIndex);
       
-      // Remove the corresponding split and reindex remaining splits
       setLocalItemSplits(prev => {
         const updatedSplits = prev.filter((_, index) => index !== itemIndex);
-        // Reindex the remaining splits to match new item indices
         return updatedSplits.map((split, index) => ({
           ...split,
           itemId: `item-${index}`
@@ -474,13 +473,10 @@ export function ItemSplittingStep({
       ? (otherChargesSplitType === 'equal' ? memberIds : otherChargesSplitMembers)
       : [];
 
-    // Track corrections if any were made
     if (hasManualEdits && userId) {
       try {
-        // Count total corrections
         let correctionCount = 0;
         
-        // Check item corrections
         editedBillData.items.forEach((item, index) => {
           const originalItem = billData.items[index];
           if (originalItem) {
@@ -489,7 +485,6 @@ export function ItemSplittingStep({
           }
         });
         
-        // Check other corrections
         if (editedBillData.taxes !== billData.taxes) correctionCount++;
         if (editedBillData.otherCharges !== billData.otherCharges) correctionCount++;
         if (editedBillData.discount !== billData.discount) correctionCount++;
@@ -511,18 +506,16 @@ export function ItemSplittingStep({
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
-  // Calculate the total based on current item prices, tax, other charges, and discount
-  const calculateTotalFromComponents = () => {
+  const calculateTotalFromComponents = React.useCallback(() => {
     return editedBillData.items.reduce((sum, item) => sum + item.price, 0) +
            (editedBillData.taxes ?? 0) +
            (editedBillData.otherCharges ?? 0) -
            (editedBillData.discount ?? 0);
-  };
+  }, [editedBillData.items, editedBillData.taxes, editedBillData.otherCharges, editedBillData.discount]);
 
-  // Calculate items subtotal
-  const calculateItemsSubtotal = () => {
+  const calculateItemsSubtotal = React.useCallback(() => {
     return editedBillData.items.reduce((sum, item) => sum + item.price, 0);
-  };
+  }, [editedBillData.items]);
 
   return (
     <div className="flex flex-col h-full space-y-6 animate-fade-in pt-2">
@@ -531,7 +524,6 @@ export function ItemSplittingStep({
             <p className="text-muted-foreground text-sm">How should each item be divided?</p>
         </div>
 
-        {/* AI Warning */}
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400 mx-1">
           <Bot className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <div>
@@ -540,7 +532,6 @@ export function ItemSplittingStep({
           </div>
         </div>
 
-        {/* Discrepancy Alert */}
         {editedBillData.discrepancyFlag && (
           <div className="flex items-start gap-2 rounded-lg border border-orange-500/50 bg-orange-500/10 p-3 text-sm text-orange-700 dark:text-orange-400 mx-1">
             <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -549,7 +540,6 @@ export function ItemSplittingStep({
         )}
 
         <div className="flex-grow space-y-4 overflow-y-auto pb-24">
-            {/* Add Item Section */}
             <Card className="card-modern">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-medium">Manage Items</CardTitle>
@@ -680,7 +670,6 @@ export function ItemSplittingStep({
                           </div>
                       </AccordionTrigger>
                       
-                      {/* Settings dropdown */}
                       <div className="absolute right-8 top-1/2 -translate-y-1/2">
                         <DropdownMenu>
                           <DropdownMenuTrigger
@@ -796,7 +785,6 @@ export function ItemSplittingStep({
                 );
               })}
               
-              {/* Tax Split Section */}
               {(typeof editedBillData.taxes === 'number' && editedBillData.taxes > 0) && (
                 <AccordionItem value="tax-split" className="border rounded-lg overflow-hidden bg-card shadow-sm">
                   <div className="relative">
@@ -897,7 +885,6 @@ export function ItemSplittingStep({
                 </AccordionItem>
               )}
               
-              {/* Other Charges Split Section */}
               {(typeof editedBillData.otherCharges === 'number' && editedBillData.otherCharges > 0) && (
                 <AccordionItem value="other-charges-split" className="border rounded-lg overflow-hidden bg-card shadow-sm">
                   <div className="relative">
@@ -1037,15 +1024,9 @@ export function ItemSplittingStep({
                           <Edit3 className="h-3 w-3 text-gray-400" />
                         </div>
                     </CardHeader>
-                    {/* <CardContent className="pt-0">
-                         <p className="text-xs text-muted-foreground">
-                            A discount of {formatCurrency(editedBillData.discount)} will be applied to the total.
-                         </p>
-                    </CardContent> */}
                 </Card>
              )}
 
-            {/* Total Bill Summary */}
             <Card className="card-modern">
                 <CardHeader className="flex-row items-center justify-between pb-2">
                     <CardTitle className="text-base font-medium">Total Bill</CardTitle>
@@ -1090,13 +1071,11 @@ export function ItemSplittingStep({
                             <span className="font-medium">{formatCurrency(calculateItemsSubtotal())}</span>
                         </div>
                         
-                        {/* Tax Row - Always show */}
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Tax:</span>
                             <span className="font-medium">{formatCurrency(editedBillData.taxes ?? 0)}</span>
                         </div>
                         
-                        {/* Other Charges Row - Always show */}
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Other Charges:</span>
                             <span className="font-medium">{formatCurrency(editedBillData.otherCharges ?? 0)}</span>
@@ -1108,7 +1087,6 @@ export function ItemSplittingStep({
                             <span className="font-medium text-green-600">-{formatCurrency(editedBillData.discount ?? 0)}</span>
                         </div>
                         
-                        {/* Calculated Total */}
                         {(() => {
                           const calculatedTotal = calculateTotalFromComponents();
                           const extractedTotal = editedBillData.totalCost;

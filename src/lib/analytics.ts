@@ -180,18 +180,16 @@ export class AnalyticsService {
     try {
       // Get all receipt IDs for the user
       const receiptHistory = await ReceiptTrackingService.getUserReceiptHistory(userId);
-      
+
       // Delete all receipt records (this will also delete associated images)
       await Promise.all(
-        receiptHistory.map(receipt => 
+        receiptHistory.map(receipt =>
           ReceiptTrackingService.deleteReceiptRecord(receipt.id)
         )
       );
 
       // Note: User analytics record deletion would need to be implemented
       // based on your specific requirements for data retention
-      
-      console.log(`Deleted data for user: ${userId}`);
     } catch (error) {
       console.error('Error deleting user data:', error);
       throw error;

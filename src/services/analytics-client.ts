@@ -3,7 +3,7 @@
  * Wraps analytics API calls for use in client components
  */
 
-import type { ExtractReceiptDataOutput, UserFeedback } from '@/types/analytics';
+import type { ExtractReceiptDataOutput, UserFeedback, UserAnalytics } from '@/types/analytics';
 
 interface TrackReceiptProcessingParams {
   userId: string;
@@ -26,6 +26,49 @@ interface SubmitFeedbackParams {
   feedback: Omit<UserFeedback, 'submitted_at'>;
 }
 
+interface ExpenseHistoryRecord {
+  id: string;
+  user_id: string;
+  store_name: string;
+  date: string;
+  total: number;
+  source: 'scan' | 'manual';
+  group_id?: string;
+  group_name?: string;
+  splitwise_expense_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SaveExpenseHistoryParams {
+  userId: string;
+  storeName: string;
+  date: string;
+  total: number;
+  source: 'scan' | 'manual';
+  groupId?: string;
+  groupName?: string;
+  splitwiseExpenseId?: string;
+}
+
+interface AggregatedAnalytics {
+  total_users: number;
+  total_receipts_processed: number;
+  total_corrections_made: number;
+  average_accuracy_rating: number;
+  active_users_last_30_days: number;
+}
+
+interface ExpenseHistoryResponse {
+  data: ExpenseHistoryRecord[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
+
 export class AnalyticsClientService {
   /**
    * Make an API request with consistent error handling
@@ -44,8 +87,8 @@ export class AnalyticsClientService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ 
-          error: `HTTP ${response.status}: ${response.statusText}` 
+        const errorData = await response.json().catch(() => ({
+          error: `HTTP ${response.status}: ${response.statusText}`
         }));
         throw new Error(errorData.error || `API error: ${response.status}`);
       }
@@ -139,5 +182,103 @@ export class AnalyticsClientService {
       console.warn('Failed to submit feedback:', error);
     }
   }
+
+  /**
+   * Get user analytics data
+   * @param userId - User ID
+   * @returns User analytics or null if not found
+   */
+  static async getUserAnalytics(userId: string | number): Promise<UserAnalytics | null> {
+    try {
+      const userIdString = String(userId);
+      const response = await this.makeApiRequest(
+        `/api/analytics/get-user-analytics?userId=${encodeURIComponent(userIdString)}`
+      );
+      return response.data || null;
+    } catch (error) {
+      console.warn('Failed to get user analytics:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get aggregated analytics for admin dashboard
+   * @returns Aggregated analytics data
+   */
+  static async getAggregatedAnalytics(): Promise<AggregatedAnalytics | null> {
+    try {
+      const response = await this.makeApiRequest('/api/analytics/get-aggregated');
+      return response.data || null;
+    } catch (error) {
+      console.warn('Failed to get aggregated analytics:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get user's expense history
+   * @param userId - User ID
+   * @param limit - Number of records to fetch (default: 20)
+   * @param offset - Offset for pagination (default: 0)
+   * @returns Expense history with pagination
+   */
+  static async getExpenseHistory(
+    userId: string | number,
+    limit: number = 20,
+    offset: number = 0
+  ): Promise<ExpenseHistoryResponse | null> {
+    try {
+      const userIdString = String(userId);
+      const response = await this.makeApiRequest(
+        `/api/expense-history?userId=${encodeURIComponent(userIdString)}&limit=${limit}&offset=${offset}`
+      );
+      return {
+        data: response.data || [],
+        pagination: response.pagination || { total: 0, limit, offset, hasMore: false }
+      };
+    } catch (error) {
+      console.warn('Failed to get expense history:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Save a new expense to history
+   * @param params - Expense details
+   * @returns Created expense record
+   */
+  static async saveExpenseHistory(params: SaveExpenseHistoryParams): Promise<ExpenseHistoryRecord | null> {
+    try {
+      const response = await this.makeApiRequest('/api/expense-history', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      return response.data || null;
+    } catch (error) {
+      console.warn('Failed to save expense history:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Delete an expense from history
+   * @param id - Expense ID
+   * @param userId - User ID (for authorization)
+   * @returns Success boolean
+   */
+  static async deleteExpenseHistory(id: string, userId: string | number): Promise<boolean> {
+    try {
+      const userIdString = String(userId);
+      await this.makeApiRequest(
+        `/api/expense-history?id=${encodeURIComponent(id)}&userId=${encodeURIComponent(userIdString)}`,
+        { method: 'DELETE' }
+      );
+      return true;
+    } catch (error) {
+      console.warn('Failed to delete expense history:', error);
+      return false;
+    }
+  }
 }
+
 

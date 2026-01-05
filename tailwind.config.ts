@@ -51,6 +51,7 @@ export default {
                 '4': 'hsl(var(--chart-4-h) var(--chart-4-s) var(--chart-4-l))',
                 '5': 'hsl(var(--chart-5-h) var(--chart-5-s) var(--chart-5-l))'
             },
+            splitwise: '#1cc08d',
              // Map sidebar colors as well, although not primary focus now
             sidebar: {
                 DEFAULT: 'var(--sidebar-background)',

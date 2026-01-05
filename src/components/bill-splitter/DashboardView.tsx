@@ -54,7 +54,7 @@ export function DashboardView({
                         <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">{user?.first_name || 'User'}</h2>
                     </div>
                 </div>
-                <button onClick={onProfileClick} className="w-12 h-12 rounded-[1.25rem] overflow-hidden border-2 border-white dark:border-slate-800 shadow-xl transition-all active:scale-90 hover:scale-105 relative bg-gray-100 dark:bg-slate-800 focus:ring-0 focus:ring-offset-0 focus:outline-none">
+                <button onClick={onProfileClick} className="w-12 h-12 rounded-[1.25rem] overflow-hidden border border-white dark:border-slate-800 shadow-xl transition-all active:scale-90 hover:scale-105 relative bg-gray-100 dark:bg-slate-800 focus:ring-0 focus:ring-offset-0 focus:outline-none">
                     <img
                         src={user?.picture?.medium || 'https://ui-avatars.com/api/?background=random'}
                         className="w-full h-full object-cover absolute inset-0"

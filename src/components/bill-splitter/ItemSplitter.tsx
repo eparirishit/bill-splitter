@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BillItem, User, AppFlow } from '@/types';
 
 interface ItemSplitterProps {
@@ -25,6 +25,23 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
   const [entryMode, setEntryMode] = useState<'itemized' | 'quick'>(
     items.length <= 1 && flow === AppFlow.MANUAL ? 'quick' : 'itemized'
   );
+
+  // Initialize quick mode with a total item if in manual flow and no items exist
+  useEffect(() => {
+    if (flow === AppFlow.MANUAL && items.length === 0 && entryMode === 'quick') {
+      const quickItem: BillItem = {
+        id: 'quick-total',
+        name: 'Total Bill',
+        price: 0,
+        quantity: 1,
+        splitType: 'equally',
+        splitMemberIds: selectedMembers.map(m => m.id),
+        quantityAssignments: {},
+      };
+      onChange([quickItem], tax, discount, otherCharges);
+      setExpandedId('quick-total');
+    }
+  }, [flow, items.length, entryMode, onChange, selectedMembers, tax, discount, otherCharges]);
 
   const updateItem = (id: string, updates: Partial<BillItem>) => {
     const newItems = items.map(item => item.id === id ? { ...item, ...updates } : item);
@@ -163,7 +180,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
       <div className="space-y-4">
         {items.map((item) => (
           <div key={item.id} className={`group bg-white dark:bg-slate-800 rounded-3xl border transition-all duration-300 ${expandedId === item.id
-            ? 'border-indigo-100 dark:border-indigo-900 shadow-xl dark:shadow-none shadow-indigo-50/50 ring-1 ring-indigo-50 dark:ring-indigo-900/30'
+            ? 'border-transparent'
             : 'border-gray-100 dark:border-slate-700 hover:border-gray-200 dark:hover:border-slate-600 shadow-sm'
             }`}>
             <div
@@ -199,7 +216,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <div className="flex items-center bg-gray-50/80 dark:bg-slate-700/50 px-3 py-2 rounded-xl border border-gray-100 dark:border-slate-700 group-hover:bg-white dark:group-hover:bg-slate-700 transition-colors">
+                <div className="flex items-center bg-gray-50/80 dark:bg-slate-700/50 px-2 py-2 rounded-xl border border-gray-100 dark:border-slate-700 group-hover:bg-white dark:group-hover:bg-slate-700 transition-colors">
                   <span className="text-gray-400 dark:text-slate-500 text-xs font-bold mr-1">$</span>
                   <input
                     type="number"
@@ -207,7 +224,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                     value={item.price || ''}
                     onChange={(e) => updateItem(item.id, { price: parseFloat(e.target.value) || 0 })}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-16 font-black text-gray-900 dark:text-white border-none focus:ring-0 text-right bg-transparent !min-h-0 !p-0"
+                    className="w-14 font-black text-gray-900 dark:text-white border-none focus:ring-0 text-right bg-transparent !min-h-0 !p-0"
                   />
                 </div>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${expandedId === item.id ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rotate-180' : 'text-gray-300 dark:text-slate-600'
@@ -322,10 +339,11 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                               key={member.id}
                               role="button"
                               onClick={() => toggleMemberForItem(item.id, member.id)}
-                              className="group flex flex-col items-center gap-2 cursor-pointer h-auto w-full justify-start outline-none"
+                              style={{ WebkitTapHighlightColor: 'transparent', outline: 'none' }}
+                              className="group flex flex-col items-center gap-2 cursor-pointer h-auto w-full justify-start outline-none focus:outline-none"
                             >
                               <div className={`relative w-12 h-12 rounded-2xl transition-all duration-200 overflow-hidden ${isSelected
-                                ? 'ring-2 ring-indigo-500 ring-offset-2'
+                                ? 'bg-indigo-100 dark:bg-indigo-900/40'
                                 : 'grayscale opacity-40 hover:grayscale-0 hover:opacity-100 border border-gray-100 dark:border-slate-700'
                                 }`}>
                                 <img src={member.avatar} className="w-full h-full object-cover" />

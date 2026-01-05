@@ -21,6 +21,7 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
 
   const handleGroupSelect = (group: Group) => {
     onChange(group.id, group.members.map(m => m.id));
+    setSearchTerm('');
   };
 
   const handleMemberToggle = (userId: string) => {
@@ -50,7 +51,7 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
     u.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const featuredGroups = groups.slice(0, 3);
+  const featuredGroups = groups;
 
   return (
     <div className="space-y-8 pb-10">
@@ -63,7 +64,7 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
           placeholder="Search groups or friends..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-11 pr-4 py-4 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-[1.5rem] shadow-sm focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900/20 transition-all font-medium text-gray-800 dark:text-white"
+          className="w-full pl-11 pr-4 py-4 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-[1.5rem] shadow-sm focus:border-gray-200 dark:focus:border-slate-600 transition-all font-medium text-gray-800 dark:text-white outline-none focus:ring-0 focus:outline-none"
         />
       </div>
 
@@ -78,10 +79,11 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
               <button
                 key={group.id}
                 onClick={() => handleGroupSelect(group)}
-                className={`snap-start min-w-[160px] p-6 rounded-[2rem] border-2 transition-all duration-300 flex flex-col items-start gap-4 focus:outline-none focus:ring-0 ${selectedGroupId === group.id
-                  ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-lg shadow-indigo-100 dark:shadow-none'
+                className={`snap-start min-w-[160px] p-6 rounded-[2rem] border transition-all duration-300 flex flex-col items-start gap-4 focus:outline-none focus:ring-0 active:scale-95 ${selectedGroupId === group.id
+                  ? 'border-transparent bg-indigo-50/50 dark:bg-indigo-900/30'
                   : 'border-white dark:border-slate-800 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:border-gray-100 dark:hover:border-slate-600'
                   }`}
+                style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
               >
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black ${selectedGroupId === group.id ? 'bg-indigo-600 text-white' : 'bg-indigo-50 dark:bg-slate-700 text-indigo-600 dark:text-indigo-400'
                   }`}>
@@ -105,13 +107,13 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
         {searchTerm && filteredGroups.length > 0 && (
           <section className="animate-slide-up">
             <h3 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4 px-2">Groups</h3>
-            <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-gray-50 dark:border-slate-700 shadow-xl shadow-gray-200/20 dark:shadow-none overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-gray-50 dark:border-slate-700 shadow-sm overflow-hidden">
               <div className="max-h-[350px] overflow-y-auto">
                 {filteredGroups.map(group => (
                   <button
                     key={group.id}
                     onClick={() => handleGroupSelect(group)}
-                    style={{ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none', WebkitTapHighlightColor: 'transparent' }}
+                    style={{ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none', WebkitTapHighlightColor: 'transparent', outline: 'none' }}
                     className={`w-full px-6 py-4 flex items-center justify-between border-b border-gray-50 dark:border-slate-700 last:border-none hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors focus:outline-none focus:ring-0 active:outline-none`}
                   >
                     <div className="flex items-center gap-4">
@@ -121,7 +123,7 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
                           {group.name.charAt(0)}
                         </div>
                         {selectedGroupId === group.id && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center">
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center shadow-sm">
                             <i className="fas fa-check text-[6px] text-white"></i>
                           </div>
                         )}
@@ -135,7 +137,7 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
                         </span>
                       </div>
                     </div>
-                    <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${selectedGroupId === group.id ? 'bg-indigo-600 border-indigo-600 rotate-0' : 'border-gray-200 dark:border-slate-600 rotate-45'
+                    <div className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all ${selectedGroupId === group.id ? 'bg-indigo-600 border-none rotate-0' : 'border border-gray-200 dark:border-slate-600 rotate-45'
                       }`}>
                       {selectedGroupId === group.id ? (
                         <i className="fas fa-check text-[10px] text-white"></i>
@@ -150,12 +152,10 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
           </section>
         )}
 
-
-
-        {selectedGroup && selectedGroup.members.length > 0 && (
+        {selectedGroup && !searchTerm && (
           <section className="animate-slide-up">
             <h3 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4 px-2">Group Members</h3>
-            <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-gray-50 dark:border-slate-700 shadow-xl shadow-gray-200/20 dark:shadow-none overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-gray-50 dark:border-slate-700 shadow-sm overflow-hidden">
               <div className="max-h-[350px] overflow-y-auto">
                 {selectedGroup.members.map(member => (
                   <button
@@ -168,7 +168,7 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
                       <div className="relative">
                         <img src={member.avatar || `https://ui-avatars.com/api/?name=${member.name}&background=random`} className="w-10 h-10 rounded-xl object-cover grayscale-[0.5]" alt={member.name} />
                         {selectedMemberIds.includes(member.id) && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center">
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center shadow-sm">
                             <i className="fas fa-check text-[6px] text-white"></i>
                           </div>
                         )}
@@ -177,7 +177,7 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
                         {member.name}
                       </span>
                     </div>
-                    <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${selectedMemberIds.includes(member.id) ? 'bg-indigo-600 border-indigo-600 rotate-0' : 'border-gray-200 dark:border-slate-600 rotate-45'
+                    <div className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all ${selectedMemberIds.includes(member.id) ? 'bg-indigo-600 border-none rotate-0' : 'border border-gray-200 dark:border-slate-600 rotate-45'
                       }`}>
                       {selectedMemberIds.includes(member.id) ? (
                         <i className="fas fa-check text-[10px] text-white"></i>
@@ -192,43 +192,49 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
           </section>
         )}
 
-        <section className="animate-slide-up">
-          <h3 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4 px-2">Friends</h3>
-          <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-gray-50 dark:border-slate-700 shadow-xl shadow-gray-200/20 dark:shadow-none overflow-hidden">
-            <div className="max-h-[350px] overflow-y-auto">
-              {filteredUsers.map(user => (
-                <button
-                  key={user.id}
-                  onClick={() => handleMemberToggle(user.id)}
-                  style={{ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none', WebkitTapHighlightColor: 'transparent' }}
-                  className="w-full px-6 py-4 flex items-center justify-between border-b border-gray-50 dark:border-slate-700 last:border-none hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors focus:outline-none focus:ring-0 active:outline-none"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <img src={user.avatar} className="w-10 h-10 rounded-xl object-cover grayscale-[0.5]" alt={user.name} />
-                      {selectedMemberIds.includes(user.id) && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center">
-                          <i className="fas fa-check text-[6px] text-white"></i>
+        {(filteredUsers.length > 0 || !searchTerm) && (
+          <section className="animate-slide-up">
+            <h3 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4 px-2">
+              {searchTerm ? 'Matching Individuals' : 'Friends'}
+            </h3>
+            {filteredUsers.length > 0 ? (
+              <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-gray-50 dark:border-slate-700 shadow-sm overflow-hidden">
+                <div className="max-h-[350px] overflow-y-auto">
+                  {filteredUsers.map(user => (
+                    <button
+                      key={user.id}
+                      onClick={() => handleMemberToggle(user.id)}
+                      style={{ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none', WebkitTapHighlightColor: 'transparent' }}
+                      className="w-full px-6 py-4 flex items-center justify-between border-b border-gray-50 dark:border-slate-700 last:border-none hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors focus:outline-none focus:ring-0 active:outline-none"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <img src={user.avatar} className="w-10 h-10 rounded-xl object-cover grayscale-[0.5]" alt={user.name} />
+                          {selectedMemberIds.includes(user.id) && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center shadow-sm">
+                              <i className="fas fa-check text-[6px] text-white"></i>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <span className={`text-sm font-bold ${selectedMemberIds.includes(user.id) ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-slate-300'}`}>
-                      {user.name}
-                    </span>
-                  </div>
-                  <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${selectedMemberIds.includes(user.id) ? 'bg-indigo-600 border-indigo-600 rotate-0' : 'border-gray-200 dark:border-slate-600 rotate-45'
-                    }`}>
-                    {selectedMemberIds.includes(user.id) ? (
-                      <i className="fas fa-check text-[10px] text-white"></i>
-                    ) : (
-                      <i className="fas fa-plus text-[8px] text-gray-200 dark:text-slate-600"></i>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
+                        <span className={`text-sm font-bold ${selectedMemberIds.includes(user.id) ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-slate-300'}`}>
+                          {user.name}
+                        </span>
+                      </div>
+                      <div className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all ${selectedMemberIds.includes(user.id) ? 'bg-indigo-600 border-none rotate-0' : 'border border-gray-200 dark:border-slate-600 rotate-45'
+                        }`}>
+                        {selectedMemberIds.includes(user.id) ? (
+                          <i className="fas fa-check text-[10px] text-white"></i>
+                        ) : (
+                          <i className="fas fa-plus text-[8px] text-gray-200 dark:text-slate-600"></i>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+        )}
       </div>
     </div>
 

@@ -1,15 +1,22 @@
 
 import React from 'react';
-import { BillData, User } from '@/types';
+import { BillData, User, Group } from '@/types';
 
 interface ReviewScreenProps {
   billData: BillData;
   onUpdate: (updates: Partial<BillData>) => void;
   members: User[];
+  groups: Group[];
+  authUserId?: string;
 }
 
-export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, members }) => {
+export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, members, groups, authUserId }) => {
   const selectedMembers = members.filter(u => billData.selectedMemberIds.includes(u.id));
+
+  // Determine who can be a payer based on the context (Group or Individual split)
+  const payerList = billData.groupId
+    ? (groups.find(g => g.id === billData.groupId)?.members || [])
+    : members.filter(u => billData.selectedMemberIds.includes(u.id) || u.id === authUserId);
 
   const splits: Record<string, number> = {};
   selectedMembers.forEach(m => (splits[m.id] = 0));
@@ -132,7 +139,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
                   onChange={(e) => onUpdate({ payerId: e.target.value })}
                   className="w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 px-3 focus:outline-none focus:ring-0 appearance-none cursor-pointer !min-h-0"
                 >
-                  {selectedMembers.map(m => (
+                  {payerList.map(m => (
                     <option key={m.id} value={m.id}>{m.name === 'Me' ? 'Paid by me' : m.name}</option>
                   ))}
                 </select>
@@ -170,7 +177,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
           {selectedMembers.map(member => (
             <div key={member.id} className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-700 hover:shadow-lg transition-all duration-300">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-white dark:border-slate-600 shadow-sm bg-indigo-50 dark:bg-indigo-900/30">
+                <div className="w-10 h-10 rounded-xl overflow-hidden border border-white dark:border-slate-600 shadow-sm bg-indigo-50 dark:bg-indigo-900/30">
                   <img src={member.avatar} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex flex-col">

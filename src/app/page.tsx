@@ -95,7 +95,7 @@ function BillSplitterFlow() {
         setIsLoadingData(true);
         try {
           const [fetchedGroups, fetchedFriends, fetchedUser] = await Promise.all([
-            SplitwiseService.getGroups(),
+            SplitwiseService.getRecentGroups(),
             SplitwiseService.getFriends(),
             SplitwiseService.getCurrentUser()
           ]);
@@ -377,7 +377,11 @@ function BillSplitterFlow() {
   };
 
   // Combined list of all available users for selection components
-  const allUsers = [...friends, ...groups.flatMap(g => g.members)];
+  const allUsers = [
+    ...(authUser ? [authUser] : []),
+    ...friends,
+    ...groups.flatMap(g => g.members)
+  ];
   // Deduplicate for passing to components
   const uniqueAllUsers = Array.from(new Map(allUsers.map(item => [item.id, item])).values());
 
@@ -521,7 +525,7 @@ function BillSplitterFlow() {
               selectedMemberIds={billData.selectedMemberIds}
               onChange={(g, m) => setBillData(prev => ({ ...prev, groupId: g, selectedMemberIds: m }))}
               groups={groups}
-              friends={friends}
+              friends={uniqueAllUsers}
             />
           </div>
         )}
@@ -546,6 +550,8 @@ function BillSplitterFlow() {
               billData={billData}
               onUpdate={(updates) => setBillData(prev => ({ ...prev, ...updates }))}
               members={uniqueAllUsers}
+              groups={groups}
+              authUserId={authUser?.id}
             />
           </div>
         )}
@@ -565,7 +571,7 @@ function BillSplitterFlow() {
 
       {/* Footer Navigation */}
       {currentStep > Step.FLOW_SELECTION && currentStep < Step.SUCCESS && (
-        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass border-t border-gray-100 dark:border-slate-800 p-6 safe-bottom flex gap-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
+        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[#fcfcfd] dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 p-6 safe-bottom flex gap-4 z-40 shadow-[0_-20px_40px_rgba(0,0,0,0.12)]">
           <button
             disabled={isProcessing}
             onClick={() => currentStep === Step.UPLOAD || (currentStep === Step.GROUP_SELECTION && flow === AppFlow.MANUAL) ? setCurrentStep(Step.FLOW_SELECTION) : setCurrentStep(prev => prev - 1)}

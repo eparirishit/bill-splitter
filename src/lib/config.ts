@@ -34,13 +34,13 @@ export const AI_CONFIG = {
   MAX_RETRIES: 3,
   RETRY_DELAY_MS: 1000,
   DEFAULT_STORE_NAME: "Unknown Store",
-  
+
   // File upload configuration
   MAX_FILE_SIZE_MB: parseFloat(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5'), // (default: 5MB)
-  
+
   // Provider configuration
   PROVIDER: (process.env.AI_PROVIDER || "google-gemini") as ProviderType,
-  
+
   // Provider-specific configs
   GOOGLE_GEMINI: {
     MODEL_NAME: process.env.GOOGLE_MODEL_NAME || "gemini-2.5-flash",
@@ -48,7 +48,7 @@ export const AI_CONFIG = {
     TEMPERATURE: 0.1,
     MAX_TOKENS: 8192,
   },
-  
+
   OPENROUTER: {
     MODEL_NAME: process.env.OPENROUTER_MODEL_NAME || "anthropic/claude-3.5-sonnet",
     API_KEY: process.env.OPENROUTER_API_KEY!,
@@ -62,7 +62,7 @@ export function createGoogleAIClient(): GoogleGenerativeAI {
   if (typeof window !== 'undefined') {
     throw new ConfigurationError("Google AI client can only be created on the server side.");
   }
-  
+
   if (!process.env.GOOGLE_API_KEY) {
     throw new ConfigurationError("GOOGLE_API_KEY environment variable is not set.");
   }
@@ -74,44 +74,37 @@ export const EXTRACTION_PROMPT = `You are an expert receipt data extraction syst
 **CRITICAL INSTRUCTIONS:**
 1. **Store Name**: Extract the exact business name as printed on the receipt header (not address or other info)
 2. **Date**: Find the transaction/purchase date in YYYY-MM-DD format only. Only extract dates that are clearly visible - do not invent dates.
-3. **Items**: Extract ONLY purchased items with their individual prices:
-   - Use exact item names as printed on the receipt
-   - Include quantity in name if shown (e.g., "Bananas (3 lbs)")
-   - DO NOT include: subtotals, tax lines, fee lines, discounts, category headers, or summary lines
-   - Each item should have ONE price (the final price for that line item)
-   - If an item name or price is unclear or partially obscured, do not guess - only extract clearly visible items
+3. **Items**: Extract ONLY purchased items:
+   - **Name**: Use exact item names as printed.
+   - **Price**: Must be the *final line total* for that item (Unit Price × Quantity). Do NOT use the unit price.
+   - **Quantity**: Extract the quantity if greater than 1. Default to 1 if not explicitly shown.
+   - **Exclusions**: DO NOT include subtotals, tax lines, fee lines, discounts, category headers, or summary lines as items.
+   - If an item name or price is unclear or partially obscured, do not guess - only extract clearly visible items.
 4. **Financial Totals**:
-   - totalCost: The final amount charged (look for "Total", "Amount Due", "Final Total", "Amount Paid")
-   - taxes: Only explicit tax amounts (sales tax, VAT, etc.) that are clearly labeled - set to 0 if not found or unclear
-   - otherCharges: Service fees, delivery fees, tips if explicitly listed and clearly visible - set to 0 if not found
-   - discount: Any promotional discounts, coupons, or credits that are clearly labeled - set to 0 if not found
+   - **totalCost**: The final amount charged (look for "Total", "Amount Due", "Final Total", "Amount Paid").
+   - **taxes**: Only explicit tax amounts (sales tax, VAT, etc.) that are clearly labeled.
+   - **otherCharges**: Service fees, delivery fees, tips if explicitly listed.
+   - **discount**: Any promotional discounts, coupons, or credits that are clearly labeled (return as a positive number).
 
 **ACCURACY REQUIREMENTS:**
-- Extract ONLY information that is clearly visible and readable in the image
-- Do NOT hallucinate or invent information not present on the receipt
-- Do NOT infer or estimate values - use only what is explicitly shown
-- Double-check all numbers match exactly what appears on the receipt
-
-**VALIDATION RULES:**
-- All prices must be positive numbers
-- Items array must contain at least one item
-- Store name cannot be empty
-- Date must be valid YYYY-MM-DD format
+- **Ignore Background**: Ignore any text that is part of the background, tablecloth, or other objects. Focus ONLY on the receipt paper.
+- **Precision**: Double-check that the sum of (Items + Taxes + OtherCharges - Discounts) matches the TotalCost.
+- **No Hallucinations**: Do NOT invent fields or values.
 
 **OUTPUT FORMAT:**
-Return ONLY valid JSON in this exact structure (no markdown, no explanations, no additional text):
+Return ONLY valid JSON in this exact structure (no markdown, no explanations):
 
 {
   "storeName": "Walmart Supercenter",
   "date": "2024-01-15",
   "items": [
-    {"name": "Milk 2% Gallon", "price": 3.98},
-    {"name": "Bread Whole Wheat", "price": 2.50}
+    {"name": "Milk 2% Gallon", "price": 3.98, "quantity": 1},
+    {"name": "Bananas", "price": 1.50, "quantity": 3}
   ],
-  "totalCost": 7.23,
-  "taxes": 0.75,
-  "otherCharges": 0,
-  "discount": 0
+  "totalCost": 5.48,
+  "taxes": 0.00,
+  "otherCharges": 0.00,
+  "discount": 0.00
 }
 
 Analyze the receipt image now and extract only the information clearly visible:`;

@@ -335,6 +335,38 @@ export class AnalyticsClientService {
       return false;
     }
   }
+
+  /**
+   * Submit general feedback or support request
+   * @param params - Feedback parameters
+   * @returns Request ID if successful
+   */
+  static async submitSupportRequest(params: {
+    type: 'bug' | 'feature' | 'general' | 'support';
+    message: string;
+    user?: {
+      id?: string;
+      email?: string;
+      first_name?: string;
+      last_name?: string;
+      name?: string;
+    };
+  }): Promise<string | undefined> {
+    try {
+      const response = await this.makeApiRequest('/api/feedback', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: params.type,
+          message: params.message,
+          user: params.user
+        }),
+      });
+      return response.requestId;
+    } catch (error) {
+      console.warn('Failed to submit support request:', error);
+      return undefined;
+    }
+  }
 }
 
 

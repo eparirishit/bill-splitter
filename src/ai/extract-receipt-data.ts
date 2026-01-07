@@ -20,6 +20,7 @@ import {
   checkDiscrepancy,
   extractAndParseJSON,
   fetchImageAsDataUri,
+  getAIProviderConfig,
   retryWithDelay,
   roundCurrency,
   validateExtractionResult
@@ -79,20 +80,7 @@ export async function extractReceiptData(
   }
 
   // Create AI provider based on configuration
-  const providerConfig = AI_CONFIG.PROVIDER === "google-gemini"
-    ? {
-      modelName: AI_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
-      apiKey: AI_CONFIG.GOOGLE_GEMINI.API_KEY,
-      temperature: AI_CONFIG.GOOGLE_GEMINI.TEMPERATURE,
-      maxTokens: AI_CONFIG.GOOGLE_GEMINI.MAX_TOKENS,
-    }
-    : {
-      modelName: AI_CONFIG.OPENROUTER.MODEL_NAME,
-      apiKey: AI_CONFIG.OPENROUTER.API_KEY,
-      baseUrl: AI_CONFIG.OPENROUTER.BASE_URL,
-      temperature: AI_CONFIG.OPENROUTER.TEMPERATURE,
-      maxTokens: AI_CONFIG.OPENROUTER.MAX_TOKENS,
-    };
+  const providerConfig = getAIProviderConfig();
 
   const aiProvider = AIServiceFactory.createProvider(AI_CONFIG.PROVIDER, providerConfig);
 

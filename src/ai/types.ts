@@ -55,3 +55,11 @@ export interface DiscrepancyCheck {
   flag: boolean;
   message?: string;
 }
+
+export const FeedbackClassificationSchema = z.object({
+  type: z.enum(['bug', 'feature', 'general', 'support']).describe('The classification of the feedback.'),
+  confidence: z.number().min(0).max(1).describe('Confidence score of the classification.'),
+  summary: z.string().optional().describe('A brief summary of the feedback.'),
+});
+
+export type FeedbackClassification = z.infer<typeof FeedbackClassificationSchema>;

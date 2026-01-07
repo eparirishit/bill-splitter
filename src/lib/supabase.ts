@@ -249,6 +249,47 @@ export interface Database {
           last_used?: string;
         };
       };
+      user_feedback: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: 'bug' | 'feature' | 'general' | 'support';
+          message: string;
+          status: 'open' | 'in_progress' | 'resolved' | 'closed';
+          user_email: string | null;
+          user_name: string | null;
+          metadata: Record<string, any> | null;
+          created_at: string;
+          updated_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: 'bug' | 'feature' | 'general' | 'support';
+          message: string;
+          status?: 'open' | 'in_progress' | 'resolved' | 'closed';
+          user_email?: string | null;
+          user_name?: string | null;
+          metadata?: Record<string, any> | null;
+          created_at?: string;
+          updated_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          type?: 'bug' | 'feature' | 'general' | 'support';
+          message?: string;
+          status?: 'open' | 'in_progress' | 'resolved' | 'closed';
+          user_email?: string | null;
+          user_name?: string | null;
+          metadata?: Record<string, any> | null;
+          created_at?: string;
+          updated_at?: string;
+          resolved_at?: string | null;
+        };
+      };
     };
   };
 }

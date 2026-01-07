@@ -243,14 +243,14 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                       <button
                         onClick={() => updateItem(item.id, { splitType: 'equally', splitMemberIds: selectedMembers.map(m => m.id) })}
                         style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-                        className={`text-[10px] px-3 py-1.5 rounded-xl font-bold transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 ${item.splitType === 'equally' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400'}`}
+                        className={`text-[10px] px-3 py-2 rounded-xl font-bold transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 ${item.splitType === 'equally' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400'}`}
                       >
                         Equal
                       </button>
                       <button
                         onClick={() => updateItem(item.id, { splitType: 'quantity', quantityAssignments: item.quantityAssignments || {} })}
                         style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-                        className={`text-[10px] px-3 py-1.5 rounded-xl font-bold transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 ${item.splitType === 'quantity' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400'}`}
+                        className={`text-[10px] px-3 py-2 rounded-xl font-bold transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 ${item.splitType === 'quantity' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400'}`}
                       >
                         By Qty
                       </button>
@@ -272,7 +272,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                         <button
                           onClick={(e) => { e.stopPropagation(); removeItem(item.id); }}
                           style={{ WebkitTapHighlightColor: 'transparent' }}
-                          className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0"
+                          className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0"
                         >
                           <i className="fas fa-trash-alt text-xs"></i>
                         </button>

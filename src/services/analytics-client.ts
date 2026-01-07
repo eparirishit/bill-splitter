@@ -57,6 +57,7 @@ interface AggregatedAnalytics {
   total_corrections_made: number;
   average_accuracy_rating: number;
   active_users_last_30_days: number;
+  total_volume: number;
 }
 
 interface ExpenseHistoryResponse {
@@ -155,6 +156,41 @@ export class AnalyticsClientService {
   }
 
   /**
+   * Track user corrections when they modify receipt data
+   * @param receiptId - Receipt ID from tracking
+   * @param userId - User ID
+   * @param originalExtraction - Original AI extraction
+   * @param userModifications - User's modifications
+   */
+  static async trackCorrections(
+    receiptId: string,
+    userId: string | number,
+    originalExtraction: ExtractReceiptDataOutput,
+    userModifications: {
+      items?: Array<{ name: string; price: number }>;
+      taxes?: number;
+      otherCharges?: number;
+      totalCost?: number;
+    }
+  ): Promise<void> {
+    try {
+      const userIdString = String(userId);
+      await this.makeApiRequest('/api/analytics/track-corrections', {
+        method: 'POST',
+        body: JSON.stringify({
+          receiptId,
+          userId: userIdString,
+          originalExtraction,
+          userModifications,
+        }),
+      });
+    } catch (error) {
+      // Log but don't throw - analytics failures shouldn't break the app
+      console.warn('Failed to track corrections:', error);
+    }
+  }
+
+  /**
    * Submit user feedback
    * @param params - Feedback parameters
    */
@@ -203,11 +239,13 @@ export class AnalyticsClientService {
 
   /**
    * Get aggregated analytics for admin dashboard
+   * @param days - Date range string (e.g., '7d', '30d', '90d', 'all')
    * @returns Aggregated analytics data
    */
-  static async getAggregatedAnalytics(): Promise<AggregatedAnalytics | null> {
+  static async getAggregatedAnalytics(days?: string): Promise<AggregatedAnalytics | null> {
     try {
-      const response = await this.makeApiRequest('/api/analytics/get-aggregated');
+      const endpoint = days ? `/api/analytics/get-aggregated?days=${days}` : '/api/analytics/get-aggregated';
+      const response = await this.makeApiRequest(endpoint);
       return response.data || null;
     } catch (error) {
       console.warn('Failed to get aggregated analytics:', error);
@@ -276,6 +314,24 @@ export class AnalyticsClientService {
       return true;
     } catch (error) {
       console.warn('Failed to delete expense history:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if a user is an admin
+   * @param userId - User ID
+   * @returns True if user is admin, false otherwise
+   */
+  static async checkAdminStatus(userId: string | number): Promise<boolean> {
+    try {
+      const userIdString = String(userId);
+      const response = await this.makeApiRequest(
+        `/api/analytics/check-admin?userId=${encodeURIComponent(userIdString)}`
+      );
+      return response.isAdmin === true;
+    } catch (error) {
+      console.warn('Failed to check admin status:', error);
       return false;
     }
   }

@@ -14,6 +14,7 @@ interface ProfileOverlayProps {
     darkMode: boolean;
     onToggleDarkMode: () => void;
     onLogout: () => void;
+    onAdminClick?: () => void;
 }
 
 export function ProfileOverlay({
@@ -22,7 +23,8 @@ export function ProfileOverlay({
     user,
     darkMode,
     onToggleDarkMode,
-    onLogout
+    onLogout,
+    onAdminClick
 }: ProfileOverlayProps) {
     if (!isOpen) return null;
 
@@ -45,7 +47,7 @@ export function ProfileOverlay({
                     </div>
                 </div>
                 <div className="space-y-4 mb-10">
-                    <div className="flex items-center justify-between p-5 bg-slate-50 dark:bg-slate-800 rounded-[1.5rem]">
+                <div className="flex items-center justify-between p-5 bg-slate-50 dark:bg-slate-800 rounded-[1.5rem]">
                         <div className="flex items-center gap-4">
                             <i className="fas fa-moon text-indigo-500"></i>
                             <span className="font-bold text-gray-700 dark:text-slate-200">Dark Mode</span>
@@ -57,6 +59,18 @@ export function ProfileOverlay({
                             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${darkMode ? 'left-7' : 'left-1'}`}></div>
                         </button>
                     </div>
+                    {onAdminClick && (
+                        <button
+                            onClick={() => { onAdminClick(); onClose(); }}
+                            className="w-full flex items-center justify-between p-5 bg-indigo-50 dark:bg-indigo-900/30 rounded-[1.5rem] hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors active:scale-95"
+                        >
+                            <div className="flex items-center gap-4">
+                                <i className="fas fa-user-shield text-indigo-600 dark:text-indigo-400"></i>
+                                <span className="font-bold text-indigo-600 dark:text-indigo-400">Admin Console</span>
+                            </div>
+                            <i className="fas fa-chevron-right text-indigo-400 dark:text-indigo-500"></i>
+                        </button>
+                    )}                    
                 </div>
                 <button
                     onClick={() => { onLogout(); onClose(); }}

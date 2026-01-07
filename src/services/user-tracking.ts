@@ -244,8 +244,9 @@ export class UserTrackingService {
 
   /**
    * Get aggregated analytics for admin dashboard
+   * @param days - Optional date range to filter by
    */
-  static async getAggregatedAnalytics(): Promise<{
+  static async getAggregatedAnalytics(days?: string): Promise<{
     total_users: number;
     total_receipts_processed: number;
     total_corrections_made: number;

@@ -54,6 +54,7 @@ export interface Database {
           total_receipts_processed: number;
           total_corrections_made: number;
           average_accuracy_rating: number | null;
+          is_admin: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -66,6 +67,7 @@ export interface Database {
           total_receipts_processed?: number;
           total_corrections_made?: number;
           average_accuracy_rating?: number | null;
+          is_admin?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -78,6 +80,7 @@ export interface Database {
           total_receipts_processed?: number;
           total_corrections_made?: number;
           average_accuracy_rating?: number | null;
+          is_admin?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -168,6 +171,82 @@ export interface Database {
           corrected_value?: string | null;
           confidence_score?: number | null;
           created_at?: string;
+        };
+      };
+      expense_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          store_name: string;
+          date: string;
+          total: number;
+          source: 'scan' | 'manual';
+          group_id: string | null;
+          group_name: string | null;
+          splitwise_expense_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          store_name: string;
+          date: string;
+          total: number;
+          source: 'scan' | 'manual';
+          group_id?: string | null;
+          group_name?: string | null;
+          splitwise_expense_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          store_name?: string;
+          date?: string;
+          total?: number;
+          source?: 'scan' | 'manual';
+          group_id?: string | null;
+          group_name?: string | null;
+          splitwise_expense_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      ai_model_analytics: {
+        Row: {
+          id: string;
+          ai_provider: string;
+          ai_model_name: string;
+          total_requests: number;
+          avg_processing_time_ms: number;
+          avg_tokens_used: number;
+          total_tokens_used: number;
+          first_used: string;
+          last_used: string;
+        };
+        Insert: {
+          id?: string;
+          ai_provider: string;
+          ai_model_name: string;
+          total_requests?: number;
+          avg_processing_time_ms?: number;
+          avg_tokens_used?: number;
+          total_tokens_used?: number;
+          first_used?: string;
+          last_used?: string;
+        };
+        Update: {
+          id?: string;
+          ai_provider?: string;
+          ai_model_name?: string;
+          total_requests?: number;
+          avg_processing_time_ms?: number;
+          avg_tokens_used?: number;
+          total_tokens_used?: number;
+          first_used?: string;
+          last_used?: string;
         };
       };
     };

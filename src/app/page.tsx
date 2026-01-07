@@ -17,6 +17,7 @@ import { ReviewScreen } from '@/components/bill-splitter/ReviewScreen';
 import { ProfileOverlay } from '@/components/bill-splitter/ProfileOverlay';
 import { FeedbackOverlay } from '@/components/bill-splitter/FeedbackOverlay';
 import { DashboardView } from '@/components/bill-splitter/DashboardView';
+import { AdminPanel } from '@/components/bill-splitter/AdminPanel';
 import { Logo } from '@/components/icons/logo';
 import { SplitwiseLogoIcon } from "@/components/icons/SplitwiseLogoIcon";
 import { useAuth } from '@/hooks/use-auth';
@@ -24,6 +25,7 @@ import { SplitwiseService } from '@/services/splitwise';
 import { extractReceiptData } from '@/ai/extract-receipt-data';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { AnalyticsClientService } from '@/services/analytics-client';
 
 // MOCK CONSTANTS (Fallbacks)
 const DEFAULT_BILL: BillData = {
@@ -53,10 +55,13 @@ function BillSplitterFlow() {
   const [currentStep, setCurrentStep] = useState<Step>(Step.FLOW_SELECTION);
   const [billData, setBillData] = useState<BillData>({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9) });
   const [originalBillData, setOriginalBillData] = useState<string>('');
+  const [originalExtraction, setOriginalExtraction] = useState<any>(null); // Store original AI extraction for correction tracking
+  const [receiptId, setReceiptId] = useState<string | null>(null); // Store receipt ID from tracking
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   // Theme State
   const [darkMode, setDarkMode] = useState<boolean>(false);
@@ -67,6 +72,7 @@ function BillSplitterFlow() {
   const [friends, setFriends] = useState<User[]>([]);
   const [history, setHistory] = useState<any[]>([]); // Using any for history items for now to match structure
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // ------------------------------------------------------------------
   // Effects
@@ -101,6 +107,17 @@ function BillSplitterFlow() {
           ]);
 
           setAuthUser(fetchedUser);
+
+          // Check admin status
+          if (fetchedUser?.id) {
+            try {
+              const adminStatus = await AnalyticsClientService.checkAdminStatus(fetchedUser.id);
+              setIsAdmin(adminStatus);
+            } catch (error) {
+              console.warn('Failed to check admin status:', error);
+              setIsAdmin(false);
+            }
+          }
 
           // Map to new UI types
           const mappedGroups: Group[] = fetchedGroups.map(g => ({
@@ -141,9 +158,48 @@ function BillSplitterFlow() {
 
   // Load History
   useEffect(() => {
-    const savedHistory = localStorage.getItem('bill_splitter_history');
-    if (savedHistory) setHistory(JSON.parse(savedHistory));
-  }, []);
+    const loadHistory = async () => {
+      // Try to load from database if authenticated
+      if (isAuthenticated && authUser?.id) {
+        try {
+          const historyResponse = await AnalyticsClientService.getExpenseHistory(
+            authUser.id.toString(),
+            5, // Limit to last 5 transactions
+            0
+          );
+          
+          if (historyResponse?.data && historyResponse.data.length > 0) {
+            // Map database records to history format
+            const mappedHistory = historyResponse.data.map(item => ({
+              id: item.id,
+              storeName: item.store_name,
+              date: item.date,
+              total: item.total,
+              source: item.source
+            }));
+            setHistory(mappedHistory);
+            
+            // Also update localStorage as backup
+            localStorage.setItem('bill_splitter_history', JSON.stringify(mappedHistory));
+            return;
+          }
+        } catch (error) {
+          console.warn('Failed to load history from database:', error);
+          // Fall through to localStorage
+        }
+      }
+      
+      // Fallback to localStorage
+      const savedHistory = localStorage.getItem('bill_splitter_history');
+      if (savedHistory) {
+        const parsed = JSON.parse(savedHistory);
+        // Limit to 5 items
+        setHistory(parsed.slice(0, 5));
+      }
+    };
+
+    loadHistory();
+  }, [isAuthenticated, authUser]);
 
   // Auth Redirect
   useEffect(() => {
@@ -169,6 +225,8 @@ function BillSplitterFlow() {
     setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9) });
     setPreviewImage(null);
     setOriginalBillData('');
+    setOriginalExtraction(null);
+    setReceiptId(null);
     setShowFeedback(false);
   };
 
@@ -272,14 +330,112 @@ function BillSplitterFlow() {
         }
       }
 
+      // Track corrections if original extraction exists and user is authenticated
+      if (originalExtraction && receiptId && authUser?.id && flow === AppFlow.SCAN) {
+        try {
+          // Compare original extraction with current billData to detect modifications
+          const userModifications: {
+            items?: Array<{ name: string; price: number }>;
+            taxes?: number;
+            otherCharges?: number;
+            totalCost?: number;
+          } = {};
+
+          // Check for item modifications
+          const modifiedItems: Array<{ name: string; price: number }> = [];
+          billData.items.forEach((item, index) => {
+            const originalItem = originalExtraction.items[index];
+            if (originalItem) {
+              const nameChanged = originalItem.name !== item.name;
+              const priceChanged = Math.abs(originalItem.price - item.price) > 0.01;
+              if (nameChanged || priceChanged) {
+                modifiedItems.push({
+                  name: item.name,
+                  price: item.price
+                });
+              }
+            } else {
+              // New item added
+              modifiedItems.push({
+                name: item.name,
+                price: item.price
+              });
+            }
+          });
+
+          // Check if items were removed (original had more items)
+          if (originalExtraction.items.length > billData.items.length) {
+            // Items were removed, include all current items as modifications
+            userModifications.items = billData.items.map(item => ({
+              name: item.name,
+              price: item.price
+            }));
+          } else if (modifiedItems.length > 0) {
+            userModifications.items = modifiedItems;
+          }
+
+          // Check for tax modifications
+          if (Math.abs((originalExtraction.taxes || 0) - billData.tax) > 0.01) {
+            userModifications.taxes = billData.tax;
+          }
+
+          // Check for other charges modifications
+          if (Math.abs((originalExtraction.otherCharges || 0) - billData.otherCharges) > 0.01) {
+            userModifications.otherCharges = billData.otherCharges;
+          }
+
+          // Check for total cost modifications
+          if (Math.abs(originalExtraction.totalCost - totalAmount) > 0.01) {
+            userModifications.totalCost = totalAmount;
+          }
+
+          // Only track if there are actual modifications
+          if (userModifications.items?.length > 0 || 
+              userModifications.taxes !== undefined || 
+              userModifications.otherCharges !== undefined || 
+              userModifications.totalCost !== undefined) {
+            await AnalyticsClientService.trackCorrections(
+              receiptId,
+              authUser.id.toString(),
+              originalExtraction,
+              userModifications
+            );
+          }
+        } catch (error) {
+          console.warn('Failed to track corrections:', error);
+          // Don't block the flow if correction tracking fails
+        }
+      }
+
       const formattedPayload = SplitwiseService.formatExpensePayload(expenseData);
 
       // Add detailed notes
       formattedPayload.details = billData.notes;
 
-      await SplitwiseService.createExpense(formattedPayload);
+      const splitwiseResponse = await SplitwiseService.createExpense(formattedPayload);
+      const splitwiseExpenseId = splitwiseResponse?.expenses?.[0]?.id?.toString() || null;
 
-      // Save History
+      // Save to database if user is authenticated
+      if (authUser?.id) {
+        try {
+          const selectedGroup = groups.find(g => g.id === billData.groupId);
+          await AnalyticsClientService.saveExpenseHistory({
+            userId: authUser.id.toString(),
+            storeName: billData.storeName || "Bill Split",
+            date: billData.date,
+            total: totalAmount,
+            source: flow === AppFlow.SCAN ? 'scan' : 'manual',
+            groupId: billData.groupId || undefined,
+            groupName: selectedGroup?.name || undefined,
+            splitwiseExpenseId: splitwiseExpenseId || undefined
+          });
+        } catch (error) {
+          console.warn('Failed to save expense to database:', error);
+          // Don't block the flow if database save fails
+        }
+      }
+
+      // Save to localStorage as fallback
       const newHistoryItem = {
         id: billData.id,
         storeName: billData.storeName,
@@ -290,7 +446,7 @@ function BillSplitterFlow() {
 
       setHistory(prev => {
         const filtered = prev.filter(h => h.id !== newHistoryItem.id);
-        const updated = [newHistoryItem, ...filtered].slice(0, 20);
+        const updated = [newHistoryItem, ...filtered].slice(0, 5);
         localStorage.setItem('bill_splitter_history', JSON.stringify(updated));
         return updated;
       });
@@ -324,10 +480,30 @@ function BillSplitterFlow() {
       setPreviewImage(base64);
       setIsProcessing(true);
 
-      try {
-        // Call Server Action
-        const extracted = await extractReceiptData({ photoDataUri: base64 });
+      const extractionStartTime = Date.now();
 
+      try {
+        // Call Server Action to extract receipt data
+        const extracted = await extractReceiptData({ photoDataUri: base64 });
+        const processingTimeMs = Date.now() - extractionStartTime;
+
+        // Store original extraction for correction tracking
+        const originalExtractionData = {
+          storeName: extracted.storeName || '',
+          date: extracted.date,
+          items: extracted.items.map(item => ({
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity || 1
+          })),
+          totalCost: extracted.totalCost,
+          taxes: extracted.taxes || 0,
+          otherCharges: extracted.otherCharges || 0,
+          discount: extracted.discount || 0
+        };
+        setOriginalExtraction(originalExtractionData);
+
+        // Update bill data
         setBillData(prev => ({
           ...prev,
           storeName: extracted.storeName || 'New Expense',
@@ -343,8 +519,51 @@ function BillSplitterFlow() {
             splitMemberIds: prev.selectedMemberIds.length > 0 ? prev.selectedMemberIds : [], // Don't have members yet usually
           })),
           otherCharges: extracted.otherCharges || 0,
-          discount: extracted.discount || 0
+          discount: extracted.discount || 0,
+          source: AppFlow.SCAN
         }));
+
+        // Track receipt processing if user is authenticated
+        if (authUser?.id) {
+          try {
+            // Upload image first
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('userId', authUser.id.toString());
+
+            const uploadResponse = await fetch('/api/analytics/upload-image', {
+              method: 'POST',
+              body: formData
+            });
+
+            if (uploadResponse.ok) {
+              const uploadData = await uploadResponse.json();
+              
+              // Track receipt processing
+              const trackedReceiptId = await AnalyticsClientService.trackReceiptProcessing({
+                userId: authUser.id.toString(),
+                aiExtraction: originalExtractionData,
+                processingTimeMs,
+                aiModelVersion: extracted.aiMetadata?.modelName || 'unknown',
+                aiProvider: extracted.aiMetadata?.provider,
+                aiModelName: extracted.aiMetadata?.modelName,
+                aiTokensUsed: extracted.aiMetadata?.tokensUsed,
+                aiProcessingTimeMs: extracted.aiMetadata?.processingTimeMs,
+                existingImageUrl: uploadData.imageUrl,
+                existingImageHash: uploadData.imageHash,
+                originalFilename: file.name,
+                fileSize: file.size
+              });
+
+              if (trackedReceiptId) {
+                setReceiptId(trackedReceiptId);
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to track receipt processing:', error);
+            // Don't block the flow if tracking fails
+          }
+        }
 
         setCurrentStep(Step.GROUP_SELECTION);
         setShowFeedback(true);
@@ -364,8 +583,23 @@ function BillSplitterFlow() {
     reader.readAsDataURL(file);
   };
 
-  const handleFeedback = (type: 'accurate' | 'needs_fix') => {
-    // TODO: Submit feedback via AnalyticsClientService
+  const handleFeedback = async (type: 'accurate' | 'needs_fix') => {
+    if (receiptId && authUser?.id) {
+      try {
+        await AnalyticsClientService.submitFeedback({
+          receiptId,
+          userId: authUser.id.toString(),
+          feedback: {
+            accuracy_rating: type === 'accurate' ? 5 : 2, // 5 for accurate, 2 for needs_fix
+            helpful: type === 'accurate',
+            comments: type === 'accurate' ? 'Receipt extraction was accurate' : 'Receipt extraction needs improvement'
+          }
+        });
+      } catch (error) {
+        console.warn('Failed to submit feedback:', error);
+        // Don't block the flow if feedback submission fails
+      }
+    }
     setShowFeedback(false);
   };
 
@@ -454,26 +688,44 @@ function BillSplitterFlow() {
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         onLogout={logout}
+        onAdminClick={isAdmin ? () => setShowAdmin(true) : undefined}
       />
 
       {/* Feedback Overlay */}
       <FeedbackOverlay isOpen={showFeedback} onFeedback={handleFeedback} />
 
       <main className="flex-1 overflow-x-hidden">
-        {currentStep === Step.FLOW_SELECTION && (
-          <DashboardView
-            user={authUser}
-            greeting={getGreeting()}
-            analytics={analytics}
-            history={history}
-            onProfileClick={() => setShowProfile(true)}
-            onScanClick={() => { setFlow(AppFlow.SCAN); setCurrentStep(Step.UPLOAD); }}
-            onManualClick={() => { setFlow(AppFlow.MANUAL); setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9), source: AppFlow.MANUAL }); setCurrentStep(Step.GROUP_SELECTION); }}
+        {showAdmin && isAdmin ? (
+          <div className="p-6">
+            <AdminPanel history={history} onBack={() => setShowAdmin(false)} />
+          </div>
+        ) : (
+          <>
+            {currentStep === Step.FLOW_SELECTION && (
+              <DashboardView
+                user={authUser}
+                greeting={getGreeting()}
+                analytics={analytics}
+                history={history}
+                onProfileClick={() => setShowProfile(true)}
+                onScanClick={() => { 
+              setFlow(AppFlow.SCAN); 
+              setCurrentStep(Step.UPLOAD);
+              setOriginalExtraction(null);
+              setReceiptId(null);
+            }}
+            onManualClick={() => { 
+              setFlow(AppFlow.MANUAL); 
+              setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9), source: AppFlow.MANUAL }); 
+              setCurrentStep(Step.GROUP_SELECTION);
+              setOriginalExtraction(null);
+              setReceiptId(null);
+            }}
             onHistoryItemClick={handleEditHistorical}
-          />
-        )}
+              />
+            )}
 
-        {currentStep === Step.UPLOAD && (
+            {currentStep === Step.UPLOAD && (
           <div className="flex flex-col items-center gap-8 p-8 animate-slide-up h-full">
             <div className="text-center">
               <h2 className="text-3xl font-black text-gray-900 dark:text-white">Digitize Bill</h2>
@@ -518,7 +770,7 @@ function BillSplitterFlow() {
           </div>
         )}
 
-        {currentStep === Step.GROUP_SELECTION && (
+            {currentStep === Step.GROUP_SELECTION && (
           <div className="p-8 animate-slide-up">
             <GroupSelector
               selectedGroupId={billData.groupId}
@@ -530,7 +782,7 @@ function BillSplitterFlow() {
           </div>
         )}
 
-        {currentStep === Step.ITEM_SPLITTING && (
+            {currentStep === Step.ITEM_SPLITTING && (
           <div className="p-8 animate-slide-up">
             <ItemSplitter
               items={billData.items}
@@ -544,7 +796,7 @@ function BillSplitterFlow() {
           </div>
         )}
 
-        {currentStep === Step.REVIEW && (
+            {currentStep === Step.REVIEW && (
           <div className="p-8 animate-slide-up">
             <ReviewScreen
               billData={billData}
@@ -556,16 +808,18 @@ function BillSplitterFlow() {
           </div>
         )}
 
-        {currentStep === Step.SUCCESS && (
-          <div className="fixed inset-0 bg-white dark:bg-slate-900 z-50 flex flex-col items-center justify-center p-12">
-            <div className="w-28 h-28 bg-emerald-50 dark:bg-emerald-900/20 rounded-[2.5rem] flex items-center justify-center text-emerald-500 text-5xl mb-8 relative">
-              <i className="fas fa-check"></i>
-              <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping"></div>
-            </div>
-            <h2 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">Split Synced!</h2>
-            <p className="text-center text-gray-400 mt-4 max-w-[240px]">Expenses and group balances have been updated in Splitwise.</p>
-            <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black text-lg shadow-xl shadow-indigo-100 dark:shadow-none active:scale-95 transition-transform">Start New Split</button>
-          </div>
+            {currentStep === Step.SUCCESS && (
+              <div className="fixed inset-0 bg-white dark:bg-slate-900 z-50 flex flex-col items-center justify-center p-12">
+                <div className="w-28 h-28 bg-emerald-50 dark:bg-emerald-900/20 rounded-[2.5rem] flex items-center justify-center text-emerald-500 text-5xl mb-8 relative">
+                  <i className="fas fa-check"></i>
+                  <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping"></div>
+                </div>
+                <h2 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">Split Synced!</h2>
+                <p className="text-center text-gray-400 mt-4 max-w-[240px]">Expenses and group balances have been updated in Splitwise.</p>
+                <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black text-lg shadow-xl shadow-indigo-100 dark:shadow-none active:scale-95 transition-transform">Start New Split</button>
+              </div>
+            )}
+          </>
         )}
       </main>
 

@@ -1,5 +1,5 @@
 "use client";
-import { AppIcon } from "@/components/icons/app-icon";
+import { Logo } from "@/components/icons/logo";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,14 +8,11 @@ import { BillSplittingProvider, useBillSplitting } from "@/contexts/bill-splitti
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { cn } from '@/lib/utils';
 import { ArrowLeft, Loader2, LogOut } from 'lucide-react';
-import { Inter } from 'next/font/google';
 import { usePathname, useRouter } from 'next/navigation';
+import Script from 'next/script';
 import * as React from "react";
 import './globals.css';
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-});
+import { ThemeProvider } from '@/components/theme-provider';
 
 function Header() {
   const pathname = usePathname();
@@ -45,8 +42,13 @@ function Header() {
     }
   };
 
-  const showBackButton = pathname !== '/login' && pathname !== '/';
-  const showLogoutButton = isAuthenticated && pathname !== '/login';
+  const showBackButton = pathname !== '/login' && pathname !== '/' && pathname !== '/';
+  const showLogoutButton = isAuthenticated && pathname !== '/login' && pathname !== '/';
+  
+  // Don't show header on home page or login page (billsplitter-ai design has no header)
+  if (pathname === '/' || pathname === '/login') {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
@@ -63,8 +65,7 @@ function Header() {
               style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
               aria-label="Go to home and reset"
             >
-              <AppIcon className="h-7 w-7 text-primary" />
-              <img className="hidden sm:block logo-img" src="/assets/bill-splitter-logo.svg" alt="Bill Splitter" />
+              <Logo className="h-7 w-7" />
             </button>
           )}
         </div>
@@ -107,8 +108,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="bg-[#fcfcfd] dark:bg-slate-900">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const stored = localStorage.getItem('bill_splitter_theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const shouldBeDark = stored ? stored === 'dark' : prefersDark;
+                if (shouldBeDark) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              })();
+            `,
+          }}
+        />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="hsl(var(--primary))" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -131,17 +149,19 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="384x384" href="/icons/icon-384x384.png" />
         <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png" />
       </head>
-      <body className={cn(inter.variable, 'font-sans antialiased bg-background min-h-dvh flex flex-col')}>
-        <AuthProvider>
-          <BillSplittingProvider>
-            <Header />
-            <main className="flex-1 w-full max-w-md mx-auto p-4 md:p-6">
-              {children}
-            </main>
-            <InstallPrompt />
-            <Toaster />
-          </BillSplittingProvider>
-        </AuthProvider>
+      <body className="antialiased min-h-dvh flex flex-col bg-[#fcfcfd] dark:bg-slate-900 transition-colors" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif" }}>
+        <ThemeProvider>
+          <AuthProvider>
+            <BillSplittingProvider>
+              <Header />
+              <main className="flex-1 w-full max-w-md mx-auto bg-[#fcfcfd] dark:bg-slate-900 transition-colors">
+                {children}
+              </main>
+              <InstallPrompt />
+              <Toaster />
+            </BillSplittingProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

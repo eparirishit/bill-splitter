@@ -1,50 +1,61 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import * as AvatarPrimitive from "@radix-ui/react-avatar"
+import { useState } from "react";
+import { cn } from "@/lib/utils";
 
-import { cn } from "@/lib/utils"
+interface AvatarProps {
+  src?: string;
+  alt?: string;
+  fallback?: string;
+  className?: string;
+  size?: "sm" | "md" | "lg";
+}
 
-const Avatar = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Root
-    ref={ref}
-    className={cn(
-      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
-      className
-    )}
-    {...props}
-  />
-))
-Avatar.displayName = AvatarPrimitive.Root.displayName
+const sizeClasses = {
+  sm: "w-10 h-10 text-sm",
+  md: "w-12 h-12 text-base",
+  lg: "w-20 h-20 text-2xl",
+};
 
-const AvatarImage = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Image>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Image
-    ref={ref}
-    className={cn("aspect-square h-full w-full", className)}
-    {...props}
-  />
-))
-AvatarImage.displayName = AvatarPrimitive.Image.displayName
+export function Avatar({ src, alt = "", fallback = "U", className, size = "md" }: AvatarProps) {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
-const AvatarFallback = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Fallback>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Fallback
-    ref={ref}
-    className={cn(
-      "flex h-full w-full items-center justify-center rounded-full bg-muted",
-      className
-    )}
-    {...props}
-  />
-))
-AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
+  const showImage = src && !imageError;
+  const initials = fallback.slice(0, 2).toUpperCase();
 
-export { Avatar, AvatarImage, AvatarFallback }
+  return (
+    <div
+      className={cn(
+        "relative rounded-[1.25rem] overflow-hidden border-2 border-white dark:border-slate-800 shadow-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center",
+        sizeClasses[size],
+        className
+      )}
+    >
+      {showImage ? (
+        <>
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-gray-200 dark:bg-slate-700 animate-pulse" />
+          )}
+          <img
+            src={src}
+            alt={alt}
+            className={cn(
+              "w-full h-full object-cover relative z-10",
+              imageLoaded ? "opacity-100" : "opacity-0"
+            )}
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              setImageError(true);
+              setImageLoaded(false);
+            }}
+          />
+        </>
+      ) : (
+        <div className="text-indigo-600 dark:text-indigo-400 font-black">
+          {initials}
+        </div>
+      )}
+    </div>
+  );
+}

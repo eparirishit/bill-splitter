@@ -43,7 +43,7 @@ export function extractAndParseJSON(aiResponseText: string): unknown {
 
   const trimmed = aiResponseText.trim();
   let jsonString: string | null = null;
-  
+
   // If response starts with {, it's likely pure JSON (e.g., when responseMimeType is set)
   if (trimmed.startsWith('{')) {
     jsonString = trimmed;
@@ -69,7 +69,7 @@ export function extractAndParseJSON(aiResponseText: string): unknown {
       .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
       .replace(/\n/g, ' ')          // Remove newlines
       .trim();
-    
+
     return JSON.parse(cleanedJson);
   } catch (parseError) {
     throw new ValidationError(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
@@ -125,11 +125,11 @@ export async function retryWithDelay<T>(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.warn(`Attempt ${attempt} failed:`, lastError.message);
-      
+
       if (attempt === maxRetries) {
         throw lastError;
       }
-      
+
       // Exponential backoff with jitter
       const delay = baseDelay * attempt + Math.random() * 1000;
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -137,4 +137,27 @@ export async function retryWithDelay<T>(
   }
 
   throw lastError!;
+}
+
+export function getAIProviderConfig(overrides?: { temperature?: number; maxTokens?: number }) {
+  const baseConfig = AI_CONFIG.PROVIDER === "google-gemini"
+    ? {
+      modelName: AI_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
+      apiKey: AI_CONFIG.GOOGLE_GEMINI.API_KEY,
+      temperature: AI_CONFIG.GOOGLE_GEMINI.TEMPERATURE,
+      maxTokens: AI_CONFIG.GOOGLE_GEMINI.MAX_TOKENS,
+    }
+    : {
+      modelName: AI_CONFIG.OPENROUTER.MODEL_NAME,
+      apiKey: AI_CONFIG.OPENROUTER.API_KEY,
+      baseUrl: AI_CONFIG.OPENROUTER.BASE_URL,
+      temperature: AI_CONFIG.OPENROUTER.TEMPERATURE,
+      maxTokens: AI_CONFIG.OPENROUTER.MAX_TOKENS,
+    };
+
+  if (overrides) {
+    return { ...baseConfig, ...overrides };
+  }
+
+  return baseConfig;
 }

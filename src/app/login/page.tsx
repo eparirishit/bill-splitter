@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { AppIcon } from "@/components/icons/app-icon";
+import { Logo } from "@/components/icons/logo";
 import { SplitwiseLogoIcon } from "@/components/icons/SplitwiseLogoIcon";
 
 function LoginContent() {
@@ -52,32 +52,34 @@ function LoginContent() {
 
   return (
     <>
-      <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)] px-4 py-8 animate-fade-in">
-        <div className="mb-8 text-center">
-          <AppIcon className="h-16 w-16 text-primary mx-auto mb-3" />
-          <img src="/assets/bill-splitter-logo.svg" className="w-64 sm:w-50 max-w-full mx-auto"/>
-          <p className="text-muted-foreground mt-1">Simplify shared expenses.</p>
-        </div>
-
-        <div className="w-full max-w-xs space-y-4">
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 animate-fade-in">
+        <div className="flex flex-col items-center text-center max-w-xs">
+          <div className="mb-10 transition-transform duration-1000">
+            <Logo className="w-32 h-32 mx-auto" />
+          </div>
+          <h1 className="text-4xl font-black text-gray-900 dark:text-white leading-tight tracking-tighter mb-4">
+            Split Smarter.
+          </h1>
+          <p className="text-gray-400 dark:text-gray-500 font-bold text-sm mb-12 uppercase tracking-widest leading-relaxed">
+            AI-Powered Itemized <br /> Bill Splitting
+          </p>
           <Button
             onClick={handleLogin}
             disabled={isLoading}
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md tap-scale"
+            className="w-full py-5 px-8 bg-splitwise text-white rounded-[2rem] font-black text-base shadow-xl shadow-emerald-200/40 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-3"
             size="lg"
           >
-            {isRedirecting ? ( 
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            {isRedirecting ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <SplitwiseLogoIcon className="mr-2 h-5 w-5" />
+              <SplitwiseLogoIcon className="h-5 w-5" />
             )}
-            Continue with Splitwise
+            Join with Splitwise
           </Button>
+          <p className="mt-8 text-[10px] font-bold text-gray-300 dark:text-slate-700 uppercase tracking-[0.2em]">
+            Powered by AI
+          </p>
         </div>
-
-        <p className="mt-12 text-center text-xs text-muted-foreground">
-          By continuing, you agree to our Terms of Service and Privacy Policy.
-        </p>
       </div>
     </>
   );

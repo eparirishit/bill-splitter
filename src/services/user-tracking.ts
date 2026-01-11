@@ -10,7 +10,7 @@ export class UserTrackingService {
     try {
       const supabase = getSupabaseClient();
       const now = new Date().toISOString();
-      
+
       // Get user profile from Splitwise
       let userProfile = null;
       if (typeof window !== 'undefined') {
@@ -27,13 +27,13 @@ export class UserTrackingService {
             account_created_at: new Date() // Note: Splitwise doesn't provide account creation date
           };
         } catch (error) {
-          console.warn('Could not fetch Splitwise user profile (continuing without it):', 
+          console.warn('Could not fetch Splitwise user profile (continuing without it):',
             error instanceof Error ? error.message : String(error));
         }
       } else {
-        console.log('Skipping user profile fetch on server-side (userId already available)');
+        // Server-side: userId is already available, no need to fetch profile
       }
-      
+
       // Check if user analytics record exists
       const { data: existingRecord } = await supabase
         .from('user_analytics')
@@ -244,8 +244,9 @@ export class UserTrackingService {
 
   /**
    * Get aggregated analytics for admin dashboard
+   * @param days - Optional date range to filter by
    */
-  static async getAggregatedAnalytics(): Promise<{
+  static async getAggregatedAnalytics(days?: string): Promise<{
     total_users: number;
     total_receipts_processed: number;
     total_corrections_made: number;

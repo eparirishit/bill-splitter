@@ -118,3 +118,73 @@ export interface ManualExpenseData {
   customAmounts?: Record<string, number>;
   notes?: string;
 }
+
+// ==========================================
+// New Design Types (BillSplitter AI)
+// ==========================================
+
+export enum AppFlow {
+  SCAN = 'SCAN',
+  MANUAL = 'MANUAL',
+  NONE = 'NONE'
+}
+
+export enum Step {
+  AUTH = -1,
+  FLOW_SELECTION = 0,
+  UPLOAD = 1,
+  GROUP_SELECTION = 2,
+  ITEM_SPLITTING = 3,
+  REVIEW = 4,
+  SUCCESS = 5
+}
+
+// Re-using SplitwiseUser where possible, but mapping to this for UI
+export interface User {
+  id: string;
+  name: string;
+  email?: string;
+  avatar: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  members: User[];
+}
+
+export interface BillItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  splitType: 'equally' | 'custom' | 'quantity';
+  splitMemberIds: string[];
+  quantityAssignments?: Record<string, number>; // Maps userId to number of units
+}
+
+export interface BillData {
+  id: string;
+  storeName: string;
+  date: string;
+  items: BillItem[];
+  tax: number;
+  discount: number;
+  otherCharges: number;
+  total: number;
+  currency: string;
+  notes: string;
+  payerId: string;
+  groupId: string | null;
+  selectedMemberIds: string[];
+  source: AppFlow;
+}
+
+export interface ExtractedBill {
+  storeName: string;
+  date: string;
+  items: { name: string; price: number; quantity?: number }[];
+  tax: number;
+  total: number;
+}
+

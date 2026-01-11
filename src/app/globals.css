@@ -1,67 +1,59 @@
+/* Using Plus Jakarta Sans for modern feel - must be before @tailwind */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Using system font stack for modern feel */
+* {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
 @layer base {
   :root {
-    /* Uizard Template Inspired Theme */
-    /* Background: Very light gray/off-white */
-    --background-h: 220; --background-s: 15%; --background-l: 98%;
-    /* Foreground: Dark gray/near black */
-    --foreground-h: 220; --foreground-s: 10%; --foreground-l: 10%;
-
-    /* Card: White with slight offset */
-    --card-h: 0; --card-s: 0%; --card-l: 100%;
-    --card-foreground-h: 220; --card-foreground-s: 10%; --card-foreground-l: 10%;
-
-    /* Popover: White */
-    --popover-h: 0; --popover-s: 0%; --popover-l: 100%;
-    --popover-foreground-h: 220; --popover-s: 10%; --popover-foreground-l: 10%;
-
-    /* Primary: Purple */
-    --primary-h: 260; --primary-s: 70%; --primary-l: 60%;
-    /* Primary Foreground: White */
-    --primary-foreground-h: 0; --primary-foreground-s: 0%; --primary-foreground-l: 100%;
-
-    /* Secondary: Lighter Gray */
-    --secondary-h: 220; --secondary-s: 10%; --secondary-l: 94%;
-    --secondary-foreground-h: 220; --secondary-foreground-s: 5%; --secondary-foreground-l: 30%;
-
-    /* Muted: Light Gray */
-    --muted-h: 220; --muted-s: 10%; --muted-l: 94%;
-    /* Muted Foreground: Grayish */
-    --muted-foreground-h: 220; --muted-foreground-s: 5%; --muted-foreground-l: 45%;
-
-    /* Accent: Green */
-    --accent-h: 140; --accent-s: 60%; --accent-l: 50%;
-    /* Accent Foreground: White */
-    --accent-foreground-h: 0; --accent-foreground-s: 0%; --accent-foreground-l: 100%;
-
-    /* Destructive: Red */
-    --destructive-h: 0; --destructive-s: 72%; --destructive-l: 51%;
-    --destructive-foreground-h: 0; --destructive-foreground-s: 0%; --destructive-foreground-l: 98%;
-
     /* Border: Light gray */
-    --border-h: 220; --border-s: 10%; --border-l: 90%;
+    --border-h: 220;
+    --border-s: 10%;
+    --border-l: 90%;
     /* Input: Slightly darker border */
-    --input-h: 220; --input-s: 10%; --input-l: 88%;
-    /* Ring: Primary Purple */
-    --ring-h: 260; --ring-s: 70%; --ring-l: 60%;
+    --input-h: 220;
+    --input-s: 10%;
+    --input-l: 88%;
+    /* Ring: Primary Indigo */
+    --ring-h: 250;
+    --ring-s: 95%;
+    --ring-l: 58%;
 
     /* Chart Colors (can keep or adjust based on new theme) */
-    --chart-1-h: 260; --chart-1-s: 70%; --chart-1-l: 60%; /* Primary Purple */
-    --chart-2-h: 140; --chart-2-s: 60%; --chart-2-l: 50%; /* Accent Green */
-    --chart-3-h: 40; --chart-3-s: 70%; --chart-3-l: 60%; /* Yellowish */
-    --chart-4-h: 200; --chart-4-s: 70%; --chart-4-l: 60%; /* Blueish */
-    --chart-5-h: 0; --chart-5-s: 70%; --chart-5-l: 60%;   /* Redish */
+    --chart-1-h: 260;
+    --chart-1-s: 70%;
+    --chart-1-l: 60%;
+    /* Primary Purple */
+    --chart-2-h: 140;
+    --chart-2-s: 60%;
+    --chart-2-l: 50%;
+    /* Accent Green */
+    --chart-3-h: 40;
+    --chart-3-s: 70%;
+    --chart-3-l: 60%;
+    /* Yellowish */
+    --chart-4-h: 200;
+    --chart-4-s: 70%;
+    --chart-4-l: 60%;
+    /* Blueish */
+    --chart-5-h: 0;
+    --chart-5-s: 70%;
+    --chart-5-l: 60%;
+    /* Redish */
 
     /* Radius */
-    --radius: 0.75rem; /* Slightly larger radius for softer look */
+    --radius: 0.75rem;
+    /* Slightly larger radius for softer look */
 
     /* HSL variable construction */
     --background: hsl(var(--background-h) var(--background-s) var(--background-l));
@@ -89,84 +81,220 @@ body {
     --chart-3: hsl(var(--chart-3-h) var(--chart-3-s) var(--chart-3-l));
     --chart-4: hsl(var(--chart-4-h) var(--chart-4-s) var(--chart-4-l));
     --chart-5: hsl(var(--chart-5-h) var(--chart-5-s) var(--chart-5-l));
+    --chart-5: hsl(var(--chart-5-h) var(--chart-5-s) var(--chart-5-l));
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    /* Use slate-900 (approx 222 47% 11%) for background to match our slate-900 uses */
+    --background-h: 222;
+    --background-s: 47%;
+    --background-l: 11%;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border ring-offset-background;
   }
+
+  html {
+    background-color: #fcfcfd;
+    transition: background-color 0.3s ease;
+  }
+
+  html.dark {
+    background-color: #0f172a;
+  }
+
   body {
     /* Use the new background color */
-    @apply bg-background text-foreground;
+    @apply bg-[#fcfcfd] dark:bg-slate-900 text-foreground;
     /* Ensure smooth scrolling */
     scroll-behavior: smooth;
     /* Improve text rendering */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Force Plus Jakarta Sans font */
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+    /* Smooth background transition */
+    transition: background-color 0.3s ease;
   }
+
   /* Ensure inputs and buttons have a slightly larger tap target on mobile */
-  input, button, select, textarea {
-     min-height: 48px; /* Increase min height for better touch */
-     @apply px-4 py-2 rounded-lg; /* Adjust padding & use larger radius */
-     @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2; /* Consistent focus rings */
+  input,
+  button,
+  select,
+  textarea {
+    min-height: 48px;
+    /* Increase min height for better touch */
+    @apply px-4 py-2 rounded-lg;
+    /* Adjust padding & use larger radius */
+    @apply focus:outline-none;
+    /* Consistent focus rings */
   }
+
   /* Specific adjustments for Shadcn components */
-  .h-10 { @apply min-h-[2.5rem] } /* Shadcn default height */
-  .h-9 { @apply min-h-[2.25rem] }
-  .h-11 { @apply min-h-[2.75rem] }
-  .h-12 { @apply min-h-[3rem] } /* Ensure larger buttons respect min-height */
-
-  /* Card styling to match Uizard */
-  .card-modern {
-     @apply bg-card rounded-xl shadow-md border border-border/50;
-     /* Use slightly softer shadow */
-     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  .h-10 {
+    @apply min-h-[2.5rem]
   }
 
-   /* Apply global styles for better mobile layout */
-   main {
-    @apply w-full max-w-md mx-auto; /* Center content on larger screens, full width on mobile */
-   }
+  /* Shadcn default height */
+  .h-9 {
+    @apply min-h-[2.25rem]
+  }
+
+  .h-11 {
+    @apply min-h-[2.75rem]
+  }
+
+  .h-12 {
+    @apply min-h-[3rem]
+  }
+
+  /* Ensure larger buttons respect min-height */
+
+  /* Card styling to match billsplitter-ai modern design */
+  .card-modern {
+    @apply bg-card rounded-[2rem] shadow-xl border border-border/50;
+    /* Use modern shadow */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .dark .glass {
+    background: rgba(15, 23, 42, 0.8);
+  }
+
+  /* Apply global styles for better mobile layout */
+  main {
+    @apply w-full max-w-md mx-auto;
+    /* Center content on larger screens, full width on mobile */
+  }
 }
 
 
-/* Add animation */
+/* Add animations matching billsplitter-ai */
 @layer utilities {
   .animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
+    animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   @keyframes fadeIn {
     from {
       opacity: 0;
-      transform: translateY(10px);
     }
+
     to {
       opacity: 1;
-      transform: translateY(0);
     }
   }
 
-   /* Add subtle scale on tap for interactive elements */
+  .animate-slide-up {
+    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Add subtle scale on tap for interactive elements */
   .tap-scale {
     @apply transition-transform duration-100 ease-in-out active:scale-95;
   }
+
+  /* Scanner line animation for upload step */
+  .scanner-line {
+    position: absolute;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #4f46e5, transparent);
+    box-shadow: 0 0 12px #4f46e5;
+    animation: scanner 2.5s ease-in-out infinite;
+    z-index: 20;
+  }
+
+  @keyframes scanner {
+    0% {
+      top: 0%;
+      opacity: 0;
+    }
+
+    10% {
+      opacity: 1;
+    }
+
+    90% {
+      opacity: 1;
+    }
+
+    100% {
+      top: 100%;
+      opacity: 0;
+    }
+  }
+
+  /* Safe area bottom for mobile devices */
+  .safe-bottom {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-.dropdownItem:focus{
-background-color: #f2edfc !important;
+.dropdownItem:focus {
+  background-color: #f2edfc !important;
 }
 
-.dropdownItem:focus span{
+.dropdownItem:focus span {
   color: #8152e1 !important;
 }
 
-.scrollArea{
+.scrollArea {
   overflow-y: scroll !important;
 }
 
-.logo-img{
+.logo-img {
   width: auto;
   height: 35px;
   object-fit: contain;
@@ -181,4 +309,5 @@ input[type="number"]::-webkit-inner-spin-button {
 
 input[type="number"] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }

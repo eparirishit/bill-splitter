@@ -87,12 +87,7 @@ export function InstallPrompt() {
     }
   };
 
-  // Don't show if already installed
-  if (isInstalled) {
-    return null;
-  }
-
-  // Check localStorage for dismissal
+  // Check localStorage for dismissal (must be called before any early returns!)
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       // Check if user dismissed (don't show again for 7 days)
@@ -102,6 +97,7 @@ export function InstallPrompt() {
         const sevenDays = 7 * 24 * 60 * 60 * 1000;
         if (Date.now() - dismissedTime < sevenDays) {
           // Banner was dismissed recently, don't show
+          setIsVisible(false);
           return;
         } else {
           // Clear old dismissal
@@ -110,6 +106,11 @@ export function InstallPrompt() {
       }
     }
   }, []);
+
+  // Don't show if already installed
+  if (isInstalled) {
+    return null;
+  }
 
   // Only show if we have a real install prompt
   if (!isVisible || !deferredPrompt) {

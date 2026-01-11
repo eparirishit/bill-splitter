@@ -26,11 +26,8 @@ export class FeedbackService {
         .eq('id', receiptId);
 
       if (error) {
-        console.error('Error updating feedback:', error);
         throw new Error(`Failed to update feedback: ${error.message}`);
       }
-
-      console.log('Feedback submitted successfully for receipt:', receiptId);
     } catch (error) {
       console.error('Error submitting feedback:', error);
       throw error;
@@ -77,7 +74,7 @@ export class FeedbackService {
 
       feedbackData?.forEach(record => {
         const feedback = record.feedback as UserFeedback;
-        
+
         // Count thumbs up/down
         if (feedback.overall_accuracy === 'thumbs_up') {
           thumbsUpCount++;
@@ -104,7 +101,7 @@ export class FeedbackService {
 
       // Calculate averages
       const calculateAverage = (ratings: number[]): number => {
-        return ratings.length > 0 
+        return ratings.length > 0
           ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 100) / 100
           : 0;
       };

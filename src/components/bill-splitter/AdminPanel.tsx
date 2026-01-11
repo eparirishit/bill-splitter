@@ -1,0 +1,551 @@
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { BillData } from '@/types';
+import { AnalyticsClientService } from '@/services/analytics-client';
+import { Loader2, X, Shield, TrendingUp, Users, MessageSquare, ArrowLeft, Clock, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react';
+import { Logo } from '@/components/icons/logo';
+import { UserAnalytics } from '@/types/analytics';
+
+interface AdminPanelProps {
+  history: BillData[];
+  onBack: () => void;
+}
+
+interface FeedbackLog {
+  id: string;
+  receiptId: string;
+  userId: string;
+  userName: string;
+  storeName: string;
+  type: 'accurate' | 'needs_fix';
+  timestamp: string;
+  feedback?: any;
+}
+
+interface User {
+  id: string;
+  user_id: string;
+  name: string;
+  email?: string;
+  avatar: string;
+  status: 'active' | 'inactive';
+  joinedDate: string;
+  total_receipts_processed: number;
+  last_signin: string;
+}
+
+export const AdminPanel: React.FC<AdminPanelProps> = ({ history, onBack }) => {
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'feedback'>('stats');
+  const [feedbackLogs, setFeedbackLogs] = useState<FeedbackLog[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userAnalytics, setUserAnalytics] = useState<UserAnalytics | null>(null);
+  const [isLoadingUserAnalytics, setIsLoadingUserAnalytics] = useState(false);
+  const [stats, setStats] = useState({
+    totalVolume: 0,
+    totalScans: 0,
+    activeUsers: 0,
+    accuracyRate: 0,
+    totalUsers: 0,
+    totalReceipts: 0,
+    totalCorrections: 0,
+    averageAccuracy: 0,
+    correctionRate: 0
+  });
+  const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadAdminData = async () => {
+      setIsLoading(true);
+      try {
+        // Load aggregated analytics with date range
+        const aggregatedData = await AnalyticsClientService.getAggregatedAnalytics(dateRange);
+
+        // Load feedback logs
+        const feedbackResponse = await fetch('/api/analytics/get-feedback-logs?limit=50');
+        const feedbackData = await feedbackResponse.json();
+
+        // Load users
+        const usersResponse = await fetch('/api/analytics/get-all-users');
+        const usersData = await usersResponse.json();
+
+        // Real total volume is now provided by the API
+        const totalVolume = aggregatedData?.total_volume || 0;
+
+        // Total scans = total receipts processed (from receipt_processing_history)
+        const totalScans = aggregatedData?.total_receipts_processed || 0;
+
+        const feedbackLogsData = feedbackData.success ? feedbackData.data : [];
+
+        const accuracyRate = feedbackLogsData.length > 0
+          ? Math.round((feedbackLogsData.filter((l: FeedbackLog) => l.type === 'accurate').length / feedbackLogsData.length) * 100)
+          : 0;
+
+        const averageAccuracy = aggregatedData?.average_accuracy_rating || 0;
+        const totalReceiptsProcessed = aggregatedData?.total_receipts_processed || 0;
+        const totalCorrectionsMade = aggregatedData?.total_corrections_made || 0;
+        const correctionRate = totalReceiptsProcessed > 0
+          ? Math.round((totalCorrectionsMade / totalReceiptsProcessed) * 100)
+          : 0;
+
+        setStats({
+          totalVolume,
+          totalScans,
+          activeUsers: aggregatedData?.active_users_last_30_days || 0,
+          accuracyRate,
+          totalUsers: aggregatedData?.total_users || 0,
+          totalReceipts: aggregatedData?.total_receipts_processed || 0,
+          totalCorrections: aggregatedData?.total_corrections_made || 0,
+          averageAccuracy: Math.round(averageAccuracy),
+          correctionRate
+        });
+
+        setFeedbackLogs(feedbackLogsData);
+
+        // Format users
+        const formattedUsers: User[] = (usersData.success ? usersData.data : []).map((u: any) => {
+          // Handle user_profile - it might be a JSONB object or string
+          let profile: any = {};
+          if (u.user_profile) {
+            try {
+              profile = typeof u.user_profile === 'string' ? JSON.parse(u.user_profile) : u.user_profile;
+            } catch (e) {
+              profile = {};
+            }
+          }
+
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const lastSignin = new Date(u.last_signin);
+          const isActive = lastSignin >= thirtyDaysAgo;
+
+          // Build name
+          const firstName = profile.first_name || '';
+          const lastName = profile.last_name || '';
+          const fullName = firstName && lastName ? `${firstName} ${lastName}`.trim() : firstName || lastName || profile.email || `User ${u.user_id}`;
+
+          // Build avatar URL with proper fallback
+          let avatarUrl = profile.profile_picture_url;
+          if (!avatarUrl || avatarUrl === 'null' || avatarUrl === 'undefined') {
+            // Use first name, last name, or email for avatar generation
+            const avatarName = firstName || lastName || profile.email?.split('@')[0] || 'U';
+            avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(avatarName)}&background=random&size=128`;
+          }
+
+          return {
+            id: u.id,
+            user_id: u.user_id,
+            name: fullName,
+            email: profile.email,
+            avatar: avatarUrl,
+            status: isActive ? 'active' : 'inactive',
+            joinedDate: new Date(u.first_signin).toLocaleDateString(),
+            total_receipts_processed: u.total_receipts_processed || 0,
+            last_signin: u.last_signin
+          };
+        });
+
+        setUsers(formattedUsers);
+      } catch (error) {
+        console.error('Error loading admin data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadAdminData();
+  }, [history, dateRange]);
+
+  const loadUserAnalytics = async (userId: string) => {
+    setIsLoadingUserAnalytics(true);
+    try {
+      const analytics = await AnalyticsClientService.getUserAnalytics(userId);
+      setUserAnalytics(analytics);
+    } catch (error) {
+      console.error('Error loading user analytics:', error);
+    } finally {
+      setIsLoadingUserAnalytics(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6 animate-slide-up pb-10">
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg">
+            <Shield className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Admin Console</h2>
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">System Overview</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className={`relative z-50 transition-all duration-200 ${activeTab === 'stats' ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
+            <button
+              onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
+              className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest hover:border-indigo-100 dark:hover:border-indigo-900 transition-all active:scale-95"
+            >
+              <Clock className="w-3 h-3 text-indigo-500" />
+              <span>{dateRange === 'all' ? 'All Time' : dateRange.toUpperCase()}</span>
+              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${isDateDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isDateDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsDateDropdownOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-32 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                  {(['7d', '30d', '90d', 'all'] as const).map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => {
+                        setDateRange(range);
+                        setIsDateDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors ${dateRange === range
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700'
+                        }`}
+                    >
+                      {range === 'all' ? 'All Time' : range.toUpperCase()}
+                      {dateRange === range && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            onClick={onBack}
+            className="!w-10 !h-10 !min-h-0 !p-0 rounded-full bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-sm flex items-center justify-center text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all active:scale-90"
+            aria-label="Close admin panel"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Admin Tabs */}
+      <div className="flex p-1.5 bg-gray-100 dark:bg-slate-800 rounded-2xl mb-4">
+        {(['stats', 'users', 'feedback'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
+            className={`flex-1 !py-2 !min-h-0 !px-2 text-[10px] font-bold rounded-xl transition-all focus:outline-none focus:ring-0 outline-none ring-0 h-auto uppercase tracking-widest flex items-center justify-center gap-2 ${activeTab === tab
+              ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+              : 'text-gray-400 dark:text-slate-400'
+              }`}
+          >
+            {tab === 'stats' && <TrendingUp className="w-3 h-3" />}
+            {tab === 'users' && <Users className="w-3 h-3" />}
+            {tab === 'feedback' && <MessageSquare className="w-3 h-3" />}
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'stats' && (
+        <>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+              <Logo className="w-16 h-16 animate-pulse" />
+              <p className="text-sm text-gray-500">Loading stats...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Total Volume</p>
+                <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">
+                  ${stats.totalVolume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Total Users</p>
+                <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">
+                  {stats.totalUsers}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Accuracy Rate</p>
+                <p className="text-2xl font-black text-emerald-500 tracking-tighter">{stats.accuracyRate}%</p>
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Total Receipts</p>
+                <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter">
+                  {stats.totalReceipts}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Active Users</p>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-1">Last 30 days</p>
+                <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter">
+                  {stats.activeUsers}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Corrections</p>
+                <p className="text-2xl font-black text-amber-500 tracking-tighter">
+                  {stats.totalCorrections}
+                </p>
+                {stats.correctionRate > 0 && (
+                  <p className="text-[9px] font-bold text-gray-400 mt-1">{stats.correctionRate}% rate</p>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'users' && selectedUser ? (
+        <div className="space-y-6 animate-slide-up">
+          {/* User Detail Header */}
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => {
+                setSelectedUser(null);
+                setUserAnalytics(null);
+              }}
+              className="!w-10 !h-10 !min-h-0 !p-0 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-700 transition-all active:scale-90"
+              aria-label="Back to users list"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-4">
+              <img
+                src={selectedUser.avatar}
+                className="w-12 h-12 rounded-xl object-cover"
+                alt={selectedUser.name}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  const name = selectedUser.name?.charAt(0) || 'U';
+                  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=128`;
+                }}
+              />
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">{selectedUser.name}</h3>
+                <p className="text-xs text-gray-400">{selectedUser.email || `User ID: ${selectedUser.user_id}`}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* User Analytics */}
+          {isLoadingUserAnalytics ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+              <Logo className="w-16 h-16 animate-pulse" />
+              <p className="text-sm text-gray-500">Loading analytics...</p>
+            </div>
+          ) : userAnalytics ? (
+            <div className="space-y-4">
+              {/* Basic Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                  <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Receipts Processed</p>
+                  <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">
+                    {userAnalytics.total_receipts_processed || 0}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                  <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Corrections Made</p>
+                  <p className="text-2xl font-black text-amber-500 tracking-tighter">
+                    {userAnalytics.total_corrections_made || 0}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                  <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Accuracy Rating</p>
+                  <p className="text-2xl font-black text-emerald-500 tracking-tighter">
+                    {userAnalytics.average_accuracy_rating ? `${Math.round(userAnalytics.average_accuracy_rating)}%` : 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                  <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Total Sessions</p>
+                  <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter">
+                    {userAnalytics.total_sessions || 0}
+                  </p>
+                </div>
+              </div>
+
+              {/* Activity Info */}
+              <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 p-6 shadow-sm">
+                <h4 className="text-sm font-black text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Activity</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-4 h-4 text-gray-400" />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-gray-400 uppercase">First Signin</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">
+                        {new Date(userAnalytics.first_signin).toLocaleDateString()} {new Date(userAnalytics.first_signin).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-gray-400 uppercase">Last Signin</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">
+                        {new Date(userAnalytics.last_signin).toLocaleDateString()} {new Date(userAnalytics.last_signin).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Metrics */}
+              {userAnalytics.performance_metrics && (
+                <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 p-6 shadow-sm">
+                  <h4 className="text-sm font-black text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Performance</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Avg Processing Time</p>
+                      <p className="text-lg font-black text-gray-900 dark:text-white">
+                        {Math.round(userAnalytics.performance_metrics.average_processing_time_ms || 0)}ms
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Fastest</p>
+                      <p className="text-lg font-black text-emerald-500">
+                        {userAnalytics.performance_metrics.fastest_processing_time_ms || 0}ms
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Feedback Metrics */}
+              {userAnalytics.feedback_metrics && (
+                <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 p-6 shadow-sm">
+                  <h4 className="text-sm font-black text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Feedback</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Total Feedback</p>
+                      <p className="text-lg font-black text-gray-900 dark:text-white">
+                        {userAnalytics.feedback_metrics.total_feedback_submitted || 0}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Thumbs Up</p>
+                      <p className="text-lg font-black text-emerald-500">
+                        {userAnalytics.feedback_metrics.thumbs_up_count || 0}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-12 text-center bg-gray-50 dark:bg-slate-800/50 rounded-[2.5rem] border-2 border-dashed border-gray-200 dark:border-slate-700">
+              <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No analytics data available</p>
+            </div>
+          )}
+        </div>
+      ) : activeTab === 'users' && (
+        <>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+              <Logo className="w-16 h-16 animate-pulse" />
+              <p className="text-sm text-gray-500">Loading users...</p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 overflow-hidden shadow-sm">
+              {users.length === 0 ? (
+                <div className="p-12 text-center">
+                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No users yet</p>
+                </div>
+              ) : (
+                users.map((user) => (
+                  <div
+                    key={user.id}
+                    className="p-5 flex items-center justify-between border-b border-gray-50 dark:border-slate-700 last:border-none cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+                    onClick={() => {
+                      setSelectedUser(user);
+                      loadUserAnalytics(user.user_id);
+                    }}
+                  >
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={user.avatar}
+                        className="w-10 h-10 rounded-xl object-cover"
+                        alt={user.name}
+                        onError={(e) => {
+                          // Fallback if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          const name = user.name?.charAt(0) || 'U';
+                          target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=128`;
+                        }}
+                      />
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{user.name}</p>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mt-1">
+                          Joined: {user.joinedDate} • {user.total_receipts_processed} receipts
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 rounded-full text-[8px] font-black uppercase ${user.status === 'active'
+                        ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500'
+                        : 'bg-gray-50 dark:bg-gray-900 text-gray-400'
+                        }`}>
+                        {user.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'feedback' && (
+        <>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+              <Logo className="w-16 h-16 animate-pulse" />
+              <p className="text-sm text-gray-500">Loading feedback...</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {feedbackLogs.length === 0 ? (
+                <div className="p-12 text-center bg-gray-50 dark:bg-slate-800/50 rounded-[2.5rem] border-2 border-dashed border-gray-200 dark:border-slate-700">
+                  <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No feedback logs yet</p>
+                </div>
+              ) : (
+                <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 overflow-hidden shadow-sm">
+                  {feedbackLogs.map((log) => (
+                    <div key={log.id} className="p-5 flex items-center justify-between border-b border-gray-50 dark:border-slate-700 last:border-none">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${log.type === 'accurate'
+                          ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500'
+                          : 'bg-rose-50 dark:bg-rose-900/30 text-rose-500'
+                          }`}>
+                          {log.type === 'accurate' ? '✓' : '✗'}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-900 dark:text-white leading-tight">{log.storeName}</p>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mt-1">
+                            {log.userName} • {new Date(log.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+

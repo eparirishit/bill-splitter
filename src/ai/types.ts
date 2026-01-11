@@ -32,6 +32,7 @@ export const AIOutputSchema = z.object({
     z.object({
       name: z.string().min(1).describe('The name of the item.'),
       price: z.number().positive().describe('The price of the item.'),
+      quantity: z.number().min(1).optional().default(1).describe('The quantity of the item purchased.'),
     })
   ).min(1).describe('A list of items purchased.'),
   totalCost: z.number().positive().describe('The total cost of the bill as printed on the receipt.'),
@@ -54,3 +55,11 @@ export interface DiscrepancyCheck {
   flag: boolean;
   message?: string;
 }
+
+export const FeedbackClassificationSchema = z.object({
+  type: z.enum(['bug', 'feature', 'general', 'support']).describe('The classification of the feedback.'),
+  confidence: z.number().min(0).max(1).describe('Confidence score of the classification.'),
+  summary: z.string().optional().describe('A brief summary of the feedback.'),
+});
+
+export type FeedbackClassification = z.infer<typeof FeedbackClassificationSchema>;

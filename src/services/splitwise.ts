@@ -37,6 +37,16 @@ export class SplitwiseService {
     }
   }
 
+  // Fetch recent groups
+  static async getRecentGroups(): Promise<SplitwiseGroup[]> {
+    try {
+      const data = await this.makeApiRequest('/api/splitwise/getRecentGroups');
+      return data.groups || [];
+    } catch (error) {
+      throw new Error(`Failed to fetch recent groups: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   // Fetch a specific group
   static async getGroup(groupId: number): Promise<SplitwiseGroup> {
     try {
@@ -138,30 +148,30 @@ export class SplitwiseService {
       // Validate each user's data
       let totalPaid = 0;
       let totalOwed = 0;
-      
+
       for (const userKey of userKeys) {
         const userIndex = userKey.match(/users__(\d+)__user_id/)?.[1];
         if (!userIndex) continue;
-        
+
         const userId = expense[`users__${userIndex}__user_id` as keyof CreateExpense];
         const paidShare = expense[`users__${userIndex}__paid_share` as keyof CreateExpense];
         const owedShare = expense[`users__${userIndex}__owed_share` as keyof CreateExpense];
-        
+
         if (!userId || !paidShare || !owedShare) {
           errors.users = 'User data is invalid';
           break;
         }
-        
+
         // Check if user ID is valid
         if (isNaN(Number(userId))) {
           errors.users = 'User data is invalid';
           break;
         }
-        
+
         totalPaid += parseFloat(paidShare as string);
         totalOwed += parseFloat(owedShare as string);
       }
-      
+
       // Check if total paid share equals total owed share
       if (Math.abs(totalPaid - totalOwed) > 0.01) {
         errors.shares = 'Total paid share must equal total owed share';
@@ -193,7 +203,7 @@ export class SplitwiseService {
     if (expenseData.split_equally) {
       // Equal split - first user pays full amount, others pay 0
       const sharePerUser = expenseData.cost / expenseData.users.length;
-      
+
       expenseData.users.forEach((user, index) => {
         payload[`users__${index}__user_id`] = user.id;
         payload[`users__${index}__paid_share`] = index === 0 ? expenseData.cost.toFixed(2) : '0.00';
@@ -202,7 +212,7 @@ export class SplitwiseService {
     } else {
       // Custom split
       const customAmounts = expenseData.customAmounts || {};
-      
+
       expenseData.users.forEach((user, index) => {
         payload[`users__${index}__user_id`] = user.id;
         payload[`users__${index}__paid_share`] = index === 0 ? expenseData.cost.toFixed(2) : '0.00';

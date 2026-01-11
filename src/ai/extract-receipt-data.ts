@@ -20,6 +20,7 @@ import {
   checkDiscrepancy,
   extractAndParseJSON,
   fetchImageAsDataUri,
+  getAIProviderConfig,
   retryWithDelay,
   roundCurrency,
   validateExtractionResult
@@ -29,7 +30,7 @@ export async function extractReceiptData(
   input: ExtractReceiptDataInput,
   userId?: string,
   receiptId?: string
-): Promise<ExtractReceiptDataOutput & { 
+): Promise<ExtractReceiptDataOutput & {
   aiMetadata?: {
     provider: string;
     modelName: string;
@@ -64,36 +65,23 @@ export async function extractReceiptData(
     if (input.photoDataUri) {
       validateImageSize(photoDataUri, AI_CONFIG.MAX_PAYLOAD_SIZE_KB);
     }
-    
+
     logger.debug("Input validation passed", logContext);
 
   } catch (error) {
     logger.error("Input validation failed", logContext, error as Error);
     throw new ValidationError(
       "Invalid input: " +
-        (error instanceof z.ZodError
-          ? error.errors.map((e) => e.message).join(", ")
-          : String(error)),
+      (error instanceof z.ZodError
+        ? error.errors.map((e) => e.message).join(", ")
+        : String(error)),
       error as Error
     );
   }
 
   // Create AI provider based on configuration
-  const providerConfig = AI_CONFIG.PROVIDER === "google-gemini" 
-    ? {
-        modelName: AI_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
-        apiKey: AI_CONFIG.GOOGLE_GEMINI.API_KEY,
-        temperature: AI_CONFIG.GOOGLE_GEMINI.TEMPERATURE,
-        maxTokens: AI_CONFIG.GOOGLE_GEMINI.MAX_TOKENS,
-      }
-    : {
-        modelName: AI_CONFIG.OPENROUTER.MODEL_NAME,
-        apiKey: AI_CONFIG.OPENROUTER.API_KEY,
-        baseUrl: AI_CONFIG.OPENROUTER.BASE_URL,
-        temperature: AI_CONFIG.OPENROUTER.TEMPERATURE,
-        maxTokens: AI_CONFIG.OPENROUTER.MAX_TOKENS,
-      };
-    
+  const providerConfig = getAIProviderConfig();
+
   const aiProvider = AIServiceFactory.createProvider(AI_CONFIG.PROVIDER, providerConfig);
 
   logger.aiRequest(
@@ -133,7 +121,7 @@ export async function extractReceiptData(
         response.processingTimeMs || 0,
         response.tokensUsed,
         logContext,
-        { 
+        {
           modelUsed: response.modelUsed,
           providerName: response.providerName,
         }
@@ -145,7 +133,7 @@ export async function extractReceiptData(
       if (error instanceof ValidationError || error instanceof AIServiceError) {
         throw error;
       }
-      
+
       logger.aiError(
         aiProvider.name,
         providerConfig.modelName,
@@ -153,7 +141,7 @@ export async function extractReceiptData(
         error as Error,
         logContext
       );
-      
+
       throw new AIServiceError(
         `AI extraction failed: ${error instanceof Error ? error.message : String(error)}`,
         error as Error
@@ -183,6 +171,7 @@ export async function extractReceiptData(
     items: aiOutput.items.map((item) => ({
       name: item.name.trim(),
       price: roundCurrency(item.price),
+      quantity: item.quantity || 1,
     })),
     totalCost: roundCurrency(aiOutput.totalCost),
     taxes:

@@ -280,6 +280,28 @@ body {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /* AI Icon Animation */
+  .ai-icon-animation {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-icon-animation i {
+    animation: aiPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes aiPulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.2);
+      opacity: 0.8;
+    }
+  }
 }
 
 .dropdownItem:focus {

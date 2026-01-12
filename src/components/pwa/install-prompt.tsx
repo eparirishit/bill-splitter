@@ -125,10 +125,10 @@ export function InstallPrompt() {
             <Download className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">
               Install Bill Splitter
             </p>
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
               Add to home screen for quick access
             </p>
           </div>

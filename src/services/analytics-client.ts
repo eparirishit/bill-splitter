@@ -36,6 +36,7 @@ interface ExpenseHistoryRecord {
   group_id?: string;
   group_name?: string;
   splitwise_expense_id?: string;
+  bill_data?: any;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +50,20 @@ interface SaveExpenseHistoryParams {
   groupId?: string;
   groupName?: string;
   splitwiseExpenseId?: string;
+  billData?: any;
+}
+
+interface UpdateExpenseHistoryParams {
+  id: string;
+  userId: string;
+  storeName?: string;
+  date?: string;
+  total?: number;
+  source?: 'scan' | 'manual';
+  groupId?: string;
+  groupName?: string;
+  splitwiseExpenseId?: string;
+  billData?: any;
 }
 
 interface AggregatedAnalytics {
@@ -238,6 +253,29 @@ export class AnalyticsClientService {
   }
 
   /**
+   * Get user-specific expense counts (scan, manual, volumes)
+   * @param userId - User ID
+   * @returns Expense counts and volumes
+   */
+  static async getUserExpenseCounts(userId: string | number): Promise<{
+    scanCount: number;
+    manualCount: number;
+    totalVolume: number;
+    monthlyVolume: number;
+  } | null> {
+    try {
+      const userIdString = String(userId);
+      const response = await this.makeApiRequest(
+        `/api/analytics/get-user-expense-counts?userId=${encodeURIComponent(userIdString)}`
+      );
+      return response.data || null;
+    } catch (error) {
+      console.warn('Failed to get user expense counts:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get aggregated analytics for admin dashboard
    * @param days - Date range string (e.g., '7d', '30d', '90d', 'all')
    * @returns Aggregated analytics data
@@ -294,6 +332,43 @@ export class AnalyticsClientService {
       return response.data || null;
     } catch (error) {
       console.warn('Failed to save expense history:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get a single expense by ID
+   * @param id - Expense ID
+   * @param userId - User ID (for authorization)
+   * @returns Expense record or null
+   */
+  static async getExpenseById(id: string, userId: string | number): Promise<ExpenseHistoryRecord | null> {
+    try {
+      const userIdString = String(userId);
+      const response = await this.makeApiRequest(
+        `/api/expense-history?id=${encodeURIComponent(id)}&userId=${encodeURIComponent(userIdString)}`
+      );
+      return response.data || null;
+    } catch (error) {
+      console.warn('Failed to get expense by ID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update an existing expense
+   * @param params - Update parameters
+   * @returns Updated expense record or null
+   */
+  static async updateExpenseHistory(params: UpdateExpenseHistoryParams): Promise<ExpenseHistoryRecord | null> {
+    try {
+      const response = await this.makeApiRequest('/api/expense-history', {
+        method: 'PUT',
+        body: JSON.stringify(params),
+      });
+      return response.data || null;
+    } catch (error) {
+      console.warn('Failed to update expense history:', error);
       return null;
     }
   }

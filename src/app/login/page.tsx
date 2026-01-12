@@ -57,12 +57,18 @@ function LoginContent() {
           <div className="mb-10 transition-transform duration-1000">
             <Logo className="w-32 h-32 mx-auto" />
           </div>
-          <h1 className="text-4xl font-black text-gray-900 dark:text-white leading-tight tracking-tighter mb-4">
-            Split Smarter.
-          </h1>
-          <p className="text-gray-400 dark:text-gray-500 font-bold text-sm mb-12 uppercase tracking-widest leading-relaxed">
-            AI-Powered Itemized <br /> Bill Splitting
-          </p>
+          <div className="mb-10">
+            <h1 className="text-5xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-6">
+              <span className="font-black">Bill</span><span className="bg-clip-text text-transparent bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700">Splitter</span>
+            </h1>
+            <div className="flex items-center justify-center gap-4">
+              <div className="h-[1px] w-6 bg-gray-100 dark:bg-slate-800"></div>
+              <p className="text-gray-400 dark:text-slate-500 font-bold uppercase tracking-[0.4em] text-[10px] whitespace-nowrap">
+                Splitting made intelligent.
+              </p>
+              <div className="h-[1px] w-6 bg-gray-100 dark:bg-slate-800"></div>
+            </div>
+          </div>
           <Button
             onClick={handleLogin}
             disabled={isLoading}
@@ -76,9 +82,6 @@ function LoginContent() {
             )}
             Join with Splitwise
           </Button>
-          <p className="mt-8 text-[10px] font-bold text-gray-300 dark:text-slate-700 uppercase tracking-[0.2em]">
-            Powered by AI
-          </p>
         </div>
       </div>
     </>

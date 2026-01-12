@@ -12,18 +12,53 @@ interface ExpenseHistoryRecord {
     group_id?: string;
     group_name?: string;
     splitwise_expense_id?: string;
+    bill_data?: any;
     created_at: string;
     updated_at: string;
 }
 
-// GET: Retrieve user's expense history
+// GET: Retrieve user's expense history or a single expense by ID
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
         const userId = searchParams.get('userId');
         const limit = parseInt(searchParams.get('limit') || '20', 10);
         const offset = parseInt(searchParams.get('offset') || '0', 10);
 
+        const supabase = getSupabaseClient();
+
+        // If ID is provided, fetch single expense
+        if (id) {
+            if (!userId) {
+                return NextResponse.json(
+                    { error: 'userId query parameter is required when fetching by id' },
+                    { status: 400 }
+                );
+            }
+
+            const { data, error } = await supabase
+                .from('expense_history')
+                .select('*')
+                .eq('id', id)
+                .eq('user_id', userId)
+                .single();
+
+            if (error) {
+                console.error('Error fetching expense:', error);
+                return NextResponse.json(
+                    { error: 'Failed to fetch expense', details: error.message },
+                    { status: 500 }
+                );
+            }
+
+            return NextResponse.json({
+                success: true,
+                data: data || null
+            });
+        }
+
+        // Otherwise, fetch list of expenses
         if (!userId) {
             return NextResponse.json(
                 { error: 'userId query parameter is required' },
@@ -31,7 +66,6 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const supabase = getSupabaseClient();
         const { data, error, count } = await supabase
             .from('expense_history')
             .select('*', { count: 'exact' })
@@ -79,7 +113,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { userId, storeName, date, total, source, groupId, groupName, splitwiseExpenseId } = body;
+        const { userId, storeName, date, total, source, groupId, groupName, splitwiseExpenseId, billData } = body;
 
         if (!userId || !storeName || !date || total === undefined || !source) {
             return NextResponse.json(
@@ -98,6 +132,7 @@ export async function POST(request: NextRequest) {
             group_id: groupId || null,
             group_name: groupName || null,
             splitwise_expense_id: splitwiseExpenseId || null,
+            bill_data: billData || null,
         };
 
         const { data, error } = await supabase
@@ -119,6 +154,66 @@ export async function POST(request: NextRequest) {
         console.error('Error in expense history POST:', error);
         return NextResponse.json(
             { error: 'Failed to save expense history', details: error instanceof Error ? error.message : String(error) },
+            { status: 500 }
+        );
+    }
+}
+
+// PUT: Update an existing expense
+export async function PUT(request: NextRequest) {
+    try {
+        let body;
+        try {
+            body = await request.json();
+        } catch (parseError) {
+            return NextResponse.json(
+                { error: 'Invalid JSON in request body' },
+                { status: 400 }
+            );
+        }
+
+        const { id, userId, storeName, date, total, source, groupId, groupName, splitwiseExpenseId, billData } = body;
+
+        if (!id || !userId) {
+            return NextResponse.json(
+                { error: 'id and userId are required' },
+                { status: 400 }
+            );
+        }
+
+        const supabase = getSupabaseClient();
+        const updateData: Partial<ExpenseHistoryRecord> = {};
+
+        if (storeName !== undefined) updateData.store_name = storeName;
+        if (date !== undefined) updateData.date = date;
+        if (total !== undefined) updateData.total = parseFloat(total);
+        if (source !== undefined) updateData.source = source as 'scan' | 'manual';
+        if (groupId !== undefined) updateData.group_id = groupId || null;
+        if (groupName !== undefined) updateData.group_name = groupName || null;
+        if (splitwiseExpenseId !== undefined) updateData.splitwise_expense_id = splitwiseExpenseId || null;
+        if (billData !== undefined) updateData.bill_data = billData || null;
+
+        const { data, error } = await supabase
+            .from('expense_history')
+            .update(updateData)
+            .eq('id', id)
+            .eq('user_id', userId)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error updating expense history:', error);
+            return NextResponse.json(
+                { error: 'Failed to update expense history', details: error.message },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json({ success: true, data });
+    } catch (error) {
+        console.error('Error in expense history PUT:', error);
+        return NextResponse.json(
+            { error: 'Failed to update expense history', details: error instanceof Error ? error.message : String(error) },
             { status: 500 }
         );
     }

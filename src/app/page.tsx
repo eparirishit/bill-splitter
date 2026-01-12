@@ -221,7 +221,7 @@ function BillSplitterFlow() {
       }
       
       // Fallback to localStorage
-      const savedHistory = localStorage.getItem('bill_splitter_history');
+    const savedHistory = localStorage.getItem('bill_splitter_history');
       if (savedHistory) {
         const parsed = JSON.parse(savedHistory);
         // Limit to 5 items
@@ -324,6 +324,19 @@ function BillSplitterFlow() {
           title: "Expense Loaded", 
           description: "You can now edit this expense."
         });
+      } else if (expenseRecord) {
+        // Expense exists but bill_data is missing - log for debugging
+        console.warn('Expense found but bill_data is missing:', {
+          id: expenseRecord.id,
+          source: expenseRecord.source,
+          storeName: expenseRecord.store_name
+        });
+        
+        toast({ 
+          title: "Expense Details Not Found", 
+          description: "Full expense details are not available. Cannot edit this expense."
+        });
+        return;
       } else {
         // Fallback: try to restore from localStorage or show basic info
         const savedHistory = localStorage.getItem('bill_splitter_history');
@@ -569,7 +582,7 @@ function BillSplitterFlow() {
             });
           } else {
             // Create new expense
-            await AnalyticsClientService.saveExpenseHistory({
+            const savedExpense = await AnalyticsClientService.saveExpenseHistory({
               userId: authUser.id.toString(),
               storeName: billData.storeName || "Bill Split",
               date: billData.date,
@@ -580,10 +593,16 @@ function BillSplitterFlow() {
               splitwiseExpenseId: splitwiseExpenseId || undefined,
               billData: billData // Save full bill data for editing
             });
+            
+            if (!savedExpense) {
+              console.error('Failed to save expense to database - no data returned');
+            } else if (!savedExpense.bill_data) {
+              console.warn('Expense saved but bill_data is missing. Expense ID:', savedExpense.id);
+            }
           }
         } catch (error) {
-          console.warn('Failed to save expense to database:', error);
-          // Don't block the flow if database save fails
+          console.error('Failed to save expense to database:', error);
+          // Don't block the flow if database save fails, but log the error
         }
       }
 
@@ -828,7 +847,7 @@ function BillSplitterFlow() {
           <div className="mb-10">
             <h1 className="text-5xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-6">
               <span className="font-black">Bill</span><span className="bg-clip-text text-transparent bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700">Splitter</span>
-            </h1>
+          </h1>
             <div className="flex items-center justify-center gap-4">
               <div className="h-[1px] w-6 bg-gray-100 dark:bg-slate-800"></div>
               <p className="text-gray-400 dark:text-slate-500 font-bold uppercase tracking-[0.4em] text-[10px] whitespace-nowrap">
@@ -874,13 +893,13 @@ function BillSplitterFlow() {
           </div>
         ) : (
           <>
-            {currentStep === Step.FLOW_SELECTION && (
-              <DashboardView
-                user={authUser}
-                greeting={getGreeting()}
-                analytics={analytics}
-                history={history}
-                onProfileClick={() => setShowProfile(true)}
+        {currentStep === Step.FLOW_SELECTION && (
+          <DashboardView
+            user={authUser}
+            greeting={getGreeting()}
+            analytics={analytics}
+            history={history}
+            onProfileClick={() => setShowProfile(true)}
                 onScanClick={() => { 
               setFlow(AppFlow.SCAN); 
               setCurrentStep(Step.UPLOAD);
@@ -897,10 +916,10 @@ function BillSplitterFlow() {
               setEditingExpenseId(null); // Clear editing state
             }}
             onHistoryItemClick={handleEditHistorical}
-              />
-            )}
+          />
+        )}
 
-            {currentStep === Step.UPLOAD && (
+        {currentStep === Step.UPLOAD && (
           <div className="flex flex-col items-center gap-8 p-8 animate-slide-up h-full">
             <div className="text-center">
               <h2 className="text-3xl font-black text-gray-900 dark:text-white">Digitize Bill</h2>
@@ -945,7 +964,7 @@ function BillSplitterFlow() {
           </div>
         )}
 
-            {currentStep === Step.GROUP_SELECTION && (
+        {currentStep === Step.GROUP_SELECTION && (
           <div className="p-8 animate-slide-up">
             <GroupSelector
               selectedGroupId={billData.groupId}
@@ -957,7 +976,7 @@ function BillSplitterFlow() {
           </div>
         )}
 
-            {currentStep === Step.ITEM_SPLITTING && (
+        {currentStep === Step.ITEM_SPLITTING && (
           <div className="p-8 animate-slide-up">
             <ItemSplitter
               items={billData.items}
@@ -971,7 +990,7 @@ function BillSplitterFlow() {
           </div>
         )}
 
-            {currentStep === Step.REVIEW && (
+        {currentStep === Step.REVIEW && (
           <div className="p-8 animate-slide-up">
             <ReviewScreen
               billData={billData}
@@ -983,16 +1002,16 @@ function BillSplitterFlow() {
           </div>
         )}
 
-            {currentStep === Step.SUCCESS && (
-              <div className="fixed inset-0 bg-white dark:bg-slate-900 z-50 flex flex-col items-center justify-center p-12">
-                <div className="w-28 h-28 bg-emerald-50 dark:bg-emerald-900/20 rounded-[2.5rem] flex items-center justify-center text-emerald-500 text-5xl mb-8 relative">
-                  <i className="fas fa-check"></i>
-                  <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping"></div>
-                </div>
-                <h2 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">Split Synced!</h2>
-                <p className="text-center text-gray-400 mt-4 max-w-[240px]">Expenses and group balances have been updated in Splitwise.</p>
-                <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black text-lg shadow-xl shadow-indigo-100 dark:shadow-none active:scale-95 transition-transform">Start New Split</button>
-              </div>
+        {currentStep === Step.SUCCESS && (
+          <div className="fixed inset-0 bg-white dark:bg-slate-900 z-50 flex flex-col items-center justify-center p-12">
+            <div className="w-28 h-28 bg-emerald-50 dark:bg-emerald-900/20 rounded-[2.5rem] flex items-center justify-center text-emerald-500 text-5xl mb-8 relative">
+              <i className="fas fa-check"></i>
+              <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping"></div>
+            </div>
+            <h2 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">Split Synced!</h2>
+            <p className="text-center text-gray-400 mt-4 max-w-[240px]">Expenses and group balances have been updated in Splitwise.</p>
+            <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black text-lg shadow-xl shadow-indigo-100 dark:shadow-none active:scale-95 transition-transform">Start New Split</button>
+          </div>
             )}
           </>
         )}

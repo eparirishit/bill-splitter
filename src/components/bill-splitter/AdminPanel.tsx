@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { BillData } from '@/types';
 import { AnalyticsClientService } from '@/services/analytics-client';
-import { Loader2, X, Shield, TrendingUp, Users, MessageSquare, ArrowLeft, Clock, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react';
+import { Loader2, X, Shield, TrendingUp, Users, MessageSquare, LifeBuoy, ArrowLeft, Clock, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react';
 import { Logo } from '@/components/icons/logo';
 import { UserAnalytics } from '@/types/analytics';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface AdminPanelProps {
   history: BillData[];
@@ -36,8 +37,9 @@ interface User {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ history, onBack }) => {
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'feedback'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'feedback' | 'support'>('stats');
   const [feedbackLogs, setFeedbackLogs] = useState<FeedbackLog[]>([]);
+  const [supportRequests, setSupportRequests] = useState<any[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userAnalytics, setUserAnalytics] = useState<UserAnalytics | null>(null);
@@ -51,7 +53,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ history, onBack }) => {
     totalReceipts: 0,
     totalCorrections: 0,
     averageAccuracy: 0,
-    correctionRate: 0
+    correctionRate: 0,
+    manualExpenses: 0,
+    ocrScans: 0
   });
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
@@ -69,42 +73,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ history, onBack }) => {
         const feedbackResponse = await fetch('/api/analytics/get-feedback-logs?limit=50');
         const feedbackData = await feedbackResponse.json();
 
+        // Load support requests
+        const supportResponse = await fetch('/api/analytics/get-support-requests?limit=50');
+        const supportData = await supportResponse.json();
+
         // Load users
         const usersResponse = await fetch('/api/analytics/get-all-users');
         const usersData = await usersResponse.json();
 
-        // Real total volume is now provided by the API
+        // All metrics are now filtered by date range from the API
         const totalVolume = aggregatedData?.total_volume || 0;
-
-        // Total scans = total receipts processed (from receipt_processing_history)
-        const totalScans = aggregatedData?.total_receipts_processed || 0;
-
-        const feedbackLogsData = feedbackData.success ? feedbackData.data : [];
-
-        const accuracyRate = feedbackLogsData.length > 0
-          ? Math.round((feedbackLogsData.filter((l: FeedbackLog) => l.type === 'accurate').length / feedbackLogsData.length) * 100)
-          : 0;
-
-        const averageAccuracy = aggregatedData?.average_accuracy_rating || 0;
         const totalReceiptsProcessed = aggregatedData?.total_receipts_processed || 0;
         const totalCorrectionsMade = aggregatedData?.total_corrections_made || 0;
+        const averageAccuracy = aggregatedData?.average_accuracy_rating || 0;
+        const accuracyRate = aggregatedData?.accuracy_rate || 0;
         const correctionRate = totalReceiptsProcessed > 0
           ? Math.round((totalCorrectionsMade / totalReceiptsProcessed) * 100)
           : 0;
 
+        const feedbackLogsData = feedbackData.success ? feedbackData.data : [];
+
         setStats({
           totalVolume,
-          totalScans,
-          activeUsers: aggregatedData?.active_users_last_30_days || 0,
-          accuracyRate,
-          totalUsers: aggregatedData?.total_users || 0,
-          totalReceipts: aggregatedData?.total_receipts_processed || 0,
-          totalCorrections: aggregatedData?.total_corrections_made || 0,
-          averageAccuracy: Math.round(averageAccuracy),
-          correctionRate
+          totalScans: totalReceiptsProcessed, // Total scans = total receipts processed
+          activeUsers: aggregatedData?.active_users_last_30_days || 0, // Filtered by date range
+          accuracyRate, // Filtered by date range from API
+          totalUsers: aggregatedData?.total_users || 0, // Total users (not filtered)
+          totalReceipts: totalReceiptsProcessed, // Filtered by date range
+          totalCorrections: totalCorrectionsMade, // Filtered by date range
+          averageAccuracy: Math.round(averageAccuracy), // Filtered by date range
+          correctionRate, // Calculated from filtered data
+          manualExpenses: aggregatedData?.manual_expenses_count || 0, // Filtered by date range
+          ocrScans: aggregatedData?.ocr_scans_count || 0 // Filtered by date range
         });
 
         setFeedbackLogs(feedbackLogsData);
+        setSupportRequests(supportData.success ? supportData.data : []);
 
         // Format users
         const formattedUsers: User[] = (usersData.success ? usersData.data : []).map((u: any) => {
@@ -172,6 +176,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ history, onBack }) => {
     }
   };
 
+  const handleStatusChange = async (requestId: string, newStatus: 'open' | 'in_progress' | 'resolved' | 'closed') => {
+    try {
+      const response = await fetch('/api/analytics/update-support-status', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: requestId, status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update status');
+      }
+
+      // Update the local state
+      setSupportRequests((prev) =>
+        prev.map((request) =>
+          request.id === requestId
+            ? { ...request, status: newStatus, updated_at: new Date().toISOString() }
+            : request
+        )
+      );
+    } catch (error) {
+      console.error('Error updating support request status:', error);
+      // Optionally show a toast notification here
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 animate-slide-up pb-10">
       <header className="flex items-center justify-between">
@@ -234,7 +266,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ history, onBack }) => {
 
       {/* Admin Tabs */}
       <div className="flex p-1.5 bg-gray-100 dark:bg-slate-800 rounded-2xl mb-4">
-        {(['stats', 'users', 'feedback'] as const).map((tab) => (
+        {(['stats', 'users', 'feedback', 'support'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -247,6 +279,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ history, onBack }) => {
             {tab === 'stats' && <TrendingUp className="w-3 h-3" />}
             {tab === 'users' && <Users className="w-3 h-3" />}
             {tab === 'feedback' && <MessageSquare className="w-3 h-3" />}
+            {tab === 'support' && <LifeBuoy className="w-3 h-3" />}
             {tab}
           </button>
         ))}
@@ -285,9 +318,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ history, onBack }) => {
               </div>
               <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
                 <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Active Users</p>
-                <p className="text-xs font-bold text-gray-500 uppercase mb-1">Last 30 days</p>
                 <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter">
                   {stats.activeUsers}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase mb-2">OCR Scans</p>
+                <p className="text-2xl font-black text-emerald-500 tracking-tighter">
+                  {stats.ocrScans}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Manual Expenses</p>
+                <p className="text-2xl font-black text-purple-500 tracking-tighter">
+                  {stats.manualExpenses}
                 </p>
               </div>
               <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 shadow-sm">
@@ -537,6 +581,77 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ history, onBack }) => {
                           </p>
                         </div>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'support' && (
+        <>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+              <Logo className="w-16 h-16 animate-pulse" />
+              <p className="text-sm text-gray-500">Loading support requests...</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {supportRequests.length === 0 ? (
+                <div className="p-12 text-center bg-gray-50 dark:bg-slate-800/50 rounded-[2.5rem] border-2 border-dashed border-gray-200 dark:border-slate-700">
+                  <LifeBuoy className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No support requests yet</p>
+                </div>
+              ) : (
+                <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 overflow-hidden shadow-sm">
+                  {supportRequests.map((request) => (
+                    <div key={request.id} className="p-5 border-b border-gray-50 dark:border-slate-700 last:border-none">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${request.type === 'bug'
+                            ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500'
+                            : request.type === 'feature'
+                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500'
+                            : request.type === 'support'
+                            ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-500'
+                            : 'bg-gray-50 dark:bg-gray-900/30 text-gray-500'
+                            }`}>
+                            {request.type}
+                          </div>
+                          <Select
+                            value={request.status}
+                            onValueChange={(value) => handleStatusChange(request.id, value as 'open' | 'in_progress' | 'resolved' | 'closed')}
+                          >
+                            <SelectTrigger className={`!w-auto !h-auto !min-h-0 !px-2 !py-1 rounded-lg text-[8px] font-black uppercase border-none outline-none cursor-pointer transition-colors focus:ring-0 focus:ring-offset-0 [&>svg]:text-current [&>svg]:!w-2.5 [&>svg]:!h-2.5 [&>*:last-child]:!w-2.5 [&>*:last-child]:!h-2.5 [&>*:last-child>svg]:!w-2.5 [&>*:last-child>svg]:!h-2.5 ${request.status === 'open'
+                              ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+                              : request.status === 'in_progress'
+                              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                              : request.status === 'resolved'
+                              ? 'bg-gray-50 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900/40'
+                              : 'bg-slate-50 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900/40'
+                              }`}>
+                              <SelectValue className="text-[8px] font-black uppercase text-current" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-900 dark:text-gray-50">
+                              <SelectItem value="open" className="text-[8px] font-black uppercase text-gray-900 dark:text-gray-50 focus:bg-gray-100 dark:focus:bg-slate-700 focus:text-gray-900 dark:focus:text-gray-50">Open</SelectItem>
+                              <SelectItem value="in_progress" className="text-[8px] font-black uppercase text-gray-900 dark:text-gray-50 focus:bg-gray-100 dark:focus:bg-slate-700 focus:text-gray-900 dark:focus:text-gray-50">In Progress</SelectItem>
+                              <SelectItem value="resolved" className="text-[8px] font-black uppercase text-gray-900 dark:text-gray-50 focus:bg-gray-100 dark:focus:bg-slate-700 focus:text-gray-900 dark:focus:text-gray-50">Resolved</SelectItem>
+                              <SelectItem value="closed" className="text-[8px] font-black uppercase text-gray-900 dark:text-gray-50 focus:bg-gray-100 dark:focus:bg-slate-700 focus:text-gray-900 dark:focus:text-gray-50">Closed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+                          {new Date(request.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white mb-2">{request.message}</p>
+                      {(request.user_name || request.user_email) && (
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+                          {request.user_name || request.user_email}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -284,21 +284,28 @@ export class UserTrackingService {
         ? accuracyData.reduce((sum, record) => sum + (record.average_accuracy_rating || 0), 0) / accuracyData.length
         : 0;
 
-      // Get active users in last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const { count: activeUsers } = await supabase
+      // Get active users based on date range
+      let activeUsersQuery = supabase
         .from('user_analytics')
-        .select('*', { count: 'exact', head: true })
-        .gte('last_signin', thirtyDaysAgo.toISOString());
+        .select('*', { count: 'exact', head: true });
+
+      if (days && days !== 'all') {
+        const numDays = parseInt(days.replace('d', ''));
+        if (!isNaN(numDays)) {
+          const startDate = new Date();
+          startDate.setDate(startDate.getDate() - numDays);
+          activeUsersQuery = activeUsersQuery.gte('last_signin', startDate.toISOString());
+        }
+      }
+
+      const { count: activeUsers } = await activeUsersQuery;
 
       return {
         total_users: totalUsers || 0,
         total_receipts_processed: totalReceipts,
         total_corrections_made: totalCorrections,
         average_accuracy_rating: Math.round(averageAccuracy * 100) / 100,
-        active_users_last_30_days: activeUsers || 0
+        active_users_last_30_days: activeUsers || 0 // Keep name for backward compatibility, but now respects date range
       };
     } catch (error) {
       console.error('Error getting aggregated analytics:', error);

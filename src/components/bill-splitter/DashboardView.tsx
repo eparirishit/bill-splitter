@@ -146,24 +146,38 @@ export function DashboardView({
                         {history.slice(0, 4).map((item, idx) => (
                             <div
                                 key={item.id + idx}
-                                onClick={() => onHistoryItemClick(item)}
-                                className="group p-5 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700/30 flex items-center justify-between transition-all cursor-pointer border-b border-gray-50 dark:border-slate-700 last:border-none active:bg-gray-100 dark:active:bg-slate-700"
+                                className="group p-3 sm:p-4 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700/30 flex items-center justify-between transition-all border-b border-gray-50 dark:border-slate-700 last:border-none"
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-slate-900 border border-indigo-100/50 dark:border-slate-700 flex items-center justify-center text-indigo-500 font-black text-xs shadow-sm group-hover:scale-110 transition-transform">
+                                <div 
+                                    onClick={() => onHistoryItemClick(item)}
+                                    className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 cursor-pointer active:bg-gray-100 dark:active:bg-slate-700 -m-3 sm:-m-4 p-3 sm:p-4 rounded-xl"
+                                >
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-50 dark:bg-slate-900 border border-indigo-100/50 dark:border-slate-700 flex items-center justify-center text-indigo-500 font-black text-[10px] sm:text-xs shadow-sm group-hover:scale-110 transition-transform flex-shrink-0">
                                         {item.storeName ? item.storeName.charAt(0).toUpperCase() : 'E'}
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{item.storeName || 'Unnamed Split'}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{new Date(item.date).toLocaleDateString()}</p>
-                                            <span className="w-1 h-1 rounded-full bg-gray-200"></span>
-                                            <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">{item.source}</span>
+                                    <div className="flex-1 min-w-0 overflow-hidden">
+                                        <p className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white leading-tight truncate" title={item.storeName || 'Unnamed Split'}>{item.storeName || 'Unnamed Split'}</p>
+                                        <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+                                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-tighter whitespace-nowrap">{new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                            <span className="w-0.5 h-0.5 sm:w-1 sm:h-1 rounded-full bg-gray-200 flex-shrink-0"></span>
+                                            <span className="text-[8px] sm:text-[9px] font-bold text-indigo-400 uppercase tracking-tighter whitespace-nowrap">{item.source}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tighter">${item.total?.toFixed(2) || '0.00'}</p>
+                                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-2">
+                                    <div className="text-right">
+                                        <p className="text-base sm:text-lg font-black text-gray-900 dark:text-white tracking-tighter whitespace-nowrap">${item.total?.toFixed(2) || '0.00'}</p>
+                                    </div>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onHistoryItemClick(item);
+                                        }}
+                                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors active:scale-90 flex-shrink-0"
+                                        aria-label="Edit expense"
+                                    >
+                                        <i className="fas fa-edit text-[10px] sm:text-xs"></i>
+                                    </button>
                                 </div>
                             </div>
                         ))}

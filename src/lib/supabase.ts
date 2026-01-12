@@ -184,6 +184,7 @@ export interface Database {
           group_id: string | null;
           group_name: string | null;
           splitwise_expense_id: string | null;
+          bill_data: any | null;
           created_at: string;
           updated_at: string;
         };
@@ -197,6 +198,7 @@ export interface Database {
           group_id?: string | null;
           group_name?: string | null;
           splitwise_expense_id?: string | null;
+          bill_data?: any | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -210,6 +212,7 @@ export interface Database {
           group_id?: string | null;
           group_name?: string | null;
           splitwise_expense_id?: string | null;
+          bill_data?: any | null;
           created_at?: string;
           updated_at?: string;
         };

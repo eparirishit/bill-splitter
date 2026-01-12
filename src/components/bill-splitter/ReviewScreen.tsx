@@ -117,7 +117,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6 pt-4 border-t border-gray-50 dark:border-slate-800">
-            <div className="relative">
+            <div>
               <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase mb-2">Billing Date</label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500 dark:text-indigo-400">

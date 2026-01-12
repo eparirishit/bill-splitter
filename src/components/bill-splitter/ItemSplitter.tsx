@@ -190,14 +190,51 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
             >
               <div className="flex-1 min-w-0 mr-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => updateItem(item.id, { name: e.target.value })}
-                    onClick={(e) => e.stopPropagation()}
-                    placeholder="Item name..."
-                    className="font-bold text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 w-full truncate text-base !min-h-0 !p-0"
-                  />
+                  {expandedId === item.id ? (
+                    <textarea
+                      value={item.name}
+                      onChange={(e) => updateItem(item.id, { name: e.target.value })}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Item name..."
+                      className="font-bold text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 w-full text-base !min-h-0 !p-0 resize-none break-words"
+                      title={item.name}
+                      rows={1}
+                      style={{
+                        minHeight: '1.5rem',
+                        lineHeight: '1.5rem',
+                        maxHeight: '6rem',
+                        overflowY: 'auto',
+                        wordWrap: 'break-word',
+                        wordBreak: 'break-word'
+                      }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = `${Math.min(target.scrollHeight, 96)}px`;
+                      }}
+                      onFocus={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = `${Math.min(target.scrollHeight, 96)}px`;
+                      }}
+                      ref={(textarea) => {
+                        if (textarea) {
+                          textarea.style.height = 'auto';
+                          textarea.style.height = `${Math.min(textarea.scrollHeight, 96)}px`;
+                        }
+                      }}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => updateItem(item.id, { name: e.target.value })}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Item name..."
+                      className="font-bold text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 w-full truncate text-base !min-h-0 !p-0"
+                      title={item.name}
+                    />
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${item.splitType === 'quantity'
@@ -208,11 +245,9 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                     }`}>
                     {item.splitType === 'quantity' ? 'Split by Qty' : item.splitMemberIds.length === selectedMembers.length ? 'Split All' : `${item.splitMemberIds.length} members`}
                   </span>
-                  {item.quantity > 1 && (
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
-                      Qty: {item.quantity}
-                    </span>
-                  )}
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                    Qty: {item.quantity || 1}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-4">

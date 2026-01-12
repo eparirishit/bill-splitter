@@ -28,6 +28,7 @@ interface DashboardViewProps {
     analytics: AnalyticsData;
     history: HistoryItem[];
     onProfileClick: () => void;
+    onAdminClick?: () => void;
     onScanClick: () => void;
     onManualClick: () => void;
     onHistoryItemClick: (item: HistoryItem) => void;
@@ -173,10 +174,10 @@ export function DashboardView({
                                             e.stopPropagation();
                                             onHistoryItemClick(item);
                                         }}
-                                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors active:scale-90 flex-shrink-0"
+                                        className="!w-6 !h-6 sm:!w-7 sm:!h-7 !min-h-0 !p-0 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors active:scale-90 flex-shrink-0"
                                         aria-label="Edit expense"
                                     >
-                                        <i className="fas fa-edit text-[10px] sm:text-xs"></i>
+                                        <i className="fas fa-edit text-[9px] sm:text-[10px]"></i>
                                     </button>
                                 </div>
                             </div>

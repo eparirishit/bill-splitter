@@ -443,9 +443,29 @@ function BillSplitterFlow() {
   };
 
   const handleFinishSplit = async () => {
+    const { splits, uniqueMembers, totalAmount } = calculateSplits();
+    const isMultiplePayers = billData.payerId === '__multiple__';
+    if (isMultiplePayers || (billData.payerShares && Object.keys(billData.payerShares).length > 0)) {
+      const sumPaid = Object.values(billData.payerShares || {}).reduce((a, b) => a + b, 0);
+      if (Math.abs(sumPaid - totalAmount) >= 0.02) {
+        toast({
+          title: "Total paid doesn't match bill",
+          description: `Total paid is $${sumPaid.toFixed(2)}. It should equal the bill total $${totalAmount.toFixed(2)}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+      if (isMultiplePayers && (!billData.payerShares || Object.keys(billData.payerShares).length === 0)) {
+        toast({
+          title: "Enter who paid",
+          description: "Select \"Multiple people\" and enter the amount each person paid, or choose a single payer from the dropdown.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
     setIsProcessing(true);
     try {
-      const { splits, uniqueMembers, totalAmount } = calculateSplits();
 
       // Format for Splitwise Service
       // We need to pass all users involved, including the current user (payer)
@@ -460,34 +480,32 @@ function BillSplitterFlow() {
       // Ensure currentUser is in the list if not already (for payer logic)
       // Assuming existing service handles "user owes 0/paid full" correctly if passed in users list.
 
+      // Build paid shares: multiple payers from payerShares, or single payer from payerId
+      let paidShares: Record<string, number>;
+      if (billData.payerShares && Object.keys(billData.payerShares).length > 0) {
+        const sumPaid = Object.values(billData.payerShares).reduce((a, b) => a + b, 0);
+        if (Math.abs(sumPaid - totalAmount) < 0.02) {
+          paidShares = billData.payerShares;
+        } else {
+          const fallbackPayerId = billData.payerId || authUser?.id || uniqueMembers[0]?.id;
+          paidShares = fallbackPayerId ? { [fallbackPayerId]: totalAmount } : {};
+        }
+      } else {
+        const singlePayerId = (billData.payerId && billData.payerId !== '__multiple__') ? billData.payerId : (authUser?.id || uniqueMembers[0]?.id);
+        paidShares = singlePayerId ? { [singlePayerId]: totalAmount } : (uniqueMembers[0] ? { [uniqueMembers[0].id]: totalAmount } : {});
+      }
+
       const expenseData = {
         cost: totalAmount,
         description: billData.storeName || "Bill Split",
         group_id: billData.groupId ? parseInt(billData.groupId) : 0,
-        split_equally: false, // We always calculate custom amounts here
+        split_equally: false,
         users: payloadUsers,
-        customAmounts: splits
+        customAmounts: splits,
+        paidShares
       };
 
       const payload = SplitwiseService.formatExpensePayload(expenseData);
-
-      // Override the payer info: The payer paid full cost, owed their split.
-      // formatExpensePayload sets payer as first user in list usually involved in paying?
-      // Wait, SplitwiseService.formatExpensePayload assumes first user in 'users' array is payer if split_equally is true?
-      // Let's check formatExpensePayload:
-      // "payload[`users__${index}__paid_share`] = index === 0 ? expenseData.cost.toFixed(2) : '0.00';"
-      // Correct. So we must ensure the Payer is at index 0 of the users array passed to it.
-
-      // Re-order users so Payer is first
-      const payerId = billData.payerId || authUser?.id || uniqueMembers[0]?.id; // Fallback
-
-      if (payerId) {
-        const payerIndex = expenseData.users.findIndex(u => u.id.toString() === payerId.toString());
-        if (payerIndex > -1) {
-          const [payer] = expenseData.users.splice(payerIndex, 1);
-          expenseData.users.unshift(payer);
-        }
-      }
 
       // Track corrections if original extraction exists and user is authenticated
       if (originalExtraction && receiptId && authUser?.id && flow === AppFlow.SCAN) {

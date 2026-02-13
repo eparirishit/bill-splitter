@@ -174,7 +174,10 @@ export interface BillData {
   total: number;
   currency: string;
   notes: string;
+  /** Single payer (legacy). Used when payerShares is not set. */
   payerId: string;
+  /** Amount each person paid (userId -> amount). Sum must equal total. When set, overrides payerId for payload. */
+  payerShares?: Record<string, number>;
   groupId: string | null;
   selectedMemberIds: string[];
   source: AppFlow;

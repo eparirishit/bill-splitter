@@ -1,12 +1,28 @@
 <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background receipt shape -->
-  <rect x="25" y="20" width="50" height="60" rx="12" fill="#F8FAFC" />
-  <!-- Colored bars -->
-  <rect x="35" y="35" width="30" height="6" rx="3" fill="#4285F4" />
-  <rect x="35" y="48" width="22" height="6" rx="3" fill="#EA4335" />
-  <rect x="35" y="61" width="26" height="6" rx="3" fill="#FBBC05" />
-  <!-- Sparkle -->
-  <path d="M75 15L78 22L85 25L78 28L75 35L72 28L65 25L72 22L75 15Z" fill="#34A853" />
-  <!-- Subtle circle accent -->
-  <circle cx="75" cy="75" r="8" fill="#4f46e5" fill-opacity="0.1" />
+  <defs>
+    <filter id="logoShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
+      <feOffset dx="0" dy="1.5" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.1" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Serrated receipt background (matches app logo) -->
+  <path
+    d="M25 20C25 18 27 16 29 16H71C73 16 75 18 75 20V78L71 74L67 78L63 74L59 78L55 74L51 78L47 74L43 78L39 74L35 78L31 74L25 80V20Z"
+    fill="white"
+    filter="url(#logoShadow)"
+  />
+  <!-- Data bars -->
+  <rect x="35" y="30" width="30" height="5" rx="2" fill="#4285F4" />
+  <rect x="35" y="42" width="18" height="5" rx="2" fill="#EA4335" />
+  <rect x="35" y="54" width="24" height="5" rx="2" fill="#FBBC05" />
+  <!-- Verification: check + dot -->
+  <path d="M60 66L65 71L70 66" stroke="#34A853" stroke-width="4" stroke-linecap="round" />
+  <circle cx="37.5" cy="68.5" r="3" fill="#34A853" />
 </svg>

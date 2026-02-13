@@ -1,4 +1,6 @@
 <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark theme background (matches app dark mode) -->
+  <rect width="100" height="100" rx="20" fill="#0f172a" />
   <defs>
     <filter id="logoShadow" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
@@ -12,10 +14,10 @@
       </feMerge>
     </filter>
   </defs>
-  <!-- Serrated receipt background (matches app logo) -->
+  <!-- Serrated receipt (dark theme: slate-800) -->
   <path
     d="M25 20C25 18 27 16 29 16H71C73 16 75 18 75 20V78L71 74L67 78L63 74L59 78L55 74L51 78L47 74L43 78L39 74L35 78L31 74L25 80V20Z"
-    fill="white"
+    fill="#1e293b"
     filter="url(#logoShadow)"
   />
   <!-- Data bars -->

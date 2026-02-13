@@ -100,8 +100,8 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
   };
 
   return (
-    <div className="space-y-8 animate-slide-up pb-24">
-      <section className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/20 dark:shadow-none border border-gray-100 dark:border-slate-800 space-y-6">
+    <div className="space-y-8 animate-slide-up pb-24 w-full max-w-full overflow-hidden">
+      <section className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/20 dark:shadow-none border border-gray-100 dark:border-slate-800 space-y-6 w-full max-w-full overflow-hidden">
         <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest border-b border-gray-50 dark:border-slate-800 pb-4">General Info</h3>
 
         <div className="space-y-6">
@@ -117,9 +117,9 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6 pt-4 border-t border-gray-50 dark:border-slate-800">
-            <div className="min-w-0">
+            <div className="min-w-0 w-full max-w-full overflow-hidden">
               <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase mb-2">Billing Date</label>
-              <div className="relative min-w-0">
+              <div className="relative min-w-0 w-full max-w-full overflow-hidden">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500 dark:text-indigo-400 z-10">
                   <i className="fas fa-calendar-alt"></i>
                 </div>
@@ -127,17 +127,19 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
                   type="date"
                   value={billData.date}
                   onChange={(e) => onUpdate({ date: e.target.value })}
-                  className="w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 pl-10 pr-3 focus:outline-none focus:ring-0 cursor-pointer !min-h-0 min-w-0 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-inner-spin-button]:hidden"
+                  className="w-full max-w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 pl-10 pr-3 focus:outline-none focus:ring-0 cursor-pointer !min-h-0 min-w-0 box-border [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-inner-spin-button]:hidden"
+                  style={{ width: '100%', maxWidth: '100%' }}
                 />
               </div>
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 w-full max-w-full overflow-hidden">
               <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase mb-2">Primary Payer</label>
-              <div className="relative min-w-0">
+              <div className="relative min-w-0 w-full max-w-full overflow-hidden">
                 <select
                   value={billData.payerId}
                   onChange={(e) => onUpdate({ payerId: e.target.value })}
-                  className="w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 px-3 focus:outline-none focus:ring-0 appearance-none cursor-pointer !min-h-0 min-w-0"
+                  className="w-full max-w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 px-3 focus:outline-none focus:ring-0 appearance-none cursor-pointer !min-h-0 min-w-0 box-border"
+                  style={{ width: '100%', maxWidth: '100%' }}
                 >
                   {payerList.map(m => (
                     <option key={m.id} value={m.id}>{m.name === 'Me' ? 'Paid by me' : m.name}</option>

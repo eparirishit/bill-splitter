@@ -29,7 +29,7 @@ export function Toaster() {
       case "warning":
         return "w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 shrink-0"
       case "destructive":
-        return "w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 shrink-0"
+        return "w-8 h-8 rounded-full bg-red-100 dark:bg-red-600/90 flex items-center justify-center text-red-600 dark:text-white shrink-0"
       default:
         return "w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0"
     }

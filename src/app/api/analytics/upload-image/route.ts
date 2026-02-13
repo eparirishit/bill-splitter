@@ -3,9 +3,9 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { SUPABASE_STORAGE_CONFIG } from '@/lib/config';
 
 /**
- * Returns signed upload + read URLs so the client can upload the image directly
- * to Supabase Storage. The request body is small JSON only (userId, hash, fileExt) —
- * no file is sent through this route, avoiding FUNCTION_PAYLOAD_TOO_LARGE in production.
+ * Request body must be JSON only (userId, hash, fileExt) — no file. Avoids 413 / FUNCTION_PAYLOAD_TOO_LARGE.
+ * - If file already exists: returns imageUrl (read URL) only.
+ * - If new file: returns upload token/path/bucket; client uploads to Supabase, then calls this again to get imageUrl.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseClient();
     const bucket = SUPABASE_STORAGE_CONFIG.BUCKET_NAME;
 
-    // Check if file already exists — return read URL only (client skips upload)
+    // Check if file already exists — createSignedUrl only works for existing objects
     const { data: existingRead, error: existingError } = await supabase.storage
       .from(bucket)
       .createSignedUrl(path, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
@@ -45,36 +45,26 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // New file: create signed upload URL + read URL (client will upload, then use read URL for extraction)
+    // New file: return only upload URL/token. Do NOT create read URL here (file doesn't exist yet → 500).
     const { data: uploadData, error: uploadUrlError } = await supabase.storage
       .from(bucket)
       .createSignedUploadUrl(path, { upsert: false });
 
     if (uploadUrlError || !uploadData) {
+      console.error('createSignedUploadUrl failed:', uploadUrlError);
       return NextResponse.json(
         { error: uploadUrlError?.message || 'Failed to create signed upload URL' },
         { status: 500 }
       );
     }
 
-    const { data: readData, error: readUrlError } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(path, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
-
-    if (readUrlError || !readData?.signedUrl) {
-      return NextResponse.json(
-        { error: readUrlError?.message || 'Failed to create read URL' },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
       success: true,
-      imageUrl: readData.signedUrl,
       imageHash: hash,
       bucket,
       uploadPath: uploadData.path,
       token: uploadData.token,
+      needsUploadThenGetUrl: true,
     });
   } catch (error) {
     console.error('Error in upload-image (get URLs):', error);

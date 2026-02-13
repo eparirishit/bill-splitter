@@ -36,7 +36,7 @@ export const AI_CONFIG = {
   DEFAULT_STORE_NAME: "Unknown Store",
 
   // File upload configuration
-  MAX_FILE_SIZE_MB: parseFloat(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '5'), // (default: 5MB)
+  MAX_FILE_SIZE_MB: parseFloat(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '10'), // (default: 10MB)
 
   // Provider configuration
   PROVIDER: (process.env.AI_PROVIDER || "google-gemini") as ProviderType,

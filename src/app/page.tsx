@@ -707,14 +707,11 @@ function BillSplitterFlow() {
             const hash = await generateImageHash(file);
             const fileExt = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '') || 'jpg';
 
+            const payload = { userId: authUser.id.toString(), hash, fileExt };
             const urlResponse = await fetch('/api/analytics/upload-image', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: authUser.id.toString(),
-                hash,
-                fileExt,
-              }),
+              body: JSON.stringify(payload),
             });
 
             if (urlResponse.ok) {
@@ -732,9 +729,22 @@ function BillSplitterFlow() {
                   console.warn('Direct upload to Supabase failed, falling back to base64:', uploadError);
                   imageUrl = undefined;
                   imageHash = undefined;
+                } else if (data.needsUploadThenGetUrl) {
+                  // File didn't exist before; now it does. Get read URL with a second request (no file in body).
+                  const readResponse = await fetch('/api/analytics/upload-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                  });
+                  if (readResponse.ok) {
+                    const readData = await readResponse.json();
+                    if (readData.imageUrl) {
+                      imageUrl = readData.imageUrl;
+                    }
+                  }
                 }
               }
-              // If no token, file already existed at path; imageUrl is already the read URL
+              // If no token, file already existed; imageUrl is already the read URL
             } else {
               console.warn('Upload image URLs failed, falling back to base64');
             }

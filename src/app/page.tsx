@@ -26,6 +26,7 @@ import { extractReceiptData } from '@/ai/extract-receipt-data';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { AnalyticsClientService } from '@/services/analytics-client';
+import { supabase, generateImageHash } from '@/lib/supabase';
 
 // MOCK CONSTANTS (Fallbacks)
 const DEFAULT_BILL: BillData = {
@@ -283,6 +284,18 @@ function BillSplitterFlow() {
     setReceiptId(null);
     setFlow(AppFlow.NONE);
     setCurrentStep(Step.FLOW_SELECTION);
+  };
+
+  /** Cancel current expense and return to home (flow selection). Clears scan image and bill state so a fresh scan can start. */
+  const cancelExpenseAndGoHome = () => {
+    setEditingExpenseId(null);
+    setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9) });
+    setPreviewImage(null);
+    setOriginalExtraction(null);
+    setReceiptId(null);
+    setFlow(AppFlow.NONE);
+    setCurrentStep(Step.FLOW_SELECTION);
+    setShowFeedback(false);
   };
 
   const handleEditHistorical = async (item: any) => {
@@ -670,28 +683,45 @@ function BillSplitterFlow() {
         let imageUrl: string | undefined;
         let imageHash: string | undefined;
 
-        // Upload image to Supabase FIRST (before extraction) to avoid body size limits
+        // Get signed URLs from API (no file in request — avoids FUNCTION_PAYLOAD_TOO_LARGE), then upload directly to Supabase
         if (authUser?.id) {
           try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('userId', authUser.id.toString());
+            const hash = await generateImageHash(file);
+            const fileExt = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '') || 'jpg';
 
-            const uploadResponse = await fetch('/api/analytics/upload-image', {
+            const urlResponse = await fetch('/api/analytics/upload-image', {
               method: 'POST',
-              body: formData
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: authUser.id.toString(),
+                hash,
+                fileExt,
+              }),
             });
 
-            if (uploadResponse.ok) {
-              const uploadData = await uploadResponse.json();
-              imageUrl = uploadData.imageUrl;
-              imageHash = uploadData.imageHash;
+            if (urlResponse.ok) {
+              const data = await urlResponse.json();
+              imageUrl = data.imageUrl;
+              imageHash = data.imageHash;
+
+              // If we got an upload token, upload the file directly to Supabase (file never hits our server)
+              if (data.token && data.bucket && data.uploadPath) {
+                const { error: uploadError } = await supabase.storage
+                  .from(data.bucket)
+                  .uploadToSignedUrl(data.uploadPath, data.token, file, { cacheControl: '3600' });
+
+                if (uploadError) {
+                  console.warn('Direct upload to Supabase failed, falling back to base64:', uploadError);
+                  imageUrl = undefined;
+                  imageHash = undefined;
+                }
+              }
+              // If no token, file already existed at path; imageUrl is already the read URL
             } else {
-              console.warn('Image upload failed, falling back to base64');
+              console.warn('Upload image URLs failed, falling back to base64');
             }
           } catch (error) {
-            console.warn('Failed to upload image, falling back to base64:', error);
-            // Continue with base64 fallback for non-authenticated users or if upload fails
+            console.warn('Failed to get upload URLs or upload to Supabase, falling back to base64:', error);
           }
         }
 
@@ -903,9 +933,11 @@ function BillSplitterFlow() {
                 onScanClick={() => { 
               setFlow(AppFlow.SCAN); 
               setCurrentStep(Step.UPLOAD);
+              setPreviewImage(null);
+              setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9) });
               setOriginalExtraction(null);
               setReceiptId(null);
-              setEditingExpenseId(null); // Clear editing state
+              setEditingExpenseId(null);
             }}
             onManualClick={() => { 
               setFlow(AppFlow.MANUAL); 
@@ -1028,17 +1060,24 @@ function BillSplitterFlow() {
                 cancelEdit();
                 return;
               }
-              // Normal back navigation
+              // Cancel expense and go home: clear scan/manual state so a fresh start is possible
               if (currentStep === Step.UPLOAD || (currentStep === Step.GROUP_SELECTION && flow === AppFlow.MANUAL)) {
-                setCurrentStep(Step.FLOW_SELECTION);
-              } else {
-                setCurrentStep(prev => prev - 1);
+                cancelExpenseAndGoHome();
+                return;
               }
+              // From group selection (scan flow): going back to upload — clear image so user can start a fresh scan
+              if (currentStep === Step.GROUP_SELECTION && flow === AppFlow.SCAN) {
+                setPreviewImage(null);
+                setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9) });
+                setOriginalExtraction(null);
+                setReceiptId(null);
+              }
+              setCurrentStep(prev => prev - 1);
             }}
             style={{ outline: 'none', boxShadow: 'none', WebkitTapHighlightColor: 'transparent' }}
             className="flex-1 py-4 bg-gray-50 dark:bg-slate-800 text-gray-500 font-bold rounded-2xl disabled:opacity-50 transition-all active:scale-95 focus:outline-none focus:ring-0"
           >
-            {editingExpenseId ? 'Cancel' : 'Back'}
+            {editingExpenseId ? 'Cancel' : (currentStep === Step.UPLOAD || (currentStep === Step.GROUP_SELECTION && flow === AppFlow.MANUAL)) ? 'Cancel' : 'Back'}
           </button>
           <button
             disabled={isProcessing || (currentStep === Step.UPLOAD && !previewImage) || (currentStep === Step.GROUP_SELECTION && billData.selectedMemberIds.length === 0)}

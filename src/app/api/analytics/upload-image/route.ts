@@ -1,106 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
 import { SUPABASE_STORAGE_CONFIG } from '@/lib/config';
-import { generateImageHash } from '@/lib/supabase';
 
+/**
+ * Returns signed upload + read URLs so the client can upload the image directly
+ * to Supabase Storage. The request body is small JSON only (userId, hash, fileExt) —
+ * no file is sent through this route, avoiding FUNCTION_PAYLOAD_TOO_LARGE in production.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const userId = formData.get('userId') as string;
-
-    if (!file) {
+    const contentType = request.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
       return NextResponse.json(
-        { error: 'File is required' },
+        { error: 'Content-Type must be application/json. Send userId, hash, fileExt. Client uploads the file directly to Supabase.' },
         { status: 400 }
       );
     }
 
-    if (!userId) {
+    const body = await request.json();
+    const { userId, hash, fileExt } = body as { userId?: string; hash?: string; fileExt?: string };
+
+    if (!userId || !hash) {
       return NextResponse.json(
-        { error: 'userId is required' },
+        { error: 'userId and hash are required' },
         { status: 400 }
       );
     }
 
-    // Upload image to storage
-    const hash = await generateImageHash(file);
-    const fileExt = file.name.split('.').pop() || 'jpg';
-    const fileName = `${userId}/${hash}.${fileExt}`;
-
+    const ext = (fileExt || 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg';
+    const path = `${userId}/${hash}.${ext}`;
     const supabase = getSupabaseClient();
+    const bucket = SUPABASE_STORAGE_CONFIG.BUCKET_NAME;
 
-    // Check if file already exists
-    const { data: existingSignedUrlData, error: existingSignedUrlError } = await supabase.storage
-      .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
-      .createSignedUrl(fileName, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
+    // Check if file already exists — return read URL only (client skips upload)
+    const { data: existingRead, error: existingError } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
 
-    if (!existingSignedUrlError && existingSignedUrlData?.signedUrl) {
+    if (!existingError && existingRead?.signedUrl) {
       return NextResponse.json({
         success: true,
-        imageUrl: existingSignedUrlData.signedUrl,
-        imageHash: hash
+        imageUrl: existingRead.signedUrl,
+        imageHash: hash,
       });
     }
 
-    // Upload new file
-    const { data, error } = await supabase.storage
-      .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
+    // New file: create signed upload URL + read URL (client will upload, then use read URL for extraction)
+    const { data: uploadData, error: uploadUrlError } = await supabase.storage
+      .from(bucket)
+      .createSignedUploadUrl(path, { upsert: false });
 
-    if (error) {
-      // If it's a duplicate error, generate a signed URL
-      if (error.message.includes('already exists') || error.message.includes('Duplicate')) {
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
-          .createSignedUrl(fileName, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
-
-        if (signedUrlError || !signedUrlData?.signedUrl) {
-          return NextResponse.json(
-            { error: 'Failed to generate signed URL for duplicate file' },
-            { status: 500 }
-          );
-        }
-
-        return NextResponse.json({
-          success: true,
-          imageUrl: signedUrlData.signedUrl,
-          imageHash: hash
-        });
-      }
-
+    if (uploadUrlError || !uploadData) {
       return NextResponse.json(
-        { error: `Failed to upload image: ${error.message}` },
+        { error: uploadUrlError?.message || 'Failed to create signed upload URL' },
         { status: 500 }
       );
     }
 
-    // Generate signed URL
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from(SUPABASE_STORAGE_CONFIG.BUCKET_NAME)
-      .createSignedUrl(fileName, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
+    const { data: readData, error: readUrlError } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, SUPABASE_STORAGE_CONFIG.SIGNED_URL_EXPIRY_SECONDS);
 
-    if (signedUrlError || !signedUrlData?.signedUrl) {
+    if (readUrlError || !readData?.signedUrl) {
       return NextResponse.json(
-        { error: 'Failed to generate signed URL' },
+        { error: readUrlError?.message || 'Failed to create read URL' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      imageUrl: signedUrlData.signedUrl,
-      imageHash: hash
+      imageUrl: readData.signedUrl,
+      imageHash: hash,
+      bucket,
+      uploadPath: uploadData.path,
+      token: uploadData.token,
     });
   } catch (error) {
-    console.error('Error uploading image:', error);
+    console.error('Error in upload-image (get URLs):', error);
     return NextResponse.json(
-      { error: 'Failed to upload image', details: error instanceof Error ? error.message : String(error) },
+      { error: 'Failed to get upload URLs', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
 }
-

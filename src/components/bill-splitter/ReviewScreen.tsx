@@ -50,6 +50,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
 
   const subtotal = billData.items.reduce((s, i) => s + i.price, 0);
   const overhead = (billData.tax + billData.otherCharges - billData.discount);
+  const totalBill = subtotal + overhead;
 
   if (subtotal > 0) {
     Object.keys(splits).forEach(mId => {
@@ -61,6 +62,46 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
       splits[mId] += overhead / selectedMembers.length;
     });
   }
+
+  const MULTIPLE_PAYERS_VALUE = '__multiple__';
+
+  const isMultiplePayers = billData.payerId === MULTIPLE_PAYERS_VALUE;
+
+  const whoPaidDropdownValue = (() => {
+    if (isMultiplePayers) return MULTIPLE_PAYERS_VALUE;
+    if (billData.payerShares && Object.keys(billData.payerShares).filter(k => (billData.payerShares![k] ?? 0) > 0).length > 1) return MULTIPLE_PAYERS_VALUE;
+    return billData.payerId || '';
+  })();
+
+  const handleWhoPaidChange = (value: string) => {
+    if (value === MULTIPLE_PAYERS_VALUE) {
+      const currentSingle = billData.payerId && billData.payerId !== MULTIPLE_PAYERS_VALUE ? billData.payerId : null;
+      onUpdate({
+        payerId: MULTIPLE_PAYERS_VALUE,
+        payerShares: currentSingle ? { [currentSingle]: totalBill } : {}
+      });
+    } else {
+      onUpdate({ payerId: value, payerShares: undefined });
+    }
+  };
+
+  const getPaidAmount = (memberId: string): number => {
+    if (billData.payerShares && typeof billData.payerShares[memberId] === 'number') {
+      return billData.payerShares[memberId];
+    }
+    if (billData.payerId && billData.payerId !== MULTIPLE_PAYERS_VALUE && billData.payerId === memberId) return totalBill;
+    return 0;
+  };
+
+  const setPaidAmount = (memberId: string, value: number) => {
+    const next = { ...(billData.payerShares || {}) };
+    if (value === 0) delete next[memberId];
+    else next[memberId] = Math.max(0, value);
+    onUpdate({ payerShares: next, payerId: MULTIPLE_PAYERS_VALUE });
+  };
+
+  const totalPaid = payerList.reduce((sum, m) => sum + getPaidAmount(m.id), 0);
+  const paidValid = Math.abs(totalPaid - totalBill) < 0.02;
 
   const generateSummary = () => {
     let summary = `Detailed Split for ${billData.storeName || 'Bill'}:\n\n`;
@@ -116,40 +157,77 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6 pt-4 border-t border-gray-50 dark:border-slate-800">
-            <div className="min-w-0 w-full max-w-full overflow-hidden">
-              <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase mb-2">Billing Date</label>
-              <div className="relative min-w-0 w-full max-w-full overflow-hidden">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500 dark:text-indigo-400 z-10">
-                  <i className="fas fa-calendar-alt"></i>
-                </div>
-                <input
-                  type="date"
-                  value={billData.date}
-                  onChange={(e) => onUpdate({ date: e.target.value })}
-                  className="w-full max-w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 pl-10 pr-3 focus:outline-none focus:ring-0 cursor-pointer !min-h-0 min-w-0 box-border [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-inner-spin-button]:hidden"
-                  style={{ width: '100%', maxWidth: '100%' }}
-                />
+          <div className="pt-4 border-t border-gray-50 dark:border-slate-800">
+            <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase mb-2">Billing Date</label>
+            <div className="relative min-w-0 w-full max-w-full overflow-hidden">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500 dark:text-indigo-400 z-10">
+                <i className="fas fa-calendar-alt"></i>
+              </div>
+              <input
+                type="date"
+                value={billData.date}
+                onChange={(e) => onUpdate({ date: e.target.value })}
+                className="w-full max-w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 pl-10 pr-3 focus:outline-none focus:ring-0 cursor-pointer !min-h-0 min-w-0 box-border [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-inner-spin-button]:hidden"
+                style={{ width: '100%', maxWidth: '100%' }}
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-gray-50 dark:border-slate-800">
+            <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase mb-2">Who paid?</label>
+            <div className="relative min-w-0 w-full max-w-full overflow-hidden">
+              <select
+                value={whoPaidDropdownValue}
+                onChange={(e) => handleWhoPaidChange(e.target.value)}
+                className="w-full max-w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 px-3 focus:outline-none focus:ring-0 appearance-none cursor-pointer !min-h-0 min-w-0 box-border"
+                style={{ width: '100%', maxWidth: '100%' }}
+              >
+                <option value="">Select who paid</option>
+                {payerList.map(m => (
+                  <option key={m.id} value={m.id}>{m.name === 'Me' ? 'Paid by me' : m.name}</option>
+                ))}
+                <option value={MULTIPLE_PAYERS_VALUE}>Multiple people</option>
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-300 z-10">
+                <i className="fas fa-chevron-down text-[10px]"></i>
               </div>
             </div>
-            <div className="min-w-0 w-full max-w-full overflow-hidden">
-              <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase mb-2">Primary Payer</label>
-              <div className="relative min-w-0 w-full max-w-full overflow-hidden">
-                <select
-                  value={billData.payerId}
-                  onChange={(e) => onUpdate({ payerId: e.target.value })}
-                  className="w-full max-w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 px-3 focus:outline-none focus:ring-0 appearance-none cursor-pointer !min-h-0 min-w-0 box-border"
-                  style={{ width: '100%', maxWidth: '100%' }}
-                >
+
+            {isMultiplePayers && (
+              <>
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-3 mb-2">Enter the amount each person paid. Total paid should equal the bill total.</p>
+                <div className="space-y-3">
                   {payerList.map(m => (
-                    <option key={m.id} value={m.id}>{m.name === 'Me' ? 'Paid by me' : m.name}</option>
+                    <div key={m.id} className="flex items-center justify-between gap-4 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden border border-white dark:border-slate-600 shrink-0">
+                          <img src={m.avatar} className="w-full h-full object-cover" alt="" />
+                        </div>
+                        <span className="text-sm font-bold text-gray-800 dark:text-slate-200 truncate">{m.name === 'Me' ? 'Me' : m.name}</span>
+                      </div>
+                      <div className="flex items-center bg-gray-50/80 dark:bg-slate-700/50 px-2 py-2 rounded-xl border border-gray-100 dark:border-slate-700 group-hover:bg-white dark:group-hover:bg-slate-700 transition-colors shrink-0">
+                        <span className="text-gray-400 dark:text-slate-500 text-xs font-bold mr-1">$</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={getPaidAmount(m.id) || ''}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                            setPaidAmount(m.id, Number.isNaN(v) ? 0 : v);
+                          }}
+                          placeholder="0"
+                          className="w-14 font-black text-gray-900 dark:text-white border-none focus:ring-0 text-right bg-transparent !min-h-0 !p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+                    </div>
                   ))}
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-300 z-10">
-                  <i className="fas fa-chevron-down text-[10px]"></i>
                 </div>
-              </div>
-            </div>
+                <div className={`mt-2 text-xs font-bold ${paidValid ? 'text-gray-500 dark:text-slate-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  Total paid: ${totalPaid.toFixed(2)} {!paidValid && `(should be $${totalBill.toFixed(2)})`}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="pt-4 border-t border-gray-50 dark:border-slate-800">
@@ -173,18 +251,18 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
       </section>
 
       <section className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-indigo-100/20 dark:shadow-none border border-gray-50 dark:border-slate-800 space-y-6">
-        <h3 className="text-[10px] font-black text-indigo-400 dark:text-indigo-300 uppercase tracking-widest border-b border-gray-50 dark:border-slate-800 pb-4">Personal Totals</h3>
+        <h3 className="text-[10px] font-black text-indigo-400 dark:text-indigo-300 uppercase tracking-widest border-b border-gray-50 dark:border-slate-800 pb-4">Each payee’s share (owed)</h3>
 
         <div className="space-y-4">
           {selectedMembers.map(member => (
             <div key={member.id} className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-700 hover:shadow-lg transition-all duration-300">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-xl overflow-hidden border border-white dark:border-slate-600 shadow-sm bg-indigo-50 dark:bg-indigo-900/30">
-                  <img src={member.avatar} className="w-full h-full object-cover" />
+                  <img src={member.avatar} className="w-full h-full object-cover" alt="" />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-bold text-gray-900 dark:text-white">{member.name}</span>
-                  <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 uppercase">Settlement ready</span>
+                  <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 uppercase">Owes this amount</span>
                 </div>
               </div>
               <div className="text-right">

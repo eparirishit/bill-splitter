@@ -192,6 +192,8 @@ export class SplitwiseService {
     split_equally: boolean;
     users: Array<{ id: number; first_name: string; last_name: string }>;
     customAmounts?: Record<string, number>;
+    /** Amount each user paid (userId -> amount). Sum should equal cost. If set, used for paid_share; else first user pays full. */
+    paidShares?: Record<string, number>;
   }): CreateExpense {
     const payload: any = {
       cost: expenseData.cost.toFixed(2),
@@ -200,22 +202,26 @@ export class SplitwiseService {
       split_equally: expenseData.split_equally
     };
 
+    const paidShares = expenseData.paidShares;
+
     if (expenseData.split_equally) {
-      // Equal split - first user pays full amount, others pay 0
+      // Equal split - first user pays full amount, others pay 0 (or use paidShares if provided)
       const sharePerUser = expenseData.cost / expenseData.users.length;
 
       expenseData.users.forEach((user, index) => {
         payload[`users__${index}__user_id`] = user.id;
-        payload[`users__${index}__paid_share`] = index === 0 ? expenseData.cost.toFixed(2) : '0.00';
+        const paid = paidShares ? (paidShares[user.id.toString()] ?? 0) : (index === 0 ? expenseData.cost : 0);
+        payload[`users__${index}__paid_share`] = paid.toFixed(2);
         payload[`users__${index}__owed_share`] = sharePerUser.toFixed(2);
       });
     } else {
-      // Custom split
+      // Custom split: owed from customAmounts, paid from paidShares or first user pays full
       const customAmounts = expenseData.customAmounts || {};
 
       expenseData.users.forEach((user, index) => {
         payload[`users__${index}__user_id`] = user.id;
-        payload[`users__${index}__paid_share`] = index === 0 ? expenseData.cost.toFixed(2) : '0.00';
+        const paid = paidShares ? (paidShares[user.id.toString()] ?? 0) : (index === 0 ? expenseData.cost : 0);
+        payload[`users__${index}__paid_share`] = paid.toFixed(2);
         payload[`users__${index}__owed_share`] = (customAmounts[user.id.toString()] || 0).toFixed(2);
       });
     }

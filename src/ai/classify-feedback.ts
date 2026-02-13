@@ -7,7 +7,7 @@ import { FeedbackClassificationSchema, type FeedbackClassification } from "./typ
 import { extractAndParseJSON, getAIProviderConfig, retryWithDelay } from "./utils";
 
 const CLASSIFICATION_PROMPT = `
-You are a helpful AI assistant that classifies user feedback for a Bill Splitter application.
+You are a helpful AI assistant that classifies user feedback for SplitScan, an AI-powered bill splitting app.
 Analyze the following user feedback message and classify it into one of these categories:
 - 'bug': Reports of errors, crashes, or incorrect behavior.
 - 'feature': Requests for new functionality or improvements.

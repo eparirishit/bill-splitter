@@ -44,7 +44,7 @@ export class OpenRouterProvider implements AIProvider {
         "Authorization": `Bearer ${this.config.apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": this.config.baseUrl || "http://localhost:3000",
-        "X-Title": "Bill Splitter App"
+        "X-Title": "SplitScan"
       },
       body: JSON.stringify({
         model: this.config.modelName,

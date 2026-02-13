@@ -1,6 +1,6 @@
 {
-  "name": "Bill Splitter - AI-Powered Bill Splitting for Splitwise",
-  "short_name": "Bill Splitter",
+  "name": "SplitScan - Splitting made intelligent",
+  "short_name": "SplitScan",
   "description": "Simplify and automate the process of splitting shared expenses with AI-powered receipt scanning and seamless Splitwise integration",
   "start_url": "/",
   "display": "standalone",

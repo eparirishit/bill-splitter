@@ -126,7 +126,7 @@ export function InstallPrompt() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">
-              Install Bill Splitter
+              Install SplitScan
             </p>
             <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
               Add to home screen for quick access

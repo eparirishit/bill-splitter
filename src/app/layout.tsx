@@ -110,6 +110,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-[#fcfcfd] dark:bg-slate-900">
       <head>
+        <title>SplitScan</title>
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -131,8 +132,8 @@ export default function RootLayout({
         <meta name="theme-color" content="hsl(var(--primary))" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Bill Splitter" />
-        <meta name="description" content="AI-Powered Bill Splitting for Splitwise - Simplify and automate the process of splitting shared expenses" />
+        <meta name="apple-mobile-web-app-title" content="SplitScan" />
+        <meta name="description" content="SplitScan - AI-Powered Bill Splitting. Splitting made intelligent." />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="hsl(var(--primary))" />

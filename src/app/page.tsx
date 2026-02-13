@@ -899,12 +899,12 @@ function BillSplitterFlow() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 animate-fade-in">
         <div className="flex flex-col items-center text-center max-w-xs">
-          <div className="mb-10 transition-transform duration-1000">
+          <div className="mb-4 transition-transform duration-1000">
             <Logo className="w-32 h-32" />
           </div>
           <div className="mb-10">
             <h1 className="text-5xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-6">
-              <span className="font-black">Bill</span><span className="bg-clip-text text-transparent bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700">Splitter</span>
+              <span className="font-black">Split</span><span className="bg-clip-text text-transparent bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700">Scan</span>
           </h1>
             <div className="flex items-center justify-center gap-4">
               <div className="h-[1px] w-6 bg-gray-100 dark:bg-slate-800"></div>

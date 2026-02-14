@@ -1,41 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Light background so white receipt is visible in browser tab -->
+  <rect width="100" height="100" fill="#f8fafc" />
   <defs>
-    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
-    </linearGradient>
+    <filter id="faviconShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
+      <feOffset dx="0" dy="1.5" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.1" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
-  <!-- Outer rectangle representing the bill -->
-  <rect
-    x="3" y="2" width="18" height="20" rx="2.5"
-    fill="url(#gradient)"
-    stroke="none"
-  />
-  <!-- Stylized lines representing text/items -->
-  <line
-    x1="7" y1="7" x2="17" y2="7"
-    stroke="white"
-    stroke-width="2"
-    stroke-linecap="round"
-  />
-  <line
-    x1="7" y1="11" x2="17" y2="11"
-    stroke="white"
-    stroke-width="1.5"
-    stroke-linecap="round"
-    opacity="0.8"
-  />
-  <line
-    x1="7" y1="15" x2="14" y2="15"
-    stroke="white"
-    stroke-width="1.5"
-    stroke-linecap="round"
-    opacity="0.8"
-  />
-  <!-- Circle element for visual interest -->
-  <circle
-    cx="17" cy="15" r="2"
+  <!-- Serrated receipt (matches logo: white receipt + shadow) -->
+  <path
+    d="M25 20C25 18 27 16 29 16H71C73 16 75 18 75 20V78L71 74L67 78L63 74L59 78L55 74L51 78L47 74L43 78L39 74L35 78L31 74L25 80V20Z"
     fill="white"
-    stroke="none"
+    filter="url(#faviconShadow)"
   />
+  <!-- Data bars (same as logo) -->
+  <rect x="35" y="30" width="30" height="5" rx="2" fill="#4285F4" />
+  <rect x="35" y="42" width="18" height="5" rx="2" fill="#EA4335" />
+  <rect x="35" y="54" width="24" height="5" rx="2" fill="#FBBC05" />
+  <!-- Verification: check + dot -->
+  <path d="M60 66L65 71L70 66" stroke="#34A853" stroke-width="4" stroke-linecap="round" />
+  <circle cx="37.5" cy="68.5" r="3" fill="#34A853" />
 </svg>

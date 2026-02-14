@@ -119,16 +119,16 @@ export function InstallPrompt() {
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 animate-in slide-in-from-bottom-4">
-      <div className="bg-background border border-primary/20 rounded-xl shadow-xl p-4 flex items-center gap-3 backdrop-blur-sm">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-2xl ring-1 ring-slate-900/5 dark:ring-white/10 p-4 flex items-center gap-3">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Download className="h-5 w-5 text-primary" />
+          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-500/15 dark:bg-emerald-400/20 flex items-center justify-center">
+            <Download className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
               Install SplitScan
             </p>
-            <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
+            <p className="text-xs text-slate-600 dark:text-slate-300 truncate mt-0.5">
               Add to home screen for quick access
             </p>
           </div>
@@ -136,7 +136,7 @@ export function InstallPrompt() {
         <div className="flex items-center gap-2 flex-shrink-0">
           <Button
             onClick={handleInstallClick}
-            className="tap-scale shadow-md hover:shadow-lg transition-shadow"
+            className="tap-scale shadow-md hover:shadow-lg transition-shadow bg-emerald-600 hover:bg-emerald-700 text-white border-0"
             size="sm"
           >
             <Download className="h-4 w-4 mr-1.5" />
@@ -146,7 +146,7 @@ export function InstallPrompt() {
             variant="ghost"
             size="icon"
             onClick={handleDismiss}
-            className="h-8 w-8 tap-scale hover:bg-muted"
+            className="h-8 w-8 tap-scale hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
             aria-label="Dismiss"
           >
             <X className="h-4 w-4" />

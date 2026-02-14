@@ -909,7 +909,7 @@ function BillSplitterFlow() {
             <div className="flex items-center justify-center gap-4">
               <div className="h-[1px] w-6 bg-gray-100 dark:bg-slate-800"></div>
               <p className="text-gray-400 dark:text-slate-500 font-bold uppercase tracking-[0.4em] text-[10px] whitespace-nowrap">
-                Splitting made intelligent.
+                Splitting made intelligent
               </p>
               <div className="h-[1px] w-6 bg-gray-100 dark:bg-slate-800"></div>
             </div>

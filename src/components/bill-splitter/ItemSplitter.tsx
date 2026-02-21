@@ -318,35 +318,56 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                   {/* Split Method UI */}
                   {item.splitType === 'quantity' ? (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-1">
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Assign Units</span>
-                        {/* Added explicit type assertion for Object.values on Record<string, number> */}
-                        <span className="text-[9px] font-bold text-indigo-500">Total: {(Object.values(item.quantityAssignments || {}) as number[]).reduce((a, b) => a + b, 0)} / {item.quantity}</span>
+                        <span className="text-[9px] font-bold text-indigo-500">Total: {(Object.values(item.quantityAssignments || {}) as number[]).reduce((a, b) => a + b, 0).toFixed(2)} / {item.quantity}</span>
                       </div>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-400">Use decimals to share a unit (e.g. 0.5 each for two people).</p>
                       <div className="grid grid-cols-1 gap-2">
                         {selectedMembers.map(member => {
-                          const assigned = item.quantityAssignments?.[member.id] || 0;
+                          const assigned = item.quantityAssignments?.[member.id] ?? 0;
                           return (
                             <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-slate-900/30 rounded-2xl border border-gray-100/50 dark:border-slate-800">
-                              <div className="flex items-center gap-3">
-                                <img src={member.avatar} className="w-8 h-8 rounded-lg" />
-                                <span className="text-xs font-bold text-gray-700 dark:text-slate-300">{member.name}</span>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <img src={member.avatar} className="w-8 h-8 rounded-lg shrink-0" alt="" />
+                                <span className="text-xs font-bold text-gray-700 dark:text-slate-300 truncate">{member.name}</span>
                               </div>
-                              <div className="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-xl px-2 py-1 shadow-sm border border-gray-100 dark:border-slate-700">
+                              <div className="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-xl px-2 py-1 shadow-sm border border-gray-100 dark:border-slate-700 shrink-0">
                                 <button
-                                  onClick={() => updateQuantityAssignment(item.id, member.id, assigned - 1)}
+                                  type="button"
+                                  onClick={() => updateQuantityAssignment(item.id, member.id, Math.max(0, assigned - 1))}
                                   style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-                                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-indigo-500 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0"
+                                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-indigo-500 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700"
                                 >
-                                  <i className="fas fa-minus text-[10px]"></i>
+                                  <i className="fas fa-minus text-[10px]" aria-hidden />
                                 </button>
-                                <span className="text-xs font-black w-6 text-center dark:text-white">{assigned}</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={0.25}
+                                  value={assigned}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === '') {
+                                      updateQuantityAssignment(item.id, member.id, 0);
+                                      return;
+                                    }
+                                    const n = parseFloat(raw);
+                                    if (!Number.isNaN(n) && n >= 0) updateQuantityAssignment(item.id, member.id, n);
+                                  }}
+                                  onBlur={(e) => {
+                                    if (e.target.value === '') updateQuantityAssignment(item.id, member.id, 0);
+                                  }}
+                                  className="w-12 text-xs font-bold text-center dark:bg-slate-800 dark:text-white border-0 rounded focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  aria-label={`Units for ${member.name}`}
+                                />
                                 <button
+                                  type="button"
                                   onClick={() => updateQuantityAssignment(item.id, member.id, assigned + 1)}
                                   style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-                                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-indigo-500 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0"
+                                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-indigo-500 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700"
                                 >
-                                  <i className="fas fa-plus text-[10px]"></i>
+                                  <i className="fas fa-plus text-[10px]" aria-hidden />
                                 </button>
                               </div>
                             </div>

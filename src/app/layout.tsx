@@ -110,6 +110,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-[#fcfcfd] dark:bg-slate-900">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <title>SplitScan</title>
         <script
           dangerouslySetInnerHTML={{

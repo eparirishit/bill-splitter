@@ -26,6 +26,7 @@ import { extractReceiptData } from '@/ai/extract-receipt-data';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { AnalyticsClientService } from '@/services/analytics-client';
+import { getFlowState, saveFlowState, type FlowStateSnapshot } from '@/services/flow-state-service';
 import { supabase, generateImageHash } from '@/lib/supabase';
 
 // MOCK CONSTANTS (Fallbacks)
@@ -64,6 +65,7 @@ function BillSplitterFlow() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [savedFlowState, setSavedFlowState] = useState<FlowStateSnapshot | null>(null);
 
   // Theme State
   const [darkMode, setDarkMode] = useState<boolean>(false);
@@ -165,6 +167,39 @@ function BillSplitterFlow() {
     scanCount: 0,
     manualCount: 0
   });
+
+  // Fetch saved flow state for cross-device resume (when at dashboard)
+  useEffect(() => {
+    if (!isAuthenticated || !authUser?.id || currentStep !== Step.FLOW_SELECTION) return;
+    let cancelled = false;
+    getFlowState(authUser.id.toString()).then((state) => {
+      if (cancelled || !state) return;
+      const step = state.currentStep;
+      const hasProgress = step > Step.FLOW_SELECTION && step < Step.SUCCESS && state.billData != null;
+      if (hasProgress) setSavedFlowState(state);
+    });
+    return () => { cancelled = true; };
+  }, [isAuthenticated, authUser?.id, currentStep]);
+
+  // Debounced save of flow state for cross-device resume
+  const saveFlowStateRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated || !authUser?.id || flow === AppFlow.NONE || currentStep < Step.UPLOAD || currentStep > Step.REVIEW) return;
+    saveFlowStateRef.current && clearTimeout(saveFlowStateRef.current);
+    saveFlowStateRef.current = setTimeout(() => {
+      saveFlowStateRef.current = null;
+      const previewUrl = typeof previewImage === 'string' && previewImage.startsWith('http') ? previewImage : null;
+      saveFlowState(authUser.id.toString(), {
+        flow: flow,
+        currentStep,
+        billData: billData as unknown as Record<string, unknown>,
+        previewImageUrl: previewUrl,
+      }).catch(() => {});
+    }, 2500);
+    return () => {
+      if (saveFlowStateRef.current) clearTimeout(saveFlowStateRef.current);
+    };
+  }, [isAuthenticated, authUser?.id, flow, currentStep, billData, previewImage]);
 
   // Load History and Analytics
   useEffect(() => {
@@ -274,6 +309,8 @@ function BillSplitterFlow() {
     setOriginalExtraction(null);
     setReceiptId(null);
     setShowFeedback(false);
+    setSavedFlowState(null);
+    if (authUser?.id) saveFlowState(authUser.id.toString(), { flow: 'NONE', currentStep: 0, billData: null }).catch(() => {});
   };
 
   const cancelEdit = () => {
@@ -296,7 +333,28 @@ function BillSplitterFlow() {
     setFlow(AppFlow.NONE);
     setCurrentStep(Step.FLOW_SELECTION);
     setShowFeedback(false);
+    setSavedFlowState(null);
+    if (authUser?.id) saveFlowState(authUser.id.toString(), { flow: 'NONE', currentStep: 0, billData: null }).catch(() => {});
   };
+
+  const handleResumeFromSaved = () => {
+    if (!savedFlowState) return;
+    const flowEnum = savedFlowState.flow === AppFlow.SCAN ? AppFlow.SCAN : savedFlowState.flow === AppFlow.MANUAL ? AppFlow.MANUAL : AppFlow.NONE;
+    setFlow(flowEnum);
+    setCurrentStep(savedFlowState.currentStep as Step);
+    const restored = savedFlowState.billData as BillData;
+    if (restored && typeof restored === 'object') {
+      setBillData({
+        ...restored,
+        id: restored.id || Math.random().toString(36).substr(2, 9),
+      });
+    }
+    setPreviewImage(savedFlowState.previewImageUrl || null);
+    setSavedFlowState(null);
+    toast({ title: 'Resumed', description: 'Continue where you left off.' });
+  };
+
+  const handleDismissResume = () => setSavedFlowState(null);
 
   const handleEditHistorical = async (item: any) => {
     if (!authUser?.id) {
@@ -667,6 +725,8 @@ function BillSplitterFlow() {
 
       setEditingExpenseId(null); // Clear editing state after successful save
       setCurrentStep(Step.SUCCESS);
+      setSavedFlowState(null);
+      if (authUser?.id) saveFlowState(authUser.id.toString(), { flow: 'NONE', currentStep: 0, billData: null }).catch(() => {});
 
     } catch (error) {
       console.error("Sync failed", error);
@@ -952,7 +1012,38 @@ function BillSplitterFlow() {
         ) : (
           <>
         {currentStep === Step.FLOW_SELECTION && (
-          <DashboardView
+          <>
+            {savedFlowState && (
+              <div className="px-4 pt-2 pb-0">
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Continue where you left off</p>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">
+                      {savedFlowState.updatedAt
+                        ? `Last updated ${new Date(savedFlowState.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+                        : 'You have a split in progress on another device.'}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleResumeFromSaved}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors"
+                    >
+                      Resume
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDismissResume}
+                      className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-sm font-bold hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DashboardView
             user={authUser}
             greeting={getGreeting()}
             analytics={analytics}
@@ -976,7 +1067,8 @@ function BillSplitterFlow() {
               setEditingExpenseId(null); // Clear editing state
             }}
             onHistoryItemClick={handleEditHistorical}
-          />
+            />
+          </>
         )}
 
         {currentStep === Step.UPLOAD && (

@@ -32,7 +32,7 @@ export const AIOutputSchema = z.object({
     z.object({
       name: z.string().min(1).describe('The name of the item.'),
       price: z.number().positive().describe('The price of the item.'),
-      quantity: z.number().min(1).optional().default(1).describe('The quantity of the item purchased.'),
+      quantity: z.number().min(0).transform((n) => (n >= 1 ? n : 1)).optional().default(1).describe('The quantity of the item purchased.'),
     })
   ).min(1).describe('A list of items purchased.'),
   totalCost: z.number().positive().describe('The total cost of the bill as printed on the receipt.'),

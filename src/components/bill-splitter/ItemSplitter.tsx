@@ -332,7 +332,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                                 <img src={member.avatar} className="w-8 h-8 rounded-lg shrink-0" alt="" />
                                 <span className="text-xs font-bold text-gray-700 dark:text-slate-300 truncate">{member.name}</span>
                               </div>
-                              <div className="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-xl px-2 py-1 shadow-sm border border-gray-100 dark:border-slate-700 shrink-0">
+                              <div className="flex items-center gap-2 bg-gray-50/80 dark:bg-slate-700/50 px-2 py-2 rounded-xl border border-gray-100 dark:border-slate-700 shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => updateQuantityAssignment(item.id, member.id, Math.max(0, assigned - 1))}
@@ -358,7 +358,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                                   onBlur={(e) => {
                                     if (e.target.value === '') updateQuantityAssignment(item.id, member.id, 0);
                                   }}
-                                  className="w-12 text-xs font-bold text-center dark:bg-slate-800 dark:text-white border-0 rounded focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  className="w-8 text-xs font-black text-center text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 !min-h-0 !p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   aria-label={`Units for ${member.name}`}
                                 />
                                 <button

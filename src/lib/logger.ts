@@ -106,19 +106,6 @@ class Logger {
     return parts.join(' ');
   }
 
-  private logToConsole(entry: LogEntry): void {
-    const colors = {
-      [LogLevel.DEBUG]: '\x1b[36m', // Cyan
-      [LogLevel.INFO]: '\x1b[32m',  // Green
-      [LogLevel.WARN]: '\x1b[33m',  // Yellow
-      [LogLevel.ERROR]: '\x1b[31m', // Red
-    };
-
-    const reset = '\x1b[0m';
-    const color = colors[entry.level] || '';
-
-    console.log(`${color}${this.formatMessage(entry)}${reset}`);
-  }
 
   debug(message: string, context?: LogContext, metadata?: Record<string, any>): void {
     this.outputLog(this.formatLog(LogLevel.DEBUG, message, context, undefined, metadata));

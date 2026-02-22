@@ -41,11 +41,11 @@ export async function POST(request: NextRequest) {
 
     // Note: File upload is handled separately via uploadImageToStorage
     // We only track the receipt processing here with the already-uploaded image URL
-    const receiptId = await AnalyticsService.trackReceiptProcessing(
-      user.userId,
-      null, // File is not needed since imageUrl is provided
-      aiExtraction as ExtractReceiptDataOutput,
-      processingTimeMs || 0,
+    const receiptId = await AnalyticsService.trackReceiptProcessing({
+      userId: user.userId,
+      file: null, // File is not needed since imageUrl is provided
+      aiExtraction: aiExtraction as ExtractReceiptDataOutput,
+      processingTimeMs: processingTimeMs || 0,
       aiModelVersion,
       aiProvider,
       aiModelName,
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       existingImageHash,
       originalFilename,
       fileSize
-    );
+    });
 
     return NextResponse.json({ success: true, receiptId });
   } catch (error) {

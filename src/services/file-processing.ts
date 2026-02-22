@@ -5,13 +5,6 @@ export interface FileValidationResult {
   error?: string | null;
 }
 
-export interface ImageProcessingResult {
-  success: boolean;
-  dataUri?: string;
-  error?: string;
-  sizeKB?: number;
-}
-
 export class FileProcessingService {
   private static readonly MIN_FILE_SIZE_BYTES = 1024; // 1KB
   private static readonly ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -75,65 +68,4 @@ export class FileProcessingService {
   static isValidImageType(mimeType: string): boolean {
     return this.ALLOWED_IMAGE_TYPES.includes(mimeType);
   }
-
-  static async processImage(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = () => {
-        const img = new Image();
-        
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            if (!ctx) {
-              reject(new Error('Failed to get canvas context'));
-              return;
-            }
-
-            // Calculate new dimensions while maintaining aspect ratio
-            const maxWidth = 2048;
-            const maxHeight = 2048;
-            let { width, height } = img;
-
-            if (width > maxWidth || height > maxHeight) {
-              const ratio = Math.min(maxWidth / width, maxHeight / height);
-              width *= ratio;
-              height *= ratio;
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-
-            // Enable high-quality rendering for better text recognition
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-
-            // Draw image on canvas
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Convert to data URI
-            const dataUri = canvas.toDataURL('image/jpeg', 0.9);
-            resolve(dataUri);
-          } catch (error) {
-            reject(new Error('Failed to process image'));
-          }
-        };
-
-        img.onerror = () => {
-          reject(new Error('Failed to load image'));
-        };
-
-        img.src = reader.result as string;
-      };
-
-      reader.onerror = () => {
-        reject(new Error('Failed to read file'));
-      };
-
-      reader.readAsDataURL(file);
-    });
-  }
-} 
+}

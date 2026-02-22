@@ -1,7 +1,7 @@
 import { AI_SERVER_CONFIG } from '@/lib/config.server';
 import { CorrectionTrackingService } from '@/services/correction-tracking';
 import { FeedbackService } from '@/services/feedback-service';
-import { ReceiptTrackingService } from '@/services/receipt-tracking';
+import { ReceiptTrackingService, type TrackReceiptOptions } from '@/services/receipt-tracking';
 import { UserTrackingService } from '@/services/user-tracking';
 import { ExtractReceiptDataOutput, UserFeedback } from '@/types/analytics';
 
@@ -16,40 +16,12 @@ export class AnalyticsService {
   /**
    * Track receipt processing from upload to completion
    */
-  static async trackReceiptProcessing(
-    userId: string,
-    file: File | null,
-    aiExtraction: ExtractReceiptDataOutput,
-    processingTimeMs: number,
-    aiModelVersion: string = AI_SERVER_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
-    aiProvider?: string,
-    aiModelName?: string,
-    aiTokensUsed?: number,
-    aiProcessingTimeMs?: number,
-    existingImageUrl?: string, // Optional: if image already uploaded, reuse the URL
-    existingImageHash?: string, // Optional: hash if image already uploaded
-    originalFilename?: string, // Optional: filename if file not provided
-    fileSize?: number // Optional: file size if file not provided
-  ): Promise<string> {
+  static async trackReceiptProcessing(options: TrackReceiptOptions): Promise<string> {
     // Track receipt processing
-    const receiptId = await ReceiptTrackingService.trackReceiptProcessing(
-      userId,
-      file,
-      aiExtraction,
-      processingTimeMs,
-      aiModelVersion,
-      aiProvider,
-      aiModelName,
-      aiTokensUsed,
-      aiProcessingTimeMs,
-      existingImageUrl,
-      existingImageHash,
-      originalFilename,
-      fileSize
-    );
+    const receiptId = await ReceiptTrackingService.trackReceiptProcessing(options);
 
     // Increment user's receipt count
-    await UserTrackingService.incrementReceiptProcessed(userId);
+    await UserTrackingService.incrementReceiptProcessed(options.userId);
 
     return receiptId;
   }

@@ -1,4 +1,6 @@
 import type { CreateExpense, ExtractReceiptDataOutput, FinalSplit } from "@/types";
+import { ExpenseCalculationService } from "@/services/expense-calculations";
+import { AI_CONFIG } from '@/lib/config';
 
 export interface ExpensePayloadOptions {
   storeName: string;
@@ -61,22 +63,22 @@ export class ExpensePayloadService {
     date: string
   ): string {
     const subtotal = billData.items.reduce((sum, item) => sum + item.price, 0);
-    let notes = `Store: ${storeName}\nDate: ${this.formatToLocalDateString(date)}\n\nItems Subtotal: ${this.formatCurrency(subtotal)}\n`;
+    let notes = `Store: ${storeName}\nDate: ${this.formatToLocalDateString(date)}\n\nItems Subtotal: ${ExpenseCalculationService.formatCurrency(subtotal)}\n`;
 
     billData.items.forEach(item => {
-      notes += `- ${item.name}: ${this.formatCurrency(item.price)}\n`;
+      notes += `- ${item.name}: ${ExpenseCalculationService.formatCurrency(item.price)}\n`;
     });
 
     if ((billData.taxes ?? 0) > 0) {
-      notes += `Tax: ${this.formatCurrency(billData.taxes ?? 0)}\n`;
+      notes += `Tax: ${ExpenseCalculationService.formatCurrency(billData.taxes ?? 0)}\n`;
     }
     if ((billData.otherCharges ?? 0) > 0) {
-      notes += `Other Charges: ${this.formatCurrency(billData.otherCharges ?? 0)}\n`;
+      notes += `Other Charges: ${ExpenseCalculationService.formatCurrency(billData.otherCharges ?? 0)}\n`;
     }
     if ((billData.discount ?? 0) > 0) {
-      notes += `Discount Applied: -${this.formatCurrency(billData.discount ?? 0)}\n`;
+      notes += `Discount Applied: -${ExpenseCalculationService.formatCurrency(billData.discount ?? 0)}\n`;
     }
-    notes += `\nGrand Total (on receipt): ${this.formatCurrency(billData.totalCost)}`;
+    notes += `\nGrand Total (on receipt): ${ExpenseCalculationService.formatCurrency(billData.totalCost)}`;
     if (billData.discrepancyFlag) {
       notes += `\n\nNote: Original bill data discrepancy: ${billData.discrepancyMessage}`;
     }
@@ -89,10 +91,10 @@ export class ExpensePayloadService {
   ): { isValid: boolean; error?: string } {
     // Final validation
     const totalOwed = parseFloat(expensePayload.cost);
-    if (Math.abs(totalOwed - totalCost) > 0.005) {
+    if (Math.abs(totalOwed - totalCost) > AI_CONFIG.SPLIT_VALIDATION_TOLERANCE) {
       return {
         isValid: false,
-        error: `Validation Error: Split total (${this.formatCurrency(totalOwed)}) doesn't match bill total (${this.formatCurrency(totalCost)}).`
+        error: `Validation Error: Split total (${ExpenseCalculationService.formatCurrency(totalOwed)}) doesn't match bill total (${ExpenseCalculationService.formatCurrency(totalCost)}).`
       };
     }
 
@@ -107,10 +109,4 @@ export class ExpensePayloadService {
     const date = new Date(dateInput);
     return date.toLocaleDateString('en-CA');
   }
-
-  private static formatCurrency(amount: number | undefined): string {
-    if (amount === undefined) return '-';
-    const value = (typeof amount === 'number' && !isNaN(amount)) ? amount : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-  }
-} 
+}

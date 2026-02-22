@@ -1,4 +1,5 @@
 import type { ExtractReceiptDataOutput, FinalSplit, ItemSplit, SplitwiseUser } from "@/types";
+import { AI_CONFIG } from '@/lib/config';
 
 export interface ExpenseCalculationResult {
   itemSplits: ItemSplit[];
@@ -27,7 +28,7 @@ export class ExpenseCalculationService {
 
     const equalSplitAmount = price / memberIds.length;
     const customAmounts: Record<string, number> = {};
-    
+
     memberIds.forEach(memberId => {
       customAmounts[memberId] = equalSplitAmount;
     });
@@ -54,10 +55,10 @@ export class ExpenseCalculationService {
     if (amount === undefined || amount === null) {
       return '$0.00';
     }
-    
-    return new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency: 'USD' 
+
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
     }).format(amount);
   }
 
@@ -80,9 +81,9 @@ export class ExpenseCalculationService {
     // Calculate total allocated from items
     itemSplits.forEach(split => {
       if (split.splitType === 'equal') {
-        // For equal splits, we need to get the price from the original bill data
-        // This is a limitation of the current design - we should pass the original items
-        totalAllocated += 0; // This will be calculated differently
+        // For equal splits, the entire item price is allocated across members
+        const matchingItem = billData.items.find((_, idx) => String(idx) === split.itemId || billData.items[parseInt(split.itemId)]?.name);
+        totalAllocated += matchingItem?.price || 0;
       } else {
         totalAllocated += Object.values(split.customAmounts || {}).reduce((sum, amount) => sum + amount, 0);
       }
@@ -96,7 +97,7 @@ export class ExpenseCalculationService {
       totalAllocated += billData.otherCharges;
     }
 
-    const isValid = Math.abs(totalAllocated - totalCost) <= 0.01; // Allow for small rounding differences
+    const isValid = Math.abs(totalAllocated - totalCost) <= AI_CONFIG.ROUNDING_TOLERANCE; // Allow for small rounding differences
 
     return {
       itemSplits,
@@ -127,33 +128,6 @@ export class ExpenseCalculationService {
     return newAllocations;
   }
 
-  static calculateDiscrepancy(
-    items: any[],
-    totalCost: number,
-    taxes?: number,
-    otherCharges?: number,
-    discount?: number
-  ): { flag: boolean; message?: string; calculatedTotal: number; difference: number } {
-    const itemsSum = items.reduce((sum, item) => sum + item.price, 0);
-    const taxesAmount = taxes ?? 0;
-    const otherChargesAmount = otherCharges ?? 0;
-    const discountAmount = discount ?? 0;
-    const calculatedTotal = itemsSum + taxesAmount + otherChargesAmount - discountAmount;
-    const difference = Math.abs(calculatedTotal - totalCost);
-    
-    const flag = difference > 0.02;
-    const message = flag 
-      ? `Receipt total ($${totalCost.toFixed(2)}) differs from calculated total ($${calculatedTotal.toFixed(2)}) by $${difference.toFixed(2)}. This may indicate missing items, fees, or rounding differences.`
-      : undefined;
-
-    return {
-      flag,
-      message,
-      calculatedTotal,
-      difference
-    };
-  }
-
   static calculateEqualSplitWithCents(
     totalAmount: number,
     memberCount: number
@@ -161,13 +135,13 @@ export class ExpenseCalculationService {
     const totalCents = Math.round(totalAmount * 100);
     const baseCents = Math.floor(totalCents / memberCount);
     const remainderCents = totalCents % memberCount;
-    
+
     const amounts: number[] = [];
     for (let i = 0; i < memberCount; i++) {
       const extraCent = i < remainderCents ? 1 : 0;
       amounts.push((baseCents + extraCent) / 100);
     }
-    
+
     return amounts;
   }
 
@@ -188,7 +162,7 @@ export class ExpenseCalculationService {
       const itemId = `item-${index}`;
       const splitInfo = itemSplits.find(s => s.itemId === itemId);
       if (!splitInfo || splitInfo.sharedBy.length === 0) return;
-      
+
       const costPerMember = item.price / splitInfo.sharedBy.length;
       splitInfo.sharedBy.forEach(memberId => {
         if (memberGrossTotals[memberId] !== undefined) {
@@ -237,7 +211,7 @@ export class ExpenseCalculationService {
         finalMemberShares[member.id] = proportion * targetTotal;
       });
     }
-    
+
     // Round shares and distribute pennies
     let roundedMemberShares: Record<string, number> = {};
     let sumOfRoundedShares = 0;
@@ -248,11 +222,11 @@ export class ExpenseCalculationService {
     });
 
     let discrepancy = parseFloat((targetTotal - sumOfRoundedShares).toFixed(2));
-    
-    if (Math.abs(discrepancy) > 0.005 && selectedMembers.length > 0) {
+
+    if (Math.abs(discrepancy) > AI_CONFIG.SPLIT_VALIDATION_TOLERANCE && selectedMembers.length > 0) {
       const memberIdsToAdjust = selectedMembers
         .map(m => m.id)
-        .sort((a, b) => (roundedMemberShares[b] ?? 0) - (roundedMemberShares[a] ?? 0)); 
+        .sort((a, b) => (roundedMemberShares[b] ?? 0) - (roundedMemberShares[a] ?? 0));
 
       let remainingDiscrepancyCents = Math.round(discrepancy * 100);
       let i = 0;

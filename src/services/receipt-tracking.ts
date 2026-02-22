@@ -1,33 +1,42 @@
 import { getSupabaseClient, uploadImageToStorage, generateImageHash } from '@/lib/supabase';
 import { SUPABASE_STORAGE_CONFIG } from '@/lib/config';
-import { ExtractReceiptDataOutput, ReceiptProcessingHistory } from '@/types/analytics';
+import { CorrectionData, ExtractReceiptDataOutput, ReceiptProcessingHistory } from '@/types/analytics';
+
+export interface TrackReceiptOptions {
+  userId: string;
+  file: File | null;
+  aiExtraction: ExtractReceiptDataOutput;
+  processingTimeMs: number;
+  aiModelVersion?: string;
+  aiProvider?: string;
+  aiModelName?: string;
+  aiTokensUsed?: number;
+  aiProcessingTimeMs?: number;
+  existingImageUrl?: string;
+  existingImageHash?: string;
+  originalFilename?: string;
+  fileSize?: number;
+}
 
 export class ReceiptTrackingService {
   /**
    * Track receipt processing and store image
    */
-  static async trackReceiptProcessing(
-    userId: string,
-    file: File | null,
-    aiExtraction: ExtractReceiptDataOutput,
-    processingTimeMs: number,
-    aiModelVersion: string = 'v1.0',
-    aiProvider?: string,
-    aiModelName?: string,
-    aiTokensUsed?: number,
-    aiProcessingTimeMs?: number,
-    existingImageUrl?: string, // Optional: if image already uploaded, reuse the URL
-    existingImageHash?: string, // Optional: hash if image already uploaded
-    originalFilename?: string, // Optional: filename if file not provided
-    fileSize?: number // Optional: file size if file not provided
-  ): Promise<string> {
+  static async trackReceiptProcessing(options: TrackReceiptOptions): Promise<string> {
+    const {
+      userId, file, aiExtraction, processingTimeMs,
+      aiModelVersion = 'v1.0', aiProvider, aiModelName,
+      aiTokensUsed, aiProcessingTimeMs,
+      existingImageUrl, existingImageHash,
+      originalFilename, fileSize
+    } = options;
     try {
       // Upload image to Supabase Storage (or reuse existing URL if provided)
       let imageUrl: string;
       let imageHash: string;
       let filename: string;
       let size: number;
-      
+
       if (existingImageUrl) {
         // Reuse existing URL
         imageUrl = existingImageUrl;
@@ -92,7 +101,7 @@ export class ReceiptTrackingService {
    */
   static async updateWithCorrections(
     receiptId: string,
-    corrections: any
+    corrections: CorrectionData
   ): Promise<void> {
     try {
       const supabase = getSupabaseClient();
@@ -118,7 +127,7 @@ export class ReceiptTrackingService {
    */
   static async updateWithFeedback(
     receiptId: string,
-    feedback: any
+    feedback: Record<string, unknown>
   ): Promise<void> {
     try {
       const supabase = getSupabaseClient();

@@ -1,3 +1,5 @@
+import { AI_CONFIG } from '@/lib/config';
+
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
@@ -43,7 +45,7 @@ export class ExpenseValidationService {
 
   static validatePriceInput(value: string): ValidationResult {
     const errors: string[] = [];
-    
+
     // Allow empty string for intermediate input
     if (value === '') {
       return { isValid: true, errors: [] };
@@ -86,7 +88,7 @@ export class ExpenseValidationService {
     }, 0);
 
     const difference = Math.abs(totalAllocated - totalCost);
-    if (difference > 0.01) { // Allow for small rounding differences
+    if (difference > AI_CONFIG.ROUNDING_TOLERANCE) { // Allow for small rounding differences
       errors.push("Total allocated amount must equal the total bill amount.");
     }
 

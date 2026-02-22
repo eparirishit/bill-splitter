@@ -21,14 +21,15 @@ export const APP_CONFIG = {
 export const SUPABASE_STORAGE_CONFIG = {
   BUCKET_NAME: process.env.SUPABASE_STORAGE_BUCKET_NAME || 'receipt-images',
   SIGNED_URL_EXPIRY_SECONDS: parseInt(process.env.SUPABASE_SIGNED_URL_EXPIRY_SECONDS || '7200', 10), // Default: 2 hours (7200 seconds)
-  SIGNED_URL_EXPIRY_HOURS: parseFloat(process.env.SUPABASE_SIGNED_URL_EXPIRY_HOURS || '2'), // Default: 2 hours
 } as const;
 
 // AI Configuration (client-safe)
 // Client-safe AI configuration — does NOT contain API keys.
 // For API keys, use AI_SERVER_CONFIG from '@/lib/config.server'.
 export const AI_CONFIG = {
-  DISCREPANCY_TOLERANCE: 0.02,
+  DISCREPANCY_TOLERANCE: 0.02, // Tolerance for receipt total vs calculated total mismatch
+  ROUNDING_TOLERANCE: 0.01, // Tolerance for rounding differences in price/amount comparisons
+  SPLIT_VALIDATION_TOLERANCE: 0.005, // Tolerance for split total vs bill total validation
   MAX_IMAGE_SIZE_MB: 10,
   MAX_PAYLOAD_SIZE_KB: 3072, // 3MB for Vercel limits
   MAX_RETRIES: 3,

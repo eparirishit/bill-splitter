@@ -1,4 +1,5 @@
 import type { CreateExpense, SplitwiseGroup, SplitwiseUser, SplitwiseFriend } from '@/types';
+import { AI_CONFIG } from '@/lib/config';
 
 export class SplitwiseService {
   private static async makeApiRequest(endpoint: string, options: RequestInit = {}) {
@@ -102,7 +103,7 @@ export class SplitwiseService {
   // Add a new friend
   static async addFriend(email: string, firstName?: string, lastName?: string): Promise<SplitwiseFriend> {
     try {
-      const requestBody: any = { user_email: email };
+      const requestBody: Record<string, string> = { user_email: email };
       if (firstName) requestBody.first_name = firstName;
       if (lastName) requestBody.last_name = lastName;
 
@@ -173,7 +174,7 @@ export class SplitwiseService {
       }
 
       // Check if total paid share equals total owed share
-      if (Math.abs(totalPaid - totalOwed) > 0.01) {
+      if (Math.abs(totalPaid - totalOwed) > AI_CONFIG.ROUNDING_TOLERANCE) {
         errors.shares = 'Total paid share must equal total owed share';
       }
     }
@@ -195,7 +196,7 @@ export class SplitwiseService {
     /** Amount each user paid (userId -> amount). Sum should equal cost. If set, used for paid_share; else first user pays full. */
     paidShares?: Record<string, number>;
   }): CreateExpense {
-    const payload: any = {
+    const payload: CreateExpense = {
       cost: expenseData.cost.toFixed(2),
       description: expenseData.description,
       group_id: expenseData.group_id,

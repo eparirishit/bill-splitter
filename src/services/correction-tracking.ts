@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '@/lib/supabase';
+import { AI_CONFIG } from '@/lib/config';
 import { CorrectionData, CorrectionPattern, ExtractReceiptDataOutput } from '@/types/analytics';
 
 export class CorrectionTrackingService {
@@ -31,7 +32,7 @@ export class CorrectionTrackingService {
         const originalItem = originalExtraction.items[index];
         if (originalItem) {
           const nameChanged = originalItem.name !== modifiedItem.name;
-          const priceChanged = Math.abs(originalItem.price - modifiedItem.price) > 0.01;
+          const priceChanged = Math.abs(originalItem.price - modifiedItem.price) > AI_CONFIG.ROUNDING_TOLERANCE;
 
           if (nameChanged || priceChanged) {
             let correctionType: 'name' | 'price' | 'both' = 'name';
@@ -52,8 +53,8 @@ export class CorrectionTrackingService {
     }
 
     // Track tax corrections
-    if (userModifications.taxes !== undefined && 
-        Math.abs((originalExtraction.taxes || 0) - userModifications.taxes) > 0.01) {
+    if (userModifications.taxes !== undefined &&
+      Math.abs((originalExtraction.taxes || 0) - userModifications.taxes) > AI_CONFIG.ROUNDING_TOLERANCE) {
       corrections.taxes = {
         original: originalExtraction.taxes || 0,
         corrected: userModifications.taxes
@@ -61,8 +62,8 @@ export class CorrectionTrackingService {
     }
 
     // Track other charges corrections
-    if (userModifications.otherCharges !== undefined && 
-        Math.abs((originalExtraction.otherCharges || 0) - userModifications.otherCharges) > 0.01) {
+    if (userModifications.otherCharges !== undefined &&
+      Math.abs((originalExtraction.otherCharges || 0) - userModifications.otherCharges) > AI_CONFIG.ROUNDING_TOLERANCE) {
       corrections.other_charges = {
         original: originalExtraction.otherCharges || 0,
         corrected: userModifications.otherCharges
@@ -70,8 +71,8 @@ export class CorrectionTrackingService {
     }
 
     // Track total cost corrections
-    if (userModifications.totalCost !== undefined && 
-        Math.abs(originalExtraction.totalCost - userModifications.totalCost) > 0.01) {
+    if (userModifications.totalCost !== undefined &&
+      Math.abs(originalExtraction.totalCost - userModifications.totalCost) > AI_CONFIG.ROUNDING_TOLERANCE) {
       corrections.total_cost = {
         original: originalExtraction.totalCost,
         corrected: userModifications.totalCost
@@ -80,9 +81,9 @@ export class CorrectionTrackingService {
 
     const totalItems = originalExtraction.items.length;
     const correctedItems = corrections.items.length;
-    const correctionCount = correctedItems + 
-      (corrections.taxes ? 1 : 0) + 
-      (corrections.other_charges ? 1 : 0) + 
+    const correctionCount = correctedItems +
+      (corrections.taxes ? 1 : 0) +
+      (corrections.other_charges ? 1 : 0) +
       (corrections.total_cost ? 1 : 0);
 
     return {

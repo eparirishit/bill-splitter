@@ -1,6 +1,7 @@
 "use client";
 import { Logo } from "@/components/icons/logo";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { PullToRefresh } from "@/components/pwa/pull-to-refresh";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -155,10 +156,12 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <BillSplittingProvider>
+              <PullToRefresh>
               <Header />
               <main className="flex-1 w-full max-w-md mx-auto bg-background transition-colors">
                 {children}
               </main>
+              </PullToRefresh>
               <InstallPrompt />
               <Toaster />
             </BillSplittingProvider>

@@ -44,7 +44,7 @@ function LoginContent() {
 
   if (isAuthLoading || (!isAuthLoading && isAuthenticated)) {
     return (
-      <div className="h-dvh flex justify-center items-center overflow-hidden">
+      <div className="fixed inset-0 h-dvh w-full flex justify-center items-center overflow-hidden bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -52,7 +52,7 @@ function LoginContent() {
 
   return (
     <>
-      <div className="h-dvh overflow-hidden flex flex-col items-center justify-center p-6 sm:p-8 animate-fade-in">
+      <div className="fixed inset-0 h-dvh w-full overflow-hidden flex flex-col items-center justify-center p-6 sm:p-8 animate-fade-in bg-background">
         <div className="flex flex-col items-center text-center max-w-xs flex-shrink-0">
           <div className="mb-3 sm:mb-4 transition-transform duration-1000">
             <Logo className="w-24 h-24 sm:w-32 sm:h-32 mx-auto" />

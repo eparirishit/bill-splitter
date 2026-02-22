@@ -57,6 +57,17 @@ export function DashboardView({
     onResumeClick,
     onDismissResume
 }: DashboardViewProps) {
+    const getDraftTotal = (draft: { totalAmount?: number; billData?: Record<string, unknown> | null }) => {
+        if (draft.totalAmount != null && draft.totalAmount > 0) return draft.totalAmount;
+        const bd = draft.billData;
+        if (!bd?.items || !Array.isArray(bd.items)) return 0;
+        const subtotal = (bd.items as { price?: number }[]).reduce((s, i) => s + (i.price ?? 0), 0);
+        const tax = (bd.tax as number) ?? 0;
+        const discount = (bd.discount as number) ?? 0;
+        const other = (bd.otherCharges as number) ?? 0;
+        return subtotal + tax + other - discount;
+    };
+
     return (
         <div className="flex flex-col gap-6 p-6 animate-slide-up">
             {/* Header */}
@@ -198,48 +209,45 @@ export function DashboardView({
                             <span className="text-[8px] font-bold text-primary uppercase tracking-widest">Swipe →</span>
                         </div>
                     </div>
-                    <div className="flex gap-4 overflow-x-auto pb-6 px-1 no-scrollbar snap-x">
+                    <div className="flex gap-3 overflow-x-auto pb-4 px-1 no-scrollbar snap-x">
                         {drafts.map((draft, idx) => (
-                            <div key={draft.billId || idx} className="relative group/draft snap-start shrink-0 w-[240px]">
+                            <div key={draft.billId || idx} className="relative group/draft snap-start shrink-0 w-[160px]">
                                 <div
                                     onClick={() => onDraftClick?.(draft)}
-                                    className="w-full p-6 bg-card border border-primary/10 rounded-[2.5rem] flex flex-col gap-4 group hover:border-primary/30 transition-all active:scale-[0.98] cursor-pointer shadow-xl shadow-primary/5 h-full"
+                                    className="w-full p-4 bg-card border border-primary/10 rounded-[2.5rem] flex flex-col gap-2.5 group hover:border-primary/30 transition-all active:scale-[0.98] cursor-pointer shadow-xl shadow-primary/5 h-full"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shrink-0">
-                                            <i className={`fas ${draft.flow === 'SCAN' ? 'fa-file-invoice-dollar' : 'fa-keyboard'} text-lg`}></i>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shrink-0">
+                                            <i className={`fas ${draft.flow === 'SCAN' ? 'fa-file-invoice-dollar' : 'fa-keyboard'} text-[9px] sm:text-[10px]`}></i>
                                         </div>
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 onDeleteDraft?.(draft);
                                             }}
-                                            className="!w-8 !h-8 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center transition-all hover:bg-destructive hover:text-white relative z-10"
+                                            className="!w-6 !h-6 sm:!w-7 sm:!h-7 !min-h-0 !p-0 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center transition-all hover:bg-destructive hover:text-white relative z-10 shrink-0"
                                             title="Delete draft"
                                         >
-                                            <i className="fas fa-trash-alt text-xs"></i>
+                                            <i className="fas fa-trash-alt text-[9px] sm:text-[10px]"></i>
                                         </button>
                                     </div>
-                                    
                                     <div className="min-w-0">
-                                        <p className="text-base font-black text-foreground leading-tight truncate">{draft.storeName || 'Untitled Split'}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                                        <p className="text-sm font-bold text-foreground leading-tight truncate">{draft.storeName || 'Untitled'}</p>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <p className="text-[9px] font-bold text-muted-foreground uppercase">
                                                 {new Date(draft.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                             </p>
-                                            <span className="w-1 h-1 rounded-full bg-border"></span>
-                                            <p className="text-[10px] font-bold text-primary uppercase">
-                                                {Math.round((draft.currentStep / 4) * 100)}% Done
+                                            <span className="w-0.5 h-0.5 rounded-full bg-border"></span>
+                                            <p className="text-[9px] font-bold text-primary uppercase">
+                                                {Math.round((draft.currentStep / 4) * 100)}%
                                             </p>
                                         </div>
                                     </div>
-
-                                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/50">
-                                        <p className="text-lg font-black text-foreground">${(draft.totalAmount || 0).toFixed(2)}</p>
-                                        <div className="flex items-center gap-1 text-[10px] font-black text-primary uppercase tracking-tighter group-hover:translate-x-1 transition-transform">
-                                            <span>Resume</span>
-                                            <i className="fas fa-arrow-right text-[8px]"></i>
-                                        </div>
+                                    <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-border/50">
+                                        <p className="text-sm font-black text-foreground">${getDraftTotal(draft).toFixed(2)}</p>
+                                        <span className="text-[9px] font-bold text-primary uppercase group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5">
+                                            Resume <i className="fas fa-arrow-right"></i>
+                                        </span>
                                     </div>
                                 </div>
                             </div>

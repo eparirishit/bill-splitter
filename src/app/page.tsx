@@ -79,9 +79,11 @@ function BillSplitterFlow() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // ------------------------------------------------------------------
   // Effects
-  // ------------------------------------------------------------------
+  // Scroll to top when navigating between screens
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentStep, showAdmin]);
 
   // Initialize Theme
   useEffect(() => {

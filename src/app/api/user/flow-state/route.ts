@@ -96,7 +96,15 @@ export async function PUT(request: NextRequest) {
 
     const billId = billData?.id as string || 'default';
     const storeName = billData?.storeName as string || 'New Split';
-    const totalAmount = billData?.total as number || 0;
+    let totalAmount = (billData?.total as number) ?? 0;
+    // Compute from items when total is 0 (e.g. manual flow may not set total explicitly)
+    if (totalAmount === 0 && billData?.items && Array.isArray(billData.items)) {
+      const subtotal = (billData.items as { price?: number }[]).reduce((s, i) => s + (i.price ?? 0), 0);
+      const tax = (billData.tax as number) ?? 0;
+      const discount = (billData.discount as number) ?? 0;
+      const otherCharges = (billData.otherCharges as number) ?? 0;
+      totalAmount = subtotal + tax + otherCharges - discount;
+    }
 
     const supabase = getSupabaseClient();
 

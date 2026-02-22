@@ -3,48 +3,45 @@
 import { Loader2 } from "lucide-react";
 import * as React from "react";
 
-const PULL_THRESHOLD = 80;
+const PULL_THRESHOLD = 70;
 const MAX_PULL = 120;
 
 /**
  * Pull-to-refresh for PWA.
- * When the user pulls down from the top of the page, shows a refresh indicator
- * and reloads the page on release after threshold.
+ * Overlay-only: does not affect layout or scroll. Uses document scroll (window.scrollY).
  */
 export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const [pullDistance, setPullDistance] = React.useState(0);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [isEnabled, setIsEnabled] = React.useState(false);
+  const [isEnabled, setIsEnabled] = React.useState(true);
   const startY = React.useRef(0);
   const startScrollY = React.useRef(0);
   const currentPull = React.useRef(0);
 
   React.useEffect(() => {
-    // Enable on touch devices or when running as standalone PWA
     const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as { standalone?: boolean }).standalone === true;
-    setIsEnabled(hasTouch || isStandalone);
+    setIsEnabled(hasTouch);
   }, []);
 
   React.useEffect(() => {
     if (!isEnabled) return;
 
+    const getScrollY = () =>
+      window.scrollY ?? document.documentElement.scrollTop ?? 0;
+
     const handleTouchStart = (e: TouchEvent) => {
       startY.current = e.touches[0].clientY;
-      startScrollY.current = window.scrollY;
+      startScrollY.current = getScrollY();
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (startScrollY.current > 10) return; // Only when scrolled to top
+      if (startScrollY.current > 15) return;
 
       const currentY = e.touches[0].clientY;
       const deltaY = currentY - startY.current;
 
       if (deltaY > 0) {
-        // Pulling down - apply resistance for natural feel
-        const resisted = Math.min(deltaY * 0.5, MAX_PULL);
+        const resisted = Math.min(deltaY * 0.55, MAX_PULL);
         currentPull.current = resisted;
         setPullDistance(resisted);
         if (startScrollY.current <= 0) {
@@ -65,14 +62,26 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       startScrollY.current = 0;
     };
 
-    document.addEventListener("touchstart", handleTouchStart, { passive: true });
-    document.addEventListener("touchmove", handleTouchMove, { passive: false });
-    document.addEventListener("touchend", handleTouchEnd, { passive: true });
+    document.addEventListener("touchstart", handleTouchStart as EventListener, {
+      passive: true,
+    });
+    document.addEventListener("touchmove", handleTouchMove as EventListener, {
+      passive: false,
+    });
+    document.addEventListener("touchend", handleTouchEnd as EventListener, {
+      passive: true,
+    });
 
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart);
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
+      document.removeEventListener(
+        "touchstart",
+        handleTouchStart as EventListener
+      );
+      document.removeEventListener(
+        "touchmove",
+        handleTouchMove as EventListener
+      );
+      document.removeEventListener("touchend", handleTouchEnd as EventListener);
     };
   }, [isEnabled]);
 
@@ -82,13 +91,15 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* Pull indicator - fixed at top */}
       {(pullDistance > 0 || isRefreshing) && (
         <div
           className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 pb-2 pointer-events-none"
           style={{
             transform: `translateY(${Math.min(pullDistance, MAX_PULL) - 48}px)`,
-            transition: pullDistance === 0 && !isRefreshing ? "transform 0.2s ease-out" : "none",
+            transition:
+              pullDistance === 0 && !isRefreshing
+                ? "transform 0.2s ease-out"
+                : "none",
           }}
         >
           <div className="w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center">

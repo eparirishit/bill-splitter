@@ -1,4 +1,5 @@
 import { AI_CONFIG } from '@/lib/config';
+import { AI_SERVER_CONFIG } from '@/lib/config.server';
 import { downloadImageAsDataUri } from '@/lib/supabase';
 import { ImageProcessingError, ValidationError } from './errors';
 import type { AIOutput, DiscrepancyCheck } from './types';
@@ -140,19 +141,19 @@ export async function retryWithDelay<T>(
 }
 
 export function getAIProviderConfig(overrides?: { temperature?: number; maxTokens?: number }) {
-  const baseConfig = AI_CONFIG.PROVIDER === "google-gemini"
+  const baseConfig = AI_SERVER_CONFIG.PROVIDER === "google-gemini"
     ? {
-      modelName: AI_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
-      apiKey: AI_CONFIG.GOOGLE_GEMINI.API_KEY,
-      temperature: AI_CONFIG.GOOGLE_GEMINI.TEMPERATURE,
-      maxTokens: AI_CONFIG.GOOGLE_GEMINI.MAX_TOKENS,
+      modelName: AI_SERVER_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
+      apiKey: AI_SERVER_CONFIG.GOOGLE_GEMINI.API_KEY,
+      temperature: AI_SERVER_CONFIG.GOOGLE_GEMINI.TEMPERATURE,
+      maxTokens: AI_SERVER_CONFIG.GOOGLE_GEMINI.MAX_TOKENS,
     }
     : {
-      modelName: AI_CONFIG.OPENROUTER.MODEL_NAME,
-      apiKey: AI_CONFIG.OPENROUTER.API_KEY,
-      baseUrl: AI_CONFIG.OPENROUTER.BASE_URL,
-      temperature: AI_CONFIG.OPENROUTER.TEMPERATURE,
-      maxTokens: AI_CONFIG.OPENROUTER.MAX_TOKENS,
+      modelName: AI_SERVER_CONFIG.OPENROUTER.MODEL_NAME,
+      apiKey: AI_SERVER_CONFIG.OPENROUTER.API_KEY,
+      baseUrl: AI_SERVER_CONFIG.OPENROUTER.BASE_URL,
+      temperature: AI_SERVER_CONFIG.OPENROUTER.TEMPERATURE,
+      maxTokens: AI_SERVER_CONFIG.OPENROUTER.MAX_TOKENS,
     };
 
   if (overrides) {

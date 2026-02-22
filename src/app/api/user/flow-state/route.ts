@@ -1,3 +1,4 @@
+import { getAuthenticatedUser } from '@/lib/auth';
 import { getSupabaseClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -13,18 +14,18 @@ export interface FlowStatePayload {
 /** GET: Fetch the user's saved flow state(s) */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get('userId');
-    const type = request.nextUrl.searchParams.get('type') || 'last'; // 'last' or 'all'
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const type = request.nextUrl.searchParams.get('type') || 'last'; // 'last' or 'all'
 
     const supabase = getSupabaseClient();
     let query = supabase
       .from('user_flow_state')
       .select('flow, current_step, bill_data, preview_image_url, updated_at, bill_id, is_last_active, store_name, total_amount')
-      .eq('user_id', userId);
+      .eq('user_id', user.userId);
 
     if (type === 'last') {
       // Find the most recently updated state that is explicitly marked as last active
@@ -33,19 +34,19 @@ export async function GET(request: NextRequest) {
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
+
       return NextResponse.json({
         data: data
           ? {
-              flow: data.flow,
-              currentStep: data.current_step,
-              billData: data.bill_data,
-              previewImageUrl: data.preview_image_url ?? null,
-              updatedAt: data.updated_at,
-              billId: data.bill_id,
-            }
+            flow: data.flow,
+            currentStep: data.current_step,
+            billData: data.bill_data,
+            previewImageUrl: data.preview_image_url ?? null,
+            updatedAt: data.updated_at,
+            billId: data.bill_id,
+          }
           : null,
       });
     } else {
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('Flow state GET:', err);
     return NextResponse.json(
-      { error: 'Internal server error', details: (err as Error).message },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -78,18 +79,22 @@ export async function GET(request: NextRequest) {
 /** PUT: Save the user's current flow state */
 export async function PUT(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { userId, flow, currentStep, billData, previewImageUrl } = body as {
-      userId: string;
+    const { flow, currentStep, billData, previewImageUrl } = body as {
       flow: string;
       currentStep: number;
       billData: Record<string, any> | null;
       previewImageUrl?: string | null;
     };
 
-    if (!userId || flow == null || currentStep == null) {
+    if (flow == null || currentStep == null) {
       return NextResponse.json(
-        { error: 'userId, flow, and currentStep are required' },
+        { error: 'flow and currentStep are required' },
         { status: 400 }
       );
     }
@@ -113,7 +118,7 @@ export async function PUT(request: NextRequest) {
       await supabase
         .from('user_flow_state')
         .update({ is_last_active: false })
-        .eq('user_id', userId)
+        .eq('user_id', user.userId)
         .neq('bill_id', billId);
     }
 
@@ -122,7 +127,7 @@ export async function PUT(request: NextRequest) {
       .from('user_flow_state')
       .upsert(
         {
-          user_id: userId,
+          user_id: user.userId,
           bill_id: billId,
           flow: String(flow),
           current_step: Number(currentStep),
@@ -139,7 +144,7 @@ export async function PUT(request: NextRequest) {
     if (error) {
       console.error('Flow state PUT error:', error);
       return NextResponse.json(
-        { error: 'Failed to save flow state', details: error.message },
+        { error: 'Failed to save flow state' },
         { status: 500 }
       );
     }
@@ -157,12 +162,16 @@ export async function PUT(request: NextRequest) {
 /** DELETE: Delete a specific flow state draft */
 export async function DELETE(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get('userId');
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const billId = request.nextUrl.searchParams.get('billId');
 
-    if (!userId || !billId) {
+    if (!billId) {
       return NextResponse.json(
-        { error: 'userId and billId are required' },
+        { error: 'billId is required' },
         { status: 400 }
       );
     }
@@ -171,13 +180,13 @@ export async function DELETE(request: NextRequest) {
     const { error } = await supabase
       .from('user_flow_state')
       .delete()
-      .eq('user_id', userId)
+      .eq('user_id', user.userId)
       .eq('bill_id', billId);
 
     if (error) {
       console.error('Flow state DELETE error:', error);
       return NextResponse.json(
-        { error: 'Failed to delete flow state', details: error.message },
+        { error: 'Failed to delete flow state' },
         { status: 500 }
       );
     }

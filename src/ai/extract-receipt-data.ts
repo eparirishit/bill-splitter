@@ -4,6 +4,7 @@ import {
   AI_CONFIG,
   EXTRACTION_PROMPT,
 } from "@/lib/config";
+import { AI_SERVER_CONFIG } from "@/lib/config.server";
 import { logger } from "@/lib/logger";
 import { validateImageSize } from "@/lib/utils";
 import { z } from "zod";
@@ -82,14 +83,14 @@ export async function extractReceiptData(
   // Create AI provider based on configuration
   const providerConfig = getAIProviderConfig();
 
-  const aiProvider = AIServiceFactory.createProvider(AI_CONFIG.PROVIDER, providerConfig);
+  const aiProvider = AIServiceFactory.createProvider(AI_SERVER_CONFIG.PROVIDER, providerConfig);
 
   logger.aiRequest(
     aiProvider.name,
     providerConfig.modelName,
     'extract_receipt_data',
     logContext,
-    { providerType: AI_CONFIG.PROVIDER }
+    { providerType: AI_SERVER_CONFIG.PROVIDER }
   );
 
   let aiResponse: any = null;

@@ -1,4 +1,4 @@
-import { AI_CONFIG } from '@/lib/config';
+import { AI_SERVER_CONFIG } from '@/lib/config.server';
 import { CorrectionTrackingService } from '@/services/correction-tracking';
 import { FeedbackService } from '@/services/feedback-service';
 import { ReceiptTrackingService } from '@/services/receipt-tracking';
@@ -21,7 +21,7 @@ export class AnalyticsService {
     file: File | null,
     aiExtraction: ExtractReceiptDataOutput,
     processingTimeMs: number,
-    aiModelVersion: string = AI_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
+    aiModelVersion: string = AI_SERVER_CONFIG.GOOGLE_GEMINI.MODEL_NAME,
     aiProvider?: string,
     aiModelName?: string,
     aiTokensUsed?: number,

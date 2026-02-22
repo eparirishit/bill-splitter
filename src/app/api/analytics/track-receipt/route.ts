@@ -1,12 +1,17 @@
 import { AnalyticsService } from '@/lib/analytics';
+import { getAuthenticatedUser } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import type { ExtractReceiptDataOutput } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
-      userId,
       aiExtraction,
       processingTimeMs,
       aiModelVersion,
@@ -19,13 +24,6 @@ export async function POST(request: NextRequest) {
       fileSize,
       existingImageHash
     } = body;
-
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
-      );
-    }
 
     if (!aiExtraction) {
       return NextResponse.json(
@@ -44,7 +42,7 @@ export async function POST(request: NextRequest) {
     // Note: File upload is handled separately via uploadImageToStorage
     // We only track the receipt processing here with the already-uploaded image URL
     const receiptId = await AnalyticsService.trackReceiptProcessing(
-      userId,
+      user.userId,
       null, // File is not needed since imageUrl is provided
       aiExtraction as ExtractReceiptDataOutput,
       processingTimeMs || 0,
@@ -68,4 +66,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

@@ -1,28 +1,17 @@
+import { getAuthenticatedUser } from '@/lib/auth';
 import { getSupabaseClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
-
-// Type for expense history record
-interface ExpenseHistoryRecord {
-    id: string;
-    user_id: string;
-    store_name: string;
-    date: string;
-    total: number;
-    source: 'scan' | 'manual';
-    group_id?: string;
-    group_name?: string;
-    splitwise_expense_id?: string;
-    bill_data?: any;
-    created_at: string;
-    updated_at: string;
-}
 
 // GET: Retrieve user's expense history or a single expense by ID
 export async function GET(request: NextRequest) {
     try {
+        const user = await getAuthenticatedUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
-        const userId = searchParams.get('userId');
         const limit = parseInt(searchParams.get('limit') || '20', 10);
         const offset = parseInt(searchParams.get('offset') || '0', 10);
 
@@ -30,24 +19,17 @@ export async function GET(request: NextRequest) {
 
         // If ID is provided, fetch single expense
         if (id) {
-            if (!userId) {
-                return NextResponse.json(
-                    { error: 'userId query parameter is required when fetching by id' },
-                    { status: 400 }
-                );
-            }
-
             const { data, error } = await supabase
                 .from('expense_history')
                 .select('*')
                 .eq('id', id)
-                .eq('user_id', userId)
+                .eq('user_id', user.userId)
                 .single();
 
             if (error) {
                 console.error('Error fetching expense:', error);
                 return NextResponse.json(
-                    { error: 'Failed to fetch expense', details: error.message },
+                    { error: 'Failed to fetch expense' },
                     { status: 500 }
                 );
             }
@@ -59,24 +41,17 @@ export async function GET(request: NextRequest) {
         }
 
         // Otherwise, fetch list of expenses
-        if (!userId) {
-            return NextResponse.json(
-                { error: 'userId query parameter is required' },
-                { status: 400 }
-            );
-        }
-
         const { data, error, count } = await supabase
             .from('expense_history')
             .select('*', { count: 'exact' })
-            .eq('user_id', userId)
+            .eq('user_id', user.userId)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
         if (error) {
             console.error('Error fetching expense history:', error);
             return NextResponse.json(
-                { error: 'Failed to fetch expense history', details: error.message },
+                { error: 'Failed to fetch expense history' },
                 { status: 500 }
             );
         }
@@ -94,7 +69,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('Error in expense history GET:', error);
         return NextResponse.json(
-            { error: 'Failed to fetch expense history', details: error instanceof Error ? error.message : String(error) },
+            { error: 'Failed to fetch expense history' },
             { status: 500 }
         );
     }
@@ -103,6 +78,11 @@ export async function GET(request: NextRequest) {
 // POST: Save a new expense to history
 export async function POST(request: NextRequest) {
     try {
+        const user = await getAuthenticatedUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         let body;
         try {
             body = await request.json();
@@ -113,18 +93,18 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { userId, storeName, date, total, source, groupId, groupName, splitwiseExpenseId, billData } = body;
+        const { storeName, date, total, source, groupId, groupName, splitwiseExpenseId, billData } = body;
 
-        if (!userId || !storeName || !date || total === undefined || !source) {
+        if (!storeName || !date || total === undefined || !source) {
             return NextResponse.json(
-                { error: 'Missing required fields: userId, storeName, date, total, source' },
+                { error: 'Missing required fields: storeName, date, total, source' },
                 { status: 400 }
             );
         }
 
         const supabase = getSupabaseClient();
-        const record: Partial<ExpenseHistoryRecord> = {
-            user_id: String(userId),
+        const record = {
+            user_id: user.userId,
             store_name: storeName,
             date: date,
             total: parseFloat(total),
@@ -144,7 +124,7 @@ export async function POST(request: NextRequest) {
         if (error) {
             console.error('Error saving expense history:', error);
             return NextResponse.json(
-                { error: 'Failed to save expense history', details: error.message },
+                { error: 'Failed to save expense history' },
                 { status: 500 }
             );
         }
@@ -153,7 +133,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Error in expense history POST:', error);
         return NextResponse.json(
-            { error: 'Failed to save expense history', details: error instanceof Error ? error.message : String(error) },
+            { error: 'Failed to save expense history' },
             { status: 500 }
         );
     }
@@ -162,6 +142,11 @@ export async function POST(request: NextRequest) {
 // PUT: Update an existing expense
 export async function PUT(request: NextRequest) {
     try {
+        const user = await getAuthenticatedUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         let body;
         try {
             body = await request.json();
@@ -172,17 +157,17 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        const { id, userId, storeName, date, total, source, groupId, groupName, splitwiseExpenseId, billData } = body;
+        const { id, storeName, date, total, source, groupId, groupName, splitwiseExpenseId, billData } = body;
 
-        if (!id || !userId) {
+        if (!id) {
             return NextResponse.json(
-                { error: 'id and userId are required' },
+                { error: 'id is required' },
                 { status: 400 }
             );
         }
 
         const supabase = getSupabaseClient();
-        const updateData: Partial<ExpenseHistoryRecord> = {};
+        const updateData: Record<string, any> = {};
 
         if (storeName !== undefined) updateData.store_name = storeName;
         if (date !== undefined) updateData.date = date;
@@ -197,14 +182,14 @@ export async function PUT(request: NextRequest) {
             .from('expense_history')
             .update(updateData)
             .eq('id', id)
-            .eq('user_id', userId)
+            .eq('user_id', user.userId)
             .select()
             .single();
 
         if (error) {
             console.error('Error updating expense history:', error);
             return NextResponse.json(
-                { error: 'Failed to update expense history', details: error.message },
+                { error: 'Failed to update expense history' },
                 { status: 500 }
             );
         }
@@ -213,7 +198,7 @@ export async function PUT(request: NextRequest) {
     } catch (error) {
         console.error('Error in expense history PUT:', error);
         return NextResponse.json(
-            { error: 'Failed to update expense history', details: error instanceof Error ? error.message : String(error) },
+            { error: 'Failed to update expense history' },
             { status: 500 }
         );
     }
@@ -222,13 +207,17 @@ export async function PUT(request: NextRequest) {
 // DELETE: Remove an expense from history
 export async function DELETE(request: NextRequest) {
     try {
+        const user = await getAuthenticatedUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
-        const userId = searchParams.get('userId');
 
-        if (!id || !userId) {
+        if (!id) {
             return NextResponse.json(
-                { error: 'id and userId query parameters are required' },
+                { error: 'id query parameter is required' },
                 { status: 400 }
             );
         }
@@ -238,12 +227,12 @@ export async function DELETE(request: NextRequest) {
             .from('expense_history')
             .delete()
             .eq('id', id)
-            .eq('user_id', userId);
+            .eq('user_id', user.userId);
 
         if (error) {
             console.error('Error deleting expense history:', error);
             return NextResponse.json(
-                { error: 'Failed to delete expense history', details: error.message },
+                { error: 'Failed to delete expense history' },
                 { status: 500 }
             );
         }
@@ -252,7 +241,7 @@ export async function DELETE(request: NextRequest) {
     } catch (error) {
         console.error('Error in expense history DELETE:', error);
         return NextResponse.json(
-            { error: 'Failed to delete expense history', details: error instanceof Error ? error.message : String(error) },
+            { error: 'Failed to delete expense history' },
             { status: 500 }
         );
     }

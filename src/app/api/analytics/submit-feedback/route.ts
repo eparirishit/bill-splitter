@@ -1,9 +1,15 @@
 import { AnalyticsService } from '@/lib/analytics';
+import { getAuthenticatedUser } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import type { UserFeedback } from '@/types/analytics';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     let body;
     try {
       body = await request.json();
@@ -15,38 +21,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { receiptId, userId, feedback } = body;
+    const { receiptId, feedback } = body;
 
     if (!receiptId || (typeof receiptId !== 'string' && typeof receiptId !== 'number')) {
-      console.error('Missing or invalid receiptId in request body:', { body, receiptId });
       return NextResponse.json(
-        { error: 'receiptId is required', received: body },
+        { error: 'receiptId is required' },
         { status: 400 }
       );
     }
-
-    if (userId === undefined || userId === null || userId === '') {
-      console.error('Missing userId in request body:', { body, userId });
-      return NextResponse.json(
-        { error: 'userId is required', received: body },
-        { status: 400 }
-      );
-    }
-
-    // Convert userId to string (Splitwise IDs can be numbers)
-    const userIdString = String(userId);
 
     if (!feedback) {
-      console.error('Missing feedback in request body:', { body, feedback });
       return NextResponse.json(
-        { error: 'feedback is required', received: body },
+        { error: 'feedback is required' },
         { status: 400 }
       );
     }
 
     await AnalyticsService.submitFeedback(
       String(receiptId),
-      userIdString,
+      user.userId,
       feedback as Omit<UserFeedback, 'submitted_at'>
     );
 
@@ -59,4 +52,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

@@ -1,5 +1,6 @@
 
-import { AI_CONFIG } from "@/lib/config";
+
+import { AI_SERVER_CONFIG } from "@/lib/config.server";
 import { logger } from "@/lib/logger";
 import { AIServiceFactory } from "./ai-service-factory";
 import { AIServiceError } from "./errors";
@@ -43,14 +44,14 @@ export async function classifyFeedback(
             maxTokens: 1024
         });
 
-        const aiProvider = AIServiceFactory.createProvider(AI_CONFIG.PROVIDER, providerConfig);
+        const aiProvider = AIServiceFactory.createProvider(AI_SERVER_CONFIG.PROVIDER, providerConfig);
 
         logger.aiRequest(
             aiProvider.name,
             providerConfig.modelName,
             'classify_feedback',
             logContext,
-            { providerType: AI_CONFIG.PROVIDER }
+            { providerType: AI_SERVER_CONFIG.PROVIDER }
         );
 
         const classification = await retryWithDelay(async (): Promise<FeedbackClassification> => {

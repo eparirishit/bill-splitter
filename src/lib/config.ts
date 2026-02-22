@@ -1,6 +1,4 @@
-import { ProviderType } from "@/ai/ai-service-factory";
-import { ConfigurationError } from "@/ai/errors";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
 
 // Splitwise OAuth Configuration (server-side only)
 export const SPLITWISE_CONFIG = {
@@ -27,8 +25,10 @@ export const SUPABASE_STORAGE_CONFIG = {
 } as const;
 
 // AI Configuration (client-safe)
+// Client-safe AI configuration — does NOT contain API keys.
+// For API keys, use AI_SERVER_CONFIG from '@/lib/config.server'.
 export const AI_CONFIG = {
-  DISCREPANCYY_TOLERANCE: 0.02,
+  DISCREPANCY_TOLERANCE: 0.02,
   MAX_IMAGE_SIZE_MB: 10,
   MAX_PAYLOAD_SIZE_KB: 3072, // 3MB for Vercel limits
   MAX_RETRIES: 3,
@@ -37,37 +37,9 @@ export const AI_CONFIG = {
 
   // File upload configuration
   MAX_FILE_SIZE_MB: parseFloat(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || '10'), // (default: 10MB)
-
-  // Provider configuration
-  PROVIDER: (process.env.AI_PROVIDER || "google-gemini") as ProviderType,
-
-  // Provider-specific configs
-  GOOGLE_GEMINI: {
-    MODEL_NAME: process.env.GOOGLE_MODEL_NAME || "gemini-2.5-flash",
-    API_KEY: process.env.GOOGLE_API_KEY!,
-    TEMPERATURE: 0.1,
-    MAX_TOKENS: 8192,
-  },
-
-  OPENROUTER: {
-    MODEL_NAME: process.env.OPENROUTER_MODEL_NAME || "anthropic/claude-3.5-sonnet",
-    API_KEY: process.env.OPENROUTER_API_KEY!,
-    BASE_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-    TEMPERATURE: 0.1,
-    MAX_TOKENS: 8192,
-  },
 } as const;
 
-export function createGoogleAIClient(): GoogleGenerativeAI {
-  if (typeof window !== 'undefined') {
-    throw new ConfigurationError("Google AI client can only be created on the server side.");
-  }
 
-  if (!process.env.GOOGLE_API_KEY) {
-    throw new ConfigurationError("GOOGLE_API_KEY environment variable is not set.");
-  }
-  return new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-}
 
 export const EXTRACTION_PROMPT = `You are an expert receipt data extraction system. Analyze the provided receipt image and extract information with high accuracy. Be precise and extract ONLY what is clearly visible on the receipt - do not guess or infer information that is not explicitly shown.
 

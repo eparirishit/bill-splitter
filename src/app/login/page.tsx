@@ -44,7 +44,7 @@ function LoginContent() {
 
   if (isAuthLoading || (!isAuthLoading && isAuthenticated)) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100dvh-8rem)]">
+      <div className="h-dvh flex justify-center items-center overflow-hidden">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -52,13 +52,13 @@ function LoginContent() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 animate-fade-in">
-        <div className="flex flex-col items-center text-center max-w-xs">
-          <div className="mb-4 transition-transform duration-1000">
-            <Logo className="w-32 h-32 mx-auto" />
+      <div className="h-dvh overflow-hidden flex flex-col items-center justify-center p-6 sm:p-8 animate-fade-in">
+        <div className="flex flex-col items-center text-center max-w-xs flex-shrink-0">
+          <div className="mb-3 sm:mb-4 transition-transform duration-1000">
+            <Logo className="w-24 h-24 sm:w-32 sm:h-32 mx-auto" />
           </div>
-          <div className="mb-10">
-            <h1 className="text-5xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-6">
+          <div className="mb-6 sm:mb-10">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-4 sm:mb-6">
               <span className="font-black">Split</span><span className="bg-clip-text text-transparent bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700">Scan</span>
             </h1>
             <div className="flex items-center justify-center gap-4">
@@ -90,7 +90,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   const fallbackUI = (
-    <div className="flex justify-center items-center min-h-[calc(100dvh-8rem)]">
+    <div className="h-dvh flex justify-center items-center overflow-hidden">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );

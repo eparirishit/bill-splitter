@@ -27,7 +27,13 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId);
 
     if (type === 'last') {
-      const { data, error } = await query.eq('is_last_active', true).maybeSingle();
+      // Find the most recently updated state that is explicitly marked as last active
+      const { data, error } = await query
+        .eq('is_last_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
       if (error) throw error;
       
       return NextResponse.json({
@@ -133,6 +139,44 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Flow state PUT:', err);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/** DELETE: Delete a specific flow state draft */
+export async function DELETE(request: NextRequest) {
+  try {
+    const userId = request.nextUrl.searchParams.get('userId');
+    const billId = request.nextUrl.searchParams.get('billId');
+
+    if (!userId || !billId) {
+      return NextResponse.json(
+        { error: 'userId and billId are required' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('user_flow_state')
+      .delete()
+      .eq('user_id', userId)
+      .eq('bill_id', billId);
+
+    if (error) {
+      console.error('Flow state DELETE error:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete flow state', details: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('Flow state DELETE:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

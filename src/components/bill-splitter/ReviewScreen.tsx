@@ -141,8 +141,8 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
   };
 
   return (
-    <div className="space-y-8 animate-slide-up pb-24 w-full max-w-full overflow-hidden">
-      <section className="bg-card text-card-foreground rounded-[2.5rem] p-8 shadow-xl shadow-primary/5 border border-border space-y-6 w-full max-w-full overflow-hidden">
+    <div className="space-y-8 animate-slide-up pb-24 w-full">
+      <section className="bg-card text-card-foreground rounded-[2.5rem] p-8 shadow-xl shadow-primary/5 border border-border space-y-6 w-full">
         <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-4">General Info</h3>
 
         <div className="space-y-6">
@@ -159,28 +159,26 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
 
           <div className="pt-4 border-t border-border">
             <label className="block text-[10px] font-black text-muted-foreground uppercase mb-2">Billing Date</label>
-            <div className="relative min-w-0 w-full max-w-full overflow-hidden">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary z-10">
+            <div className="relative w-full">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary z-20">
                 <i className="fas fa-calendar-alt"></i>
               </div>
               <input
                 type="date"
                 value={billData.date}
                 onChange={(e) => onUpdate({ date: e.target.value })}
-                className="w-full max-w-full text-sm font-bold text-foreground border-none bg-muted/50 rounded-xl py-3 pl-10 pr-3 focus:outline-none focus:ring-0 cursor-pointer !min-h-0 min-w-0 box-border [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-inner-spin-button]:hidden"
-                style={{ width: '100%', maxWidth: '100%' }}
+                className="w-full block text-sm font-bold text-foreground border-none bg-muted/50 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all hover:bg-muted appearance-none relative z-10 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-inner-spin-button]:hidden [&::-webkit-clear-button]:hidden"
               />
             </div>
           </div>
 
           <div className="pt-4 border-t border-border">
             <label className="block text-[10px] font-black text-muted-foreground uppercase mb-2">Who paid?</label>
-            <div className="relative min-w-0 w-full max-w-full overflow-hidden">
+            <div className="relative w-full">
               <select
                 value={whoPaidDropdownValue}
                 onChange={(e) => handleWhoPaidChange(e.target.value)}
-                className="w-full max-w-full text-sm font-bold text-foreground border-none bg-muted/50 rounded-xl py-3 px-3 focus:outline-none focus:ring-0 appearance-none cursor-pointer !min-h-0 min-w-0 box-border"
-                style={{ width: '100%', maxWidth: '100%' }}
+                className="w-full block text-sm font-bold text-foreground border-none bg-muted/50 rounded-2xl py-4 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer transition-all hover:bg-muted"
               >
                 <option value="">Select who paid</option>
                 {payerList.map(m => (
@@ -188,7 +186,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
                 ))}
                 <option value={MULTIPLE_PAYERS_VALUE}>Multiple people</option>
               </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/50 z-10">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/50 z-10">
                 <i className="fas fa-chevron-down text-[10px]"></i>
               </div>
             </div>
@@ -198,14 +196,14 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
                 <p className="text-xs text-muted-foreground mt-3 mb-2">Enter the amount each person paid. Total paid should equal the bill total.</p>
                 <div className="space-y-3">
                   {payerList.map(m => (
-                    <div key={m.id} className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-xl">
+                    <div key={m.id} className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-[2.5rem]">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-lg overflow-hidden border border-border shrink-0">
+                        <div className="w-9 h-9 rounded-xl overflow-hidden border border-border shrink-0">
                           <img src={m.avatar} className="w-full h-full object-cover" alt="" />
                         </div>
                         <span className="text-sm font-bold text-foreground truncate">{m.name === 'Me' ? 'Me' : m.name}</span>
                       </div>
-                      <div className="flex items-center bg-muted/80 px-2 py-2 rounded-xl border border-border group-hover:bg-muted transition-colors shrink-0">
+                      <div className="flex items-center bg-muted/80 px-2 py-2 rounded-2xl border border-border group-hover:bg-muted transition-colors shrink-0">
                         <span className="text-muted-foreground text-xs font-bold mr-1">$</span>
                         <input
                           type="number"
@@ -255,9 +253,9 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
 
         <div className="space-y-4">
           {selectedMembers.map(member => (
-            <div key={member.id} className="flex items-center justify-between p-4 rounded-2xl border border-border bg-muted/30 hover:bg-accent hover:shadow-lg transition-all duration-300">
+            <div key={member.id} className="flex items-center justify-between p-4 rounded-[2.5rem] border border-border bg-muted/30 hover:bg-accent hover:shadow-lg transition-all duration-300">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl overflow-hidden border border-border shadow-sm bg-primary/10">
+                <div className="w-10 h-10 rounded-2xl overflow-hidden border border-border shadow-sm bg-primary/10">
                   <img src={member.avatar} className="w-full h-full object-cover" alt="" />
                 </div>
                 <div className="flex flex-col">

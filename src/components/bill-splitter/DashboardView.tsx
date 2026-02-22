@@ -28,12 +28,16 @@ interface DashboardViewProps {
     analytics: AnalyticsData;
     history: HistoryItem[];
     drafts?: any[]; // FlowStateSnapshot[]
+    savedFlowState?: any; // FlowStateSnapshot | null
     onProfileClick: () => void;
     onAdminClick?: () => void;
     onScanClick: () => void;
     onManualClick: () => void;
     onHistoryItemClick: (item: HistoryItem) => void;
     onDraftClick?: (draft: any) => void;
+    onDeleteDraft?: (draft: any) => void;
+    onResumeClick?: () => void;
+    onDismissResume?: () => void;
 }
 
 export function DashboardView({
@@ -42,12 +46,16 @@ export function DashboardView({
     analytics,
     history,
     drafts = [],
+    savedFlowState,
     onProfileClick,
     onAdminClick,
     onScanClick,
     onManualClick,
     onHistoryItemClick,
-    onDraftClick
+    onDraftClick,
+    onDeleteDraft,
+    onResumeClick,
+    onDismissResume
 }: DashboardViewProps) {
     return (
         <div className="flex flex-col gap-6 p-6 animate-slide-up">
@@ -70,6 +78,45 @@ export function DashboardView({
                     </button>
                 </div>
             </header>
+
+            {/* Active Split Hero (Integrated) */}
+            {savedFlowState && (
+                <div className="animate-fade-in">
+                    <div className="bg-card border border-primary/20 rounded-[2.5rem] p-6 shadow-xl shadow-primary/5 relative overflow-hidden group">
+                        <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                                        <h3 className="text-lg font-black text-foreground leading-tight">
+                                            Active Split Found
+                                        </h3>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider pl-4">
+                                        Saved {new Date(savedFlowState.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 ml-4">
+                                <button
+                                    onClick={onResumeClick}
+                                    className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-all hover:scale-105"
+                                    title="Resume Split"
+                                >
+                                    <i className="fas fa-play text-[10px] ml-0.5"></i>
+                                </button>
+                                <button
+                                    onClick={onDismissResume}
+                                    className="w-10 h-10 rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center transition-all active:scale-90"
+                                    title="Discard session"
+                                >
+                                    <i className="fas fa-times text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Quick Actions */}
             <div className="flex flex-col gap-4 mt-2">
@@ -107,7 +154,7 @@ export function DashboardView({
                     <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Dashboard Analytics</h3>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-card text-card-foreground p-5 rounded-[2rem] border border-border shadow-sm">
+                    <div className="bg-card text-card-foreground p-6 rounded-[2.5rem] border border-primary/10 shadow-xl shadow-primary/5">
                         <div className="flex justify-between items-start mb-1">
                             <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Spent</p>
                             <i className="fas fa-coins text-amber-500 text-[10px]"></i>
@@ -115,7 +162,7 @@ export function DashboardView({
                         <p className="text-xl font-black tracking-tighter">${analytics.totalVolume.toFixed(0)}</p>
                     </div>
 
-                    <div className="bg-card text-card-foreground p-5 rounded-[2rem] border border-border shadow-sm">
+                    <div className="bg-card text-card-foreground p-6 rounded-[2.5rem] border border-primary/10 shadow-xl shadow-primary/5">
                         <div className="flex justify-between items-start mb-1">
                             <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Monthly</p>
                             <i className="fas fa-calendar-alt text-primary text-[10px]"></i>
@@ -123,7 +170,7 @@ export function DashboardView({
                         <p className="text-xl font-black tracking-tighter">${analytics.monthlyVolume.toFixed(0)}</p>
                     </div>
 
-                    <div className="bg-card text-card-foreground p-5 rounded-[2rem] border border-border shadow-sm">
+                    <div className="bg-card text-card-foreground p-6 rounded-[2.5rem] border border-primary/10 shadow-xl shadow-primary/5">
                         <div className="flex justify-between items-start mb-1">
                             <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">OCR Scans</p>
                             <i className="fas fa-camera text-emerald-500 text-[10px]"></i>
@@ -131,7 +178,7 @@ export function DashboardView({
                         <p className="text-xl font-black tracking-tighter">{analytics.scanCount}</p>
                     </div>
 
-                    <div className="bg-card text-card-foreground p-5 rounded-[2rem] border border-border shadow-sm">
+                    <div className="bg-card text-card-foreground p-6 rounded-[2.5rem] border border-primary/10 shadow-xl shadow-primary/5">
                         <div className="flex justify-between items-start mb-1">
                             <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Manual</p>
                             <i className="fas fa-keyboard text-purple-500 text-[10px]"></i>
@@ -143,34 +190,59 @@ export function DashboardView({
 
             {/* Unfinished Drafts */}
             {drafts.length > 0 && (
-                <section className="mt-2 animate-fade-in">
+                <section className="mt-2 animate-fade-in overflow-hidden">
                     <div className="flex items-center justify-between mb-4 px-1">
                         <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Drafts (Unfinished)</h3>
-                        <span className="text-[8px] font-bold text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full">Restore Anytime</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[8px] font-bold text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full">Restore Anytime</span>
+                            <span className="text-[8px] font-bold text-primary uppercase tracking-widest">Swipe →</span>
+                        </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-3">
-                        {drafts.slice(0, 3).map((draft, idx) => (
-                            <button
-                                key={draft.billId || idx}
-                                onClick={() => onDraftClick?.(draft)}
-                                className="w-full p-4 bg-card border border-border rounded-2xl flex items-center justify-between group hover:border-primary/30 transition-all active:scale-[0.98]"
-                            >
-                                <div className="flex items-center gap-4 text-left">
-                                    <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-                                        <i className={`fas ${draft.flow === 'SCAN' ? 'fa-file-invoice-dollar' : 'fa-keyboard'} text-sm`}></i>
+                    <div className="flex gap-4 overflow-x-auto pb-6 px-1 no-scrollbar snap-x">
+                        {drafts.map((draft, idx) => (
+                            <div key={draft.billId || idx} className="relative group/draft snap-start shrink-0 w-[240px]">
+                                <div
+                                    onClick={() => onDraftClick?.(draft)}
+                                    className="w-full p-6 bg-card border border-primary/10 rounded-[2.5rem] flex flex-col gap-4 group hover:border-primary/30 transition-all active:scale-[0.98] cursor-pointer shadow-xl shadow-primary/5 h-full"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shrink-0">
+                                            <i className={`fas ${draft.flow === 'SCAN' ? 'fa-file-invoice-dollar' : 'fa-keyboard'} text-lg`}></i>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDeleteDraft?.(draft);
+                                            }}
+                                            className="!w-8 !h-8 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center transition-all hover:bg-destructive hover:text-white relative z-10"
+                                            title="Delete draft"
+                                        >
+                                            <i className="fas fa-trash-alt text-xs"></i>
+                                        </button>
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-black text-foreground leading-tight">{draft.storeName || 'Untitled Split'}</p>
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1">
-                                            {new Date(draft.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • {Math.round((draft.currentStep / 4) * 100)}% Complete
-                                        </p>
+                                    
+                                    <div className="min-w-0">
+                                        <p className="text-base font-black text-foreground leading-tight truncate">{draft.storeName || 'Untitled Split'}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                                                {new Date(draft.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </p>
+                                            <span className="w-1 h-1 rounded-full bg-border"></span>
+                                            <p className="text-[10px] font-bold text-primary uppercase">
+                                                {Math.round((draft.currentStep / 4) * 100)}% Done
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/50">
+                                        <p className="text-lg font-black text-foreground">${(draft.totalAmount || 0).toFixed(2)}</p>
+                                        <div className="flex items-center gap-1 text-[10px] font-black text-primary uppercase tracking-tighter group-hover:translate-x-1 transition-transform">
+                                            <span>Resume</span>
+                                            <i className="fas fa-arrow-right text-[8px]"></i>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-black text-foreground">${(draft.totalAmount || 0).toFixed(2)}</p>
-                                    <p className="text-[8px] font-black text-primary uppercase tracking-tighter mt-1 group-hover:underline">Resume →</p>
-                                </div>
-                            </button>
+                            </div>
                         ))}
                     </div>
                 </section>
@@ -182,7 +254,7 @@ export function DashboardView({
                     <div className="flex items-center justify-between mb-4 px-1">
                         <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Recent Activity</h3>
                     </div>
-                    <div className="bg-card text-card-foreground rounded-[2.5rem] border border-border overflow-hidden shadow-sm">
+                    <div className="bg-card text-card-foreground rounded-[2.5rem] border border-primary/10 overflow-hidden shadow-xl shadow-primary/5">
                         {history.slice(0, 4).map((item, idx) => (
                             <div
                                 key={item.id + idx}
@@ -190,9 +262,9 @@ export function DashboardView({
                             >
                                 <div 
                                     onClick={() => onHistoryItemClick(item)}
-                                    className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 cursor-pointer active:bg-accent -m-3 sm:-m-4 p-3 sm:p-4 rounded-xl"
+                                    className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 cursor-pointer active:bg-accent -m-3 sm:-m-4 p-3 sm:p-4 rounded-[2.5rem]"
                                 >
-                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black text-[10px] sm:text-xs shadow-sm group-hover:scale-110 transition-transform flex-shrink-0">
+                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black text-[10px] sm:text-xs shadow-sm group-hover:scale-110 transition-transform flex-shrink-0">
                                         {item.storeName ? item.storeName.charAt(0).toUpperCase() : 'E'}
                                     </div>
                                     <div className="flex-1 min-w-0 overflow-hidden">

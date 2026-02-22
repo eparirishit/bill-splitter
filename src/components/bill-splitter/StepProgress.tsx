@@ -4,6 +4,7 @@ import { Step } from '@/types';
 
 interface StepProgressProps {
   currentStep: Step;
+  onHomeClick?: () => void;
 }
 
 const steps = [
@@ -13,12 +14,21 @@ const steps = [
   { label: 'Review', icon: 'fa-signature' },
 ];
 
-export const StepProgress: React.FC<StepProgressProps> = ({ currentStep }) => {
+export const StepProgress: React.FC<StepProgressProps> = ({ currentStep, onHomeClick }) => {
   if (currentStep <= Step.FLOW_SELECTION || currentStep === Step.SUCCESS) return null;
 
   return (
-    <div className="px-6 pt-6 pb-2 sticky top-0 z-50 animate-fade-in">
-      <div className="glass border-border rounded-[2rem] p-4 border shadow-xl flex items-center justify-between">
+    <div className="px-6 pt-6 pb-2 sticky top-0 z-50 animate-fade-in flex items-center gap-3">
+      {onHomeClick && (
+        <button
+          onClick={onHomeClick}
+          className="w-12 h-12 rounded-[1.25rem] bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-primary transition-all active:scale-90 shadow-sm shrink-0"
+          title="Return to Dashboard"
+        >
+          <i className="fas fa-home text-sm"></i>
+        </button>
+      )}
+      <div className="glass border-border rounded-[2.5rem] p-4 border shadow-xl flex items-center justify-between flex-1">
         <div className="flex items-center gap-1 flex-1">
           {steps.map((step, index) => {
             const stepIndex = index + 1;

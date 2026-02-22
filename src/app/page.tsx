@@ -26,7 +26,7 @@ import { extractReceiptData } from '@/ai/extract-receipt-data';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Play, X } from 'lucide-react';
 import { AnalyticsClientService } from '@/services/analytics-client';
-import { getFlowState, saveFlowState, getAllDrafts, type FlowStateSnapshot } from '@/services/flow-state-service';
+import { getFlowState, saveFlowState, getAllDrafts, deleteFlowState, type FlowStateSnapshot } from '@/services/flow-state-service';
 import { supabase, generateImageHash } from '@/lib/supabase';
 
 // MOCK CONSTANTS (Fallbacks)
@@ -174,26 +174,43 @@ function BillSplitterFlow() {
     if (!isAuthenticated || !authUser?.id || currentStep !== Step.FLOW_SELECTION) return;
     let cancelled = false;
     
-    // Fetch last active and all drafts
-    Promise.all([
-      getFlowState(authUser.id.toString()),
-      getAllDrafts(authUser.id.toString())
-    ]).then(([state, allDrafts]) => {
-      if (cancelled) return;
-      
-      // Handle last active pill
-      if (state) {
-        const step = state.currentStep;
-        const hasProgress = step > Step.FLOW_SELECTION && step < Step.SUCCESS && state.billData != null;
-        if (hasProgress) setSavedFlowState(state);
-      }
-      
-      // Handle other drafts list
-      if (allDrafts) {
-        setDrafts(allDrafts.filter(d => !d.isLastActive && (d.currentStep || 0) < Step.SUCCESS));
-      }
-    });
-    return () => { cancelled = true; };
+    const refreshStates = () => {
+      Promise.all([
+        getFlowState(authUser.id.toString()),
+        getAllDrafts(authUser.id.toString())
+      ]).then(([state, allDrafts]) => {
+        if (cancelled) return;
+        
+        // Handle last active pill
+        if (state) {
+          const step = state.currentStep;
+          const hasProgress = step > Step.FLOW_SELECTION && step < Step.SUCCESS && state.billData != null;
+          if (hasProgress) setSavedFlowState(state);
+          else setSavedFlowState(null);
+        } else {
+          setSavedFlowState(null);
+        }
+        
+        // Handle other drafts list
+        if (allDrafts) {
+          // Only show drafts that are not the last active one and have actual progress
+          setDrafts(allDrafts.filter(d => 
+            !d.isLastActive && 
+            (d.currentStep || 0) > Step.FLOW_SELECTION && 
+            (d.currentStep || 0) < Step.SUCCESS
+          ));
+        }
+      });
+    };
+
+    refreshStates();
+    
+    // Refresh when window regains focus (good for cross-device switching)
+    window.addEventListener('focus', refreshStates);
+    return () => { 
+      cancelled = true; 
+      window.removeEventListener('focus', refreshStates);
+    };
   }, [isAuthenticated, authUser?.id, currentStep]);
 
   // Debounced save of flow state for cross-device resume
@@ -325,7 +342,6 @@ function BillSplitterFlow() {
     setReceiptId(null);
     setShowFeedback(false);
     setSavedFlowState(null);
-    if (authUser?.id) saveFlowState(authUser.id.toString(), { flow: 'NONE', currentStep: 0, billData: null }).catch(() => {});
   };
 
   const cancelEdit = () => {
@@ -338,8 +354,35 @@ function BillSplitterFlow() {
     setCurrentStep(Step.FLOW_SELECTION);
   };
 
-  /** Cancel current expense and return to home (flow selection). Clears scan image and bill state so a fresh scan can start. */
-  const cancelExpenseAndGoHome = () => {
+  const handleGoHome = () => {
+    // Save current state explicitly before going home to ensure banner appears
+    if (authUser?.id && flow !== AppFlow.NONE && currentStep > Step.FLOW_SELECTION && currentStep < Step.SUCCESS) {
+      saveFlowState(authUser.id.toString(), {
+        flow,
+        currentStep,
+        billData: billData as unknown as Record<string, unknown>,
+        previewImageUrl: previewImage,
+      }).catch(() => {});
+    }
+    
+    // Refresh drafts list and go home
+    if (authUser?.id) {
+        getAllDrafts(authUser.id.toString()).then(allDrafts => {
+          setDrafts(allDrafts.filter(d => !d.isLastActive && (d.currentStep || 0) > Step.FLOW_SELECTION && (d.currentStep || 0) < Step.SUCCESS));
+        }).catch(() => {});
+        getFlowState(authUser.id.toString()).then(state => {
+          setSavedFlowState(state);
+        }).catch(() => {});
+    }
+    
+    setFlow(AppFlow.NONE);
+    setCurrentStep(Step.FLOW_SELECTION);
+    setShowFeedback(false);
+  };
+
+  /** Discard current expense and return to home. This deletes the draft from the database. */
+  const discardExpenseAndGoHome = async () => {
+    const currentBillId = billData.id;
     setEditingExpenseId(null);
     setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9) });
     setPreviewImage(null);
@@ -349,7 +392,18 @@ function BillSplitterFlow() {
     setCurrentStep(Step.FLOW_SELECTION);
     setShowFeedback(false);
     setSavedFlowState(null);
-    if (authUser?.id) saveFlowState(authUser.id.toString(), { flow: 'NONE', currentStep: 0, billData: null }).catch(() => {});
+    
+    // Delete the draft from DB
+    if (authUser?.id && currentBillId) {
+      try {
+        await deleteFlowState(authUser.id.toString(), currentBillId);
+        // Refresh drafts list
+        const allDrafts = await getAllDrafts(authUser.id.toString());
+        setDrafts(allDrafts.filter(d => !d.isLastActive && (d.currentStep || 0) > Step.FLOW_SELECTION && (d.currentStep || 0) < Step.SUCCESS));
+      } catch (err) {
+        console.error('Failed to delete draft on discard:', err);
+      }
+    }
   };
 
   const handleResumeFromSaved = () => {
@@ -382,6 +436,28 @@ function BillSplitterFlow() {
     }
     setPreviewImage(draft.previewImageUrl || null);
     toast({ title: 'Draft Restored', description: `Resumed session for ${draft.storeName || 'Untitled Split'}` });
+  };
+
+  const handleDeleteDraft = async (draft: FlowStateSnapshot) => {
+    if (!authUser?.id || !draft.billId) return;
+    
+    // Optimistic UI update
+    setDrafts(prev => prev.filter(d => d.billId !== draft.billId));
+    
+    try {
+      const success = await deleteFlowState(authUser.id.toString(), draft.billId);
+      if (success) {
+        toast({ title: 'Draft Deleted', description: 'The draft has been removed.' });
+      } else {
+        throw new Error('Failed to delete');
+      }
+    } catch (error) {
+      console.error('Error deleting draft:', error);
+      // Revert optimistic update
+      const allDrafts = await getAllDrafts(authUser.id.toString());
+      setDrafts(allDrafts.filter(d => !d.isLastActive && (d.currentStep || 0) < Step.SUCCESS));
+      toast({ title: 'Error', description: 'Failed to delete the draft. Please try again.', variant: 'destructive' });
+    }
   };
 
   const handleDismissResume = () => {
@@ -766,7 +842,11 @@ function BillSplitterFlow() {
       setEditingExpenseId(null); // Clear editing state after successful save
       setCurrentStep(Step.SUCCESS);
       setSavedFlowState(null);
-      if (authUser?.id) saveFlowState(authUser.id.toString(), { flow: 'NONE', currentStep: 0, billData: null }).catch(() => {});
+      
+      // Delete the flow state draft once successfully finished
+      if (authUser?.id && billData.id) {
+        deleteFlowState(authUser.id.toString(), billData.id).catch(() => {});
+      }
 
     } catch (error) {
       console.error("Sync failed", error);
@@ -1016,7 +1096,7 @@ function BillSplitterFlow() {
           </div>
           <button
             onClick={handleLogin}
-            className="w-full py-5 px-8 bg-splitwise text-white rounded-[2rem] font-black text-base shadow-xl shadow-emerald-200/40 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-3"
+            className="w-full py-5 px-8 bg-splitwise text-white rounded-[2.5rem] font-black text-base shadow-xl shadow-emerald-200/40 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-3"
           >
             <SplitwiseLogoIcon className="h-5 w-5" />
             Join with Splitwise
@@ -1028,7 +1108,10 @@ function BillSplitterFlow() {
 
   return (
     <div className="min-h-screen max-w-md mx-auto bg-background flex flex-col relative pb-32">
-      <StepProgress currentStep={currentStep} />
+      <StepProgress 
+        currentStep={currentStep} 
+        onHomeClick={handleGoHome}
+      />
 
       {/* Profile Overlay */}
       <ProfileOverlay
@@ -1077,46 +1160,15 @@ function BillSplitterFlow() {
             }}
             onHistoryItemClick={handleEditHistorical}
             drafts={drafts}
+            savedFlowState={savedFlowState}
             onDraftClick={handleResumeFromDraft}
+            onDeleteDraft={handleDeleteDraft}
+            onResumeClick={handleResumeFromSaved}
+            onDismissResume={handleDismissResume}
           />
         )}
 
-        {/* Floating "Continue Split" Pill (Repositioned to bottom) */}
-        {currentStep === Step.FLOW_SELECTION && savedFlowState && (
-          <div className="fixed bottom-10 left-0 right-0 px-6 z-50 animate-slide-up flex justify-center pointer-events-none">
-            <div className="bg-card/90 backdrop-blur-xl border border-primary/20 rounded-full py-3 px-5 shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-none flex items-center gap-4 pointer-events-auto max-w-sm w-full">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-                  <p className="text-xs font-black text-foreground tracking-tight">Active Split Found</p>
-                </div>
-                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider truncate">
-                  {savedFlowState.updatedAt
-                    ? `Saved ${new Date(savedFlowState.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-                    : 'Resume session'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleResumeFromSaved}
-                  className="bg-primary text-primary-foreground py-2 px-4 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center gap-2"
-                >
-                  <i className="fas fa-play text-[8px]"></i>
-                  Resume
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDismissResume}
-                  className="w-8 h-8 rounded-full flex items-center justify-center bg-muted text-muted-foreground/60 hover:text-foreground transition-all active:scale-90"
-                  title="Dismiss"
-                >
-                  <i className="fas fa-times text-xs"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Removed Floating Pill */}
 
         {currentStep === Step.UPLOAD && (
           <div className="flex flex-col items-center gap-8 p-8 animate-slide-up h-full">
@@ -1209,7 +1261,7 @@ function BillSplitterFlow() {
             </div>
             <h2 className="text-4xl font-black text-foreground tracking-tight">Split Synced!</h2>
             <p className="text-center text-muted-foreground mt-4 max-w-[240px]">Expenses and group balances have been updated in Splitwise.</p>
-            <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-primary text-primary-foreground rounded-[2rem] font-black text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform">Start New Split</button>
+            <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-primary text-primary-foreground rounded-[2.5rem] font-black text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform">Start New Split</button>
           </div>
             )}
           </>
@@ -1227,9 +1279,9 @@ function BillSplitterFlow() {
                 cancelEdit();
                 return;
               }
-              // Cancel expense and go home: clear scan/manual state so a fresh start is possible
+              // Discard expense and go home: permanently delete the draft
               if (currentStep === Step.UPLOAD || (currentStep === Step.GROUP_SELECTION && flow === AppFlow.MANUAL)) {
-                cancelExpenseAndGoHome();
+                discardExpenseAndGoHome();
                 return;
               }
               // From group selection (scan flow): going back to upload — clear image so user can start a fresh scan
@@ -1242,9 +1294,9 @@ function BillSplitterFlow() {
               setCurrentStep(prev => prev - 1);
             }}
             style={{ outline: 'none', boxShadow: 'none', WebkitTapHighlightColor: 'transparent' }}
-            className="flex-1 py-4 bg-muted text-muted-foreground font-bold rounded-2xl disabled:opacity-50 transition-all active:scale-95 focus:outline-none focus:ring-0"
+            className="flex-1 py-4 bg-muted text-muted-foreground font-bold rounded-[2.5rem] disabled:opacity-50 transition-all active:scale-95 focus:outline-none focus:ring-0"
           >
-            {editingExpenseId ? 'Cancel' : (currentStep === Step.UPLOAD || (currentStep === Step.GROUP_SELECTION && flow === AppFlow.MANUAL)) ? 'Cancel' : 'Back'}
+            {editingExpenseId ? 'Cancel' : (currentStep === Step.UPLOAD || (currentStep === Step.GROUP_SELECTION && flow === AppFlow.MANUAL)) ? 'Discard' : 'Back'}
           </button>
           <button
             disabled={isProcessing || (currentStep === Step.UPLOAD && !previewImage) || (currentStep === Step.GROUP_SELECTION && billData.selectedMemberIds.length === 0)}
@@ -1266,7 +1318,7 @@ function BillSplitterFlow() {
               }
             }}
             style={{ outline: 'none', boxShadow: 'none', WebkitTapHighlightColor: 'transparent' }}
-            className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-black shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus:ring-0"
+            className="flex-[2] py-4 bg-primary text-primary-foreground rounded-[2.5rem] font-black shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus:ring-0"
           >
             {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
             {currentStep === Step.REVIEW ? 'Sync & Finish' : 'Continue'}

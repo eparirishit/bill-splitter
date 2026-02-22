@@ -50,3 +50,10 @@ export async function saveFlowState(
   });
   return res.ok;
 }
+
+export async function deleteFlowState(userId: string, billId: string): Promise<boolean> {
+  const res = await fetch(`/api/user/flow-state?userId=${encodeURIComponent(userId)}&billId=${encodeURIComponent(billId)}`, {
+    method: 'DELETE',
+  });
+  return res.ok;
+}

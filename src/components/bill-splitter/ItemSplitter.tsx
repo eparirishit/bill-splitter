@@ -146,7 +146,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
   return (
     <div className="space-y-5 pb-24 animate-slide-up">
       {flow === AppFlow.SCAN && (
-        <div className="bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 p-4 rounded-2xl flex gap-3">
+        <div className="bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 p-4 rounded-[2.5rem] flex gap-3">
           <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 shrink-0">
             <i className="fas fa-wand-magic-sparkles text-xs"></i>
           </div>
@@ -157,11 +157,11 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
       )}
 
       {flow === AppFlow.MANUAL && (
-        <div className="flex p-1.5 bg-muted rounded-2xl">
+        <div className="flex p-1.5 bg-muted rounded-[2.5rem]">
           <button
             onClick={() => handleModeChange('quick')}
             style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-            className={`flex-1 py-2 text-[10px] font-bold rounded-xl transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 h-auto ${entryMode === 'quick' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'
+            className={`flex-1 py-2 text-[10px] font-bold rounded-2xl transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 h-auto ${entryMode === 'quick' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'
               }`}
           >
             Quick Total
@@ -169,7 +169,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
           <button
             onClick={() => handleModeChange('itemized')}
             style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-            className={`flex-1 py-2 text-[10px] font-bold rounded-xl transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 h-auto ${entryMode === 'itemized' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'
+            className={`flex-1 py-2 text-[10px] font-bold rounded-2xl transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 h-auto ${entryMode === 'itemized' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'
               }`}
           >
             Itemized
@@ -179,7 +179,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
 
       <div className="space-y-4">
         {items.map((item) => (
-          <div key={item.id} className={`group bg-card text-card-foreground rounded-3xl border transition-all duration-300 ${expandedId === item.id
+          <div key={item.id} className={`group bg-card text-card-foreground rounded-[2.5rem] border transition-all duration-300 ${expandedId === item.id
             ? 'border-transparent'
             : 'border-border hover:border-primary/20 shadow-sm'
             }`}>
@@ -426,7 +426,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
           <button
             onClick={addItem}
             style={{ WebkitTapHighlightColor: 'transparent' }}
-            className="w-full py-4 border-2 border-dashed border-border rounded-[2rem] text-muted-foreground font-bold hover:border-primary/20 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-3 focus:outline-none focus:ring-0"
+            className="w-full py-4 border-2 border-dashed border-border rounded-[2.5rem] text-muted-foreground font-bold hover:border-primary/20 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-3 focus:outline-none focus:ring-0"
           >
             <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs">
               <i className="fas fa-plus"></i>
@@ -450,7 +450,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
 
           <div className="flex justify-between items-center group/input">
             <span className="text-sm text-muted-foreground font-bold">Tax</span>
-            <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-xl border border-transparent focus-within:border-primary/20 transition-all">
+            <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-2xl border border-transparent focus-within:border-primary/20 transition-all">
               <span className="text-muted-foreground text-xs font-bold">$</span>
               <input
                 type="number"
@@ -465,7 +465,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground font-bold">Extra Fees</span>
-            <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-xl border border-transparent focus-within:border-primary/20 transition-all">
+            <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-2xl border border-transparent focus-within:border-primary/20 transition-all">
               <span className="text-muted-foreground text-xs font-bold">$</span>
               <input
                 type="number"
@@ -480,7 +480,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-emerald-500 font-bold">Discount</span>
-            <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-transparent focus-within:border-emerald-500/30 transition-all">
+            <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-2xl border border-transparent focus-within:border-emerald-500/30 transition-all">
               <span className="text-emerald-500/50 text-xs font-bold">- $</span>
               <input
                 type="number"

@@ -24,7 +24,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { SplitwiseService } from '@/services/splitwise';
 import { extractReceiptData } from '@/ai/extract-receipt-data';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Play, X } from 'lucide-react';
 import { AnalyticsClientService } from '@/services/analytics-client';
 import { getFlowState, saveFlowState, type FlowStateSnapshot } from '@/services/flow-state-service';
 import { supabase, generateImageHash } from '@/lib/supabase';
@@ -342,7 +342,7 @@ function BillSplitterFlow() {
     const flowEnum = savedFlowState.flow === AppFlow.SCAN ? AppFlow.SCAN : savedFlowState.flow === AppFlow.MANUAL ? AppFlow.MANUAL : AppFlow.NONE;
     setFlow(flowEnum);
     setCurrentStep(savedFlowState.currentStep as Step);
-    const restored = savedFlowState.billData as BillData;
+    const restored = savedFlowState.billData as unknown as BillData;
     if (restored && typeof restored === 'object') {
       setBillData({
         ...restored,
@@ -1014,30 +1014,35 @@ function BillSplitterFlow() {
         {currentStep === Step.FLOW_SELECTION && (
           <>
             {savedFlowState && (
-              <div className="px-4 pt-2 pb-0">
-                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="px-4 pt-4 pb-2">
+                <div className="bg-white dark:bg-slate-800 border border-indigo-100 dark:border-indigo-900/50 rounded-[2rem] p-4 shadow-xl shadow-indigo-100/20 dark:shadow-none flex items-center gap-4 animate-fade-in">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Continue where you left off</p>
-                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+                      <p className="text-sm font-black text-gray-900 dark:text-white tracking-tight">Continue Split</p>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">
                       {savedFlowState.updatedAt
-                        ? `Last updated ${new Date(savedFlowState.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
-                        : 'You have a split in progress on another device.'}
+                        ? `Last active ${new Date(savedFlowState.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+                        : 'Resume progress from another device'}
                     </p>
                   </div>
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={handleResumeFromSaved}
-                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors"
+                      className="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200/50 dark:shadow-none transition-all active:scale-90"
+                      title="Resume"
                     >
-                      Resume
+                      <Play className="w-4 h-4 shrink-0 fill-white ml-0.5" strokeWidth={2} />
                     </button>
                     <button
                       type="button"
                       onClick={handleDismissResume}
-                      className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-sm font-bold hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors"
+                      className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-50 dark:bg-slate-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-all active:scale-90"
+                      title="Dismiss"
                     >
-                      Dismiss
+                      <X className="w-4 h-4 shrink-0" />
                     </button>
                   </div>
                 </div>

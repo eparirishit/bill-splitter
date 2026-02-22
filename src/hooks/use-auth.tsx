@@ -1,5 +1,5 @@
 "use client";
-    
+
 import { AnalyticsClientService } from '@/services/analytics-client';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const wasAuthenticated = isAuthenticated;
         setIsAuthenticated(data.isAuthenticated);
         setUserId(data.userId);
-        
+
         // If user was not authenticated before but is now (login), clear any stale state
         if (!wasAuthenticated && data.isAuthenticated) {
           if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
@@ -41,10 +41,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               console.warn('Failed to clear stale bill-splitter state from localStorage:', error);
             }
           }
-          
+
           // Track user signin for analytics
           if (data.userId) {
-            await AnalyticsClientService.trackUserSignin(data.userId);
+            await AnalyticsClientService.trackUserSignin();
           }
         }
       } else {

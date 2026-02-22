@@ -1,5 +1,6 @@
 /**
  * Client service for cross-device flow state (resume where you left off).
+ * userId is derived server-side from the session cookie — no need to pass it.
  */
 
 export interface FlowStateSnapshot {
@@ -14,22 +15,21 @@ export interface FlowStateSnapshot {
   totalAmount?: number;
 }
 
-export async function getFlowState(userId: string): Promise<FlowStateSnapshot | null> {
-  const res = await fetch(`/api/user/flow-state?userId=${encodeURIComponent(userId)}&type=last`);
+export async function getFlowState(): Promise<FlowStateSnapshot | null> {
+  const res = await fetch(`/api/user/flow-state?type=last`);
   if (!res.ok) return null;
   const json = await res.json();
   return json.data ?? null;
 }
 
-export async function getAllDrafts(userId: string): Promise<FlowStateSnapshot[]> {
-  const res = await fetch(`/api/user/flow-state?userId=${encodeURIComponent(userId)}&type=all`);
+export async function getAllDrafts(): Promise<FlowStateSnapshot[]> {
+  const res = await fetch(`/api/user/flow-state?type=all`);
   if (!res.ok) return [];
   const json = await res.json();
   return json.data || [];
 }
 
 export async function saveFlowState(
-  userId: string,
   payload: {
     flow: string;
     currentStep: number;
@@ -41,7 +41,6 @@ export async function saveFlowState(
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      userId,
       flow: payload.flow,
       currentStep: payload.currentStep,
       billData: payload.billData,
@@ -51,8 +50,8 @@ export async function saveFlowState(
   return res.ok;
 }
 
-export async function deleteFlowState(userId: string, billId: string): Promise<boolean> {
-  const res = await fetch(`/api/user/flow-state?userId=${encodeURIComponent(userId)}&billId=${encodeURIComponent(billId)}`, {
+export async function deleteFlowState(billId: string): Promise<boolean> {
+  const res = await fetch(`/api/user/flow-state?billId=${encodeURIComponent(billId)}`, {
     method: 'DELETE',
   });
   return res.ok;

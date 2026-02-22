@@ -1,12 +1,11 @@
 /**
  * Client-side analytics service
- * Wraps analytics API calls for use in client components
+ * Wraps analytics API calls for use in client components.
  */
 
 import type { ExtractReceiptDataOutput, UserFeedback, UserAnalytics } from '@/types/analytics';
 
 interface TrackReceiptProcessingParams {
-  userId: string;
   aiExtraction: ExtractReceiptDataOutput;
   processingTimeMs: number;
   aiModelVersion?: string;
@@ -22,7 +21,6 @@ interface TrackReceiptProcessingParams {
 
 interface SubmitFeedbackParams {
   receiptId: string;
-  userId: string;
   feedback: Omit<UserFeedback, 'submitted_at'>;
 }
 
@@ -42,7 +40,6 @@ interface ExpenseHistoryRecord {
 }
 
 interface SaveExpenseHistoryParams {
-  userId: string;
   storeName: string;
   date: string;
   total: number;
@@ -55,7 +52,6 @@ interface SaveExpenseHistoryParams {
 
 interface UpdateExpenseHistoryParams {
   id: string;
-  userId: string;
   storeName?: string;
   date?: string;
   total?: number;
@@ -99,6 +95,7 @@ export class AnalyticsClientService {
     try {
       const response = await fetch(endpoint, {
         ...options,
+        credentials: 'include', // Ensure cookies are sent
         headers: {
           'Content-Type': 'application/json',
           ...options.headers,
@@ -122,15 +119,14 @@ export class AnalyticsClientService {
   }
 
   /**
-   * Track user signin for analytics
-   * @param userId - User ID (can be number or string, will be converted to string)
+   * Track user signin for analytics.
+   * Server derives userId from the session cookie.
    */
-  static async trackUserSignin(userId: string | number): Promise<void> {
+  static async trackUserSignin(): Promise<void> {
     try {
-      const userIdString = String(userId);
       await this.makeApiRequest('/api/analytics/track-signin', {
         method: 'POST',
-        body: JSON.stringify({ userId: userIdString }),
+        body: JSON.stringify({}),
       });
     } catch (error) {
       // Log but don't throw - analytics failures shouldn't break the app
@@ -140,7 +136,7 @@ export class AnalyticsClientService {
 
   /**
    * Track receipt processing for analytics
-   * @param params - Receipt processing parameters
+   * @param params - Receipt processing parameters (userId derived server-side)
    * @returns Receipt ID if successful
    */
   static async trackReceiptProcessing(
@@ -150,7 +146,6 @@ export class AnalyticsClientService {
       const response = await this.makeApiRequest('/api/analytics/track-receipt', {
         method: 'POST',
         body: JSON.stringify({
-          userId: params.userId,
           aiExtraction: params.aiExtraction,
           processingTimeMs: params.processingTimeMs,
           aiModelVersion: params.aiModelVersion,
@@ -176,13 +171,11 @@ export class AnalyticsClientService {
   /**
    * Track user corrections when they modify receipt data
    * @param receiptId - Receipt ID from tracking
-   * @param userId - User ID
    * @param originalExtraction - Original AI extraction
    * @param userModifications - User's modifications
    */
   static async trackCorrections(
     receiptId: string,
-    userId: string | number,
     originalExtraction: ExtractReceiptDataOutput,
     userModifications: {
       items?: Array<{ name: string; price: number }>;
@@ -192,12 +185,10 @@ export class AnalyticsClientService {
     }
   ): Promise<void> {
     try {
-      const userIdString = String(userId);
       await this.makeApiRequest('/api/analytics/track-corrections', {
         method: 'POST',
         body: JSON.stringify({
           receiptId,
-          userId: userIdString,
           originalExtraction,
           userModifications,
         }),
@@ -210,24 +201,14 @@ export class AnalyticsClientService {
 
   /**
    * Submit user feedback
-   * @param params - Feedback parameters
+   * @param params - Feedback parameters (userId derived server-side)
    */
   static async submitFeedback(params: SubmitFeedbackParams): Promise<void> {
     try {
-      // Validate required parameters
-      if (!params.userId) {
-        console.error('submitFeedback called without userId:', params);
-        throw new Error('userId is required for feedback submission');
-      }
-
-      // Ensure userId is a string (can be number from Splitwise)
-      const userIdString = String(params.userId);
-
       await this.makeApiRequest('/api/analytics/submit-feedback', {
         method: 'POST',
         body: JSON.stringify({
           receiptId: params.receiptId,
-          userId: userIdString,
           feedback: params.feedback,
         }),
       });
@@ -238,16 +219,18 @@ export class AnalyticsClientService {
   }
 
   /**
-   * Get user analytics data
-   * @param userId - User ID
+   * Get user analytics data.
+   * If targetUserId is provided (admin use), fetches that user's analytics.
+   * Otherwise, server derives userId from the session cookie.
+   * @param targetUserId - Optional user ID to look up (admin only)
    * @returns User analytics or null if not found
    */
-  static async getUserAnalytics(userId: string | number): Promise<UserAnalytics | null> {
+  static async getUserAnalytics(targetUserId?: string): Promise<UserAnalytics | null> {
     try {
-      const userIdString = String(userId);
-      const response = await this.makeApiRequest(
-        `/api/analytics/get-user-analytics?userId=${encodeURIComponent(userIdString)}`
-      );
+      const endpoint = targetUserId
+        ? `/api/analytics/get-user-analytics?targetUserId=${encodeURIComponent(targetUserId)}`
+        : `/api/analytics/get-user-analytics`;
+      const response = await this.makeApiRequest(endpoint);
       return response.data || null;
     } catch (error) {
       console.warn('Failed to get user analytics:', error);
@@ -256,20 +239,19 @@ export class AnalyticsClientService {
   }
 
   /**
-   * Get user-specific expense counts (scan, manual, volumes)
-   * @param userId - User ID
+   * Get user-specific expense counts (scan, manual, volumes).
+   * Server derives userId from the session cookie.
    * @returns Expense counts and volumes
    */
-  static async getUserExpenseCounts(userId: string | number): Promise<{
+  static async getUserExpenseCounts(): Promise<{
     scanCount: number;
     manualCount: number;
     totalVolume: number;
     monthlyVolume: number;
   } | null> {
     try {
-      const userIdString = String(userId);
       const response = await this.makeApiRequest(
-        `/api/analytics/get-user-expense-counts?userId=${encodeURIComponent(userIdString)}`
+        `/api/analytics/get-user-expense-counts`
       );
       return response.data || null;
     } catch (error) {
@@ -295,21 +277,19 @@ export class AnalyticsClientService {
   }
 
   /**
-   * Get user's expense history
-   * @param userId - User ID
+   * Get user's expense history.
+   * Server derives userId from the session cookie.
    * @param limit - Number of records to fetch (default: 20)
    * @param offset - Offset for pagination (default: 0)
    * @returns Expense history with pagination
    */
   static async getExpenseHistory(
-    userId: string | number,
     limit: number = 20,
     offset: number = 0
   ): Promise<ExpenseHistoryResponse | null> {
     try {
-      const userIdString = String(userId);
       const response = await this.makeApiRequest(
-        `/api/expense-history?userId=${encodeURIComponent(userIdString)}&limit=${limit}&offset=${offset}`
+        `/api/expense-history?limit=${limit}&offset=${offset}`
       );
       return {
         data: response.data || [],
@@ -322,7 +302,8 @@ export class AnalyticsClientService {
   }
 
   /**
-   * Save a new expense to history
+   * Save a new expense to history.
+   * Server derives userId from the session cookie.
    * @param params - Expense details
    * @returns Created expense record
    */
@@ -340,16 +321,15 @@ export class AnalyticsClientService {
   }
 
   /**
-   * Get a single expense by ID
+   * Get a single expense by ID.
+   * Server derives userId from the session cookie.
    * @param id - Expense ID
-   * @param userId - User ID (for authorization)
    * @returns Expense record or null
    */
-  static async getExpenseById(id: string, userId: string | number): Promise<ExpenseHistoryRecord | null> {
+  static async getExpenseById(id: string): Promise<ExpenseHistoryRecord | null> {
     try {
-      const userIdString = String(userId);
       const response = await this.makeApiRequest(
-        `/api/expense-history?id=${encodeURIComponent(id)}&userId=${encodeURIComponent(userIdString)}`
+        `/api/expense-history?id=${encodeURIComponent(id)}`
       );
       return response.data || null;
     } catch (error) {
@@ -359,7 +339,8 @@ export class AnalyticsClientService {
   }
 
   /**
-   * Update an existing expense
+   * Update an existing expense.
+   * Server derives userId from the session cookie.
    * @param params - Update parameters
    * @returns Updated expense record or null
    */
@@ -377,16 +358,15 @@ export class AnalyticsClientService {
   }
 
   /**
-   * Delete an expense from history
+   * Delete an expense from history.
+   * Server derives userId from the session cookie.
    * @param id - Expense ID
-   * @param userId - User ID (for authorization)
    * @returns Success boolean
    */
-  static async deleteExpenseHistory(id: string, userId: string | number): Promise<boolean> {
+  static async deleteExpenseHistory(id: string): Promise<boolean> {
     try {
-      const userIdString = String(userId);
       await this.makeApiRequest(
-        `/api/expense-history?id=${encodeURIComponent(id)}&userId=${encodeURIComponent(userIdString)}`,
+        `/api/expense-history?id=${encodeURIComponent(id)}`,
         { method: 'DELETE' }
       );
       return true;
@@ -397,15 +377,14 @@ export class AnalyticsClientService {
   }
 
   /**
-   * Check if a user is an admin
-   * @param userId - User ID
+   * Check if the current user is an admin.
+   * Server derives userId from the session cookie.
    * @returns True if user is admin, false otherwise
    */
-  static async checkAdminStatus(userId: string | number): Promise<boolean> {
+  static async checkAdminStatus(): Promise<boolean> {
     try {
-      const userIdString = String(userId);
       const response = await this.makeApiRequest(
-        `/api/analytics/check-admin?userId=${encodeURIComponent(userIdString)}`
+        `/api/analytics/check-admin`
       );
       return response.isAdmin === true;
     } catch (error) {
@@ -446,5 +425,3 @@ export class AnalyticsClientService {
     }
   }
 }
-
-

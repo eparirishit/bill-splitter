@@ -118,7 +118,7 @@ function BillSplitterFlow() {
           // Check admin status
           if (fetchedUser?.id) {
             try {
-              const adminStatus = await AnalyticsClientService.checkAdminStatus(fetchedUser.id);
+              const adminStatus = await AnalyticsClientService.checkAdminStatus();
               setIsAdmin(adminStatus);
             } catch (error) {
               console.warn('Failed to check admin status:', error);
@@ -175,14 +175,14 @@ function BillSplitterFlow() {
   useEffect(() => {
     if (!isAuthenticated || !authUser?.id || currentStep !== Step.FLOW_SELECTION) return;
     let cancelled = false;
-    
+
     const refreshStates = () => {
       Promise.all([
-        getFlowState(authUser.id.toString()),
-        getAllDrafts(authUser.id.toString())
+        getFlowState(),
+        getAllDrafts()
       ]).then(([state, allDrafts]) => {
         if (cancelled) return;
-        
+
         // Handle last active pill
         if (state) {
           const step = state.currentStep;
@@ -192,13 +192,13 @@ function BillSplitterFlow() {
         } else {
           setSavedFlowState(null);
         }
-        
+
         // Handle other drafts list
         if (allDrafts) {
           // Only show drafts that are not the last active one and have actual progress
-          setDrafts(allDrafts.filter(d => 
-            !d.isLastActive && 
-            (d.currentStep || 0) > Step.FLOW_SELECTION && 
+          setDrafts(allDrafts.filter(d =>
+            !d.isLastActive &&
+            (d.currentStep || 0) > Step.FLOW_SELECTION &&
             (d.currentStep || 0) < Step.SUCCESS
           ));
         }
@@ -206,11 +206,11 @@ function BillSplitterFlow() {
     };
 
     refreshStates();
-    
+
     // Refresh when window regains focus (good for cross-device switching)
     window.addEventListener('focus', refreshStates);
-    return () => { 
-      cancelled = true; 
+    return () => {
+      cancelled = true;
       window.removeEventListener('focus', refreshStates);
     };
   }, [isAuthenticated, authUser?.id, currentStep]);
@@ -223,12 +223,12 @@ function BillSplitterFlow() {
     saveFlowStateRef.current = setTimeout(() => {
       saveFlowStateRef.current = null;
       const previewUrl = typeof previewImage === 'string' && previewImage.startsWith('http') ? previewImage : null;
-      saveFlowState(authUser.id.toString(), {
+      saveFlowState({
         flow: flow,
         currentStep,
         billData: billData as unknown as Record<string, unknown>,
         previewImageUrl: previewUrl,
-      }).catch(() => {});
+      }).catch(() => { });
     }, 2500);
     return () => {
       if (saveFlowStateRef.current) clearTimeout(saveFlowStateRef.current);
@@ -243,11 +243,10 @@ function BillSplitterFlow() {
         try {
           // Load history (last 5 items)
           const historyResponse = await AnalyticsClientService.getExpenseHistory(
-            authUser.id.toString(),
             5, // Limit to last 5 transactions
             0
           );
-          
+
           if (historyResponse?.data && historyResponse.data.length > 0) {
             // Map database records to history format
             const mappedHistory = historyResponse.data.map(item => ({
@@ -258,13 +257,13 @@ function BillSplitterFlow() {
               source: item.source
             }));
             setHistory(mappedHistory);
-            
+
             // Also update localStorage as backup
             localStorage.setItem('bill_splitter_history', JSON.stringify(mappedHistory));
           }
 
           // Load analytics counts from database (all expenses, not just last 5)
-          const expenseCounts = await AnalyticsClientService.getUserExpenseCounts(authUser.id.toString());
+          const expenseCounts = await AnalyticsClientService.getUserExpenseCounts();
           if (expenseCounts) {
             setAnalytics(expenseCounts);
           } else {
@@ -289,9 +288,9 @@ function BillSplitterFlow() {
           // Fall through to localStorage
         }
       }
-      
+
       // Fallback to localStorage
-    const savedHistory = localStorage.getItem('bill_splitter_history');
+      const savedHistory = localStorage.getItem('bill_splitter_history');
       if (savedHistory) {
         const parsed = JSON.parse(savedHistory);
         // Limit to 5 items
@@ -359,24 +358,24 @@ function BillSplitterFlow() {
   const handleGoHome = () => {
     // Save current state explicitly before going home to ensure banner appears
     if (authUser?.id && flow !== AppFlow.NONE && currentStep > Step.FLOW_SELECTION && currentStep < Step.SUCCESS) {
-      saveFlowState(authUser.id.toString(), {
+      saveFlowState({
         flow,
         currentStep,
         billData: billData as unknown as Record<string, unknown>,
         previewImageUrl: previewImage,
-      }).catch(() => {});
+      }).catch(() => { });
     }
-    
+
     // Refresh drafts list and go home
     if (authUser?.id) {
-        getAllDrafts(authUser.id.toString()).then(allDrafts => {
-          setDrafts(allDrafts.filter(d => !d.isLastActive && (d.currentStep || 0) > Step.FLOW_SELECTION && (d.currentStep || 0) < Step.SUCCESS));
-        }).catch(() => {});
-        getFlowState(authUser.id.toString()).then(state => {
-          setSavedFlowState(state);
-        }).catch(() => {});
+      getAllDrafts().then(allDrafts => {
+        setDrafts(allDrafts.filter(d => !d.isLastActive && (d.currentStep || 0) > Step.FLOW_SELECTION && (d.currentStep || 0) < Step.SUCCESS));
+      }).catch(() => { });
+      getFlowState().then(state => {
+        setSavedFlowState(state);
+      }).catch(() => { });
     }
-    
+
     setFlow(AppFlow.NONE);
     setCurrentStep(Step.FLOW_SELECTION);
     setShowFeedback(false);
@@ -394,13 +393,13 @@ function BillSplitterFlow() {
     setCurrentStep(Step.FLOW_SELECTION);
     setShowFeedback(false);
     setSavedFlowState(null);
-    
+
     // Delete the draft from DB
     if (authUser?.id && currentBillId) {
       try {
-        await deleteFlowState(authUser.id.toString(), currentBillId);
+        await deleteFlowState(currentBillId);
         // Refresh drafts list
-        const allDrafts = await getAllDrafts(authUser.id.toString());
+        const allDrafts = await getAllDrafts();
         setDrafts(allDrafts.filter(d => !d.isLastActive && (d.currentStep || 0) > Step.FLOW_SELECTION && (d.currentStep || 0) < Step.SUCCESS));
       } catch (err) {
         console.error('Failed to delete draft on discard:', err);
@@ -442,12 +441,12 @@ function BillSplitterFlow() {
 
   const handleDeleteDraft = async (draft: FlowStateSnapshot) => {
     if (!authUser?.id || !draft.billId) return;
-    
+
     // Optimistic UI update
     setDrafts(prev => prev.filter(d => d.billId !== draft.billId));
-    
+
     try {
-      const success = await deleteFlowState(authUser.id.toString(), draft.billId);
+      const success = await deleteFlowState(draft.billId);
       if (success) {
         toast({ title: 'Draft Deleted', description: 'The draft has been removed.' });
       } else {
@@ -456,7 +455,7 @@ function BillSplitterFlow() {
     } catch (error) {
       console.error('Error deleting draft:', error);
       // Revert optimistic update
-      const allDrafts = await getAllDrafts(authUser.id.toString());
+      const allDrafts = await getAllDrafts();
       setDrafts(allDrafts.filter(d => !d.isLastActive && (d.currentStep || 0) < Step.SUCCESS));
       toast({ title: 'Error', description: 'Failed to delete the draft. Please try again.', variant: 'destructive' });
     }
@@ -466,18 +465,18 @@ function BillSplitterFlow() {
     setSavedFlowState(null);
     if (authUser?.id && savedFlowState?.billId) {
       // Mark as not last active in backend
-      saveFlowState(authUser.id.toString(), {
+      saveFlowState({
         flow: 'NONE', // This will set is_last_active: false in the API
         currentStep: savedFlowState.currentStep,
         billData: savedFlowState.billData as any,
-      }).catch(() => {});
+      }).catch(() => { });
     }
   };
 
   const handleEditHistorical = async (item: any) => {
     if (!authUser?.id) {
-      toast({ 
-        title: "Authentication Required", 
+      toast({
+        title: "Authentication Required",
         description: "Please sign in to edit expenses.",
         variant: "destructive"
       });
@@ -487,30 +486,30 @@ function BillSplitterFlow() {
     setIsProcessing(true);
     try {
       // Try to load full expense data from database
-      const expenseRecord = await AnalyticsClientService.getExpenseById(item.id, authUser.id.toString());
-      
+      const expenseRecord = await AnalyticsClientService.getExpenseById(item.id);
+
       if (expenseRecord?.bill_data) {
         // Restore full bill data
         const restoredBillData: BillData = {
           ...expenseRecord.bill_data,
           id: expenseRecord.bill_data.id || Math.random().toString(36).substr(2, 9), // Ensure ID exists
         };
-        
+
         setBillData(restoredBillData);
         setEditingExpenseId(expenseRecord.id); // Set editing ID
-        
+
         // Set the flow based on source
         if (expenseRecord.source === 'scan') {
           setFlow(AppFlow.SCAN);
         } else {
           setFlow(AppFlow.MANUAL);
         }
-        
+
         // Navigate to item splitter step
         setCurrentStep(Step.ITEM_SPLITTING);
-        
-        toast({ 
-          title: "Expense Loaded", 
+
+        toast({
+          title: "Expense Loaded",
           description: "You can now edit this expense."
         });
       } else if (expenseRecord) {
@@ -520,9 +519,9 @@ function BillSplitterFlow() {
           source: expenseRecord.source,
           storeName: expenseRecord.store_name
         });
-        
-        toast({ 
-          title: "Expense Details Not Found", 
+
+        toast({
+          title: "Expense Details Not Found",
           description: "Full expense details are not available. Cannot edit this expense."
         });
         return;
@@ -532,27 +531,27 @@ function BillSplitterFlow() {
         if (savedHistory) {
           const parsed = JSON.parse(savedHistory);
           const foundItem = parsed.find((h: any) => h.id === item.id);
-          
+
           if (foundItem && foundItem.billData) {
             setBillData(foundItem.billData);
             setEditingExpenseId(item.id); // Set editing ID
             setFlow(foundItem.source === 'scan' ? AppFlow.SCAN : AppFlow.MANUAL);
             setCurrentStep(Step.ITEM_SPLITTING);
-            toast({ 
-              title: "Expense Loaded", 
+            toast({
+              title: "Expense Loaded",
               description: "You can now edit this expense."
             });
           } else {
-            toast({ 
-              title: "Expense Details Not Found", 
+            toast({
+              title: "Expense Details Not Found",
               description: "Full expense details are not available. Cannot edit this expense."
             });
             // Don't create a new expense, just show warning
             return;
           }
         } else {
-          toast({ 
-            title: "Expense Details Not Found", 
+          toast({
+            title: "Expense Details Not Found",
             description: "Could not load expense data. Cannot edit this expense."
           });
           // Don't create a new expense, just show warning
@@ -561,8 +560,8 @@ function BillSplitterFlow() {
       }
     } catch (error) {
       console.error('Error loading expense:', error);
-      toast({ 
-        title: "Error", 
+      toast({
+        title: "Error",
         description: "Failed to load expense. Please try again.",
         variant: "destructive"
       });
@@ -743,13 +742,12 @@ function BillSplitterFlow() {
           }
 
           // Only track if there are actual modifications
-          if ((userModifications.items && userModifications.items.length > 0) || 
-              userModifications.taxes !== undefined || 
-              userModifications.otherCharges !== undefined || 
-              userModifications.totalCost !== undefined) {
+          if ((userModifications.items && userModifications.items.length > 0) ||
+            userModifications.taxes !== undefined ||
+            userModifications.otherCharges !== undefined ||
+            userModifications.totalCost !== undefined) {
             await AnalyticsClientService.trackCorrections(
               receiptId,
-              authUser.id.toString(),
               originalExtraction,
               userModifications
             );
@@ -772,12 +770,11 @@ function BillSplitterFlow() {
       if (authUser?.id) {
         try {
           const selectedGroup = groups.find(g => g.id === billData.groupId);
-          
+
           if (editingExpenseId) {
             // Update existing expense
             await AnalyticsClientService.updateExpenseHistory({
               id: editingExpenseId,
-              userId: authUser.id.toString(),
               storeName: billData.storeName || "Bill Split",
               date: billData.date,
               total: totalAmount,
@@ -790,7 +787,6 @@ function BillSplitterFlow() {
           } else {
             // Create new expense
             const savedExpense = await AnalyticsClientService.saveExpenseHistory({
-              userId: authUser.id.toString(),
               storeName: billData.storeName || "Bill Split",
               date: billData.date,
               total: totalAmount,
@@ -800,7 +796,7 @@ function BillSplitterFlow() {
               splitwiseExpenseId: splitwiseExpenseId || undefined,
               billData: billData // Save full bill data for editing
             });
-            
+
             if (!savedExpense) {
               console.error('Failed to save expense to database - no data returned');
             } else if (!savedExpense.bill_data) {
@@ -832,7 +828,7 @@ function BillSplitterFlow() {
       // Refresh analytics after saving expense
       if (authUser?.id) {
         try {
-          const expenseCounts = await AnalyticsClientService.getUserExpenseCounts(authUser.id.toString());
+          const expenseCounts = await AnalyticsClientService.getUserExpenseCounts();
           if (expenseCounts) {
             setAnalytics(expenseCounts);
           }
@@ -844,10 +840,10 @@ function BillSplitterFlow() {
       setEditingExpenseId(null); // Clear editing state after successful save
       setCurrentStep(Step.SUCCESS);
       setSavedFlowState(null);
-      
+
       // Delete the flow state draft once successfully finished
       if (authUser?.id && billData.id) {
-        deleteFlowState(authUser.id.toString(), billData.id).catch(() => {});
+        deleteFlowState(billData.id).catch(() => { });
       }
 
     } catch (error) {
@@ -889,7 +885,7 @@ function BillSplitterFlow() {
             const hash = await generateImageHash(file);
             const fileExt = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '') || 'jpg';
 
-            const payload = { userId: authUser.id.toString(), hash, fileExt };
+            const payload = { hash, fileExt };
             const urlResponse = await fetch('/api/analytics/upload-image', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -984,7 +980,6 @@ function BillSplitterFlow() {
           try {
             // Track receipt processing with the uploaded image URL
             const trackedReceiptId = await AnalyticsClientService.trackReceiptProcessing({
-              userId: authUser.id.toString(),
               aiExtraction: originalExtractionData,
               processingTimeMs,
               aiModelVersion: extracted.aiMetadata?.modelName || 'unknown',
@@ -1030,7 +1025,6 @@ function BillSplitterFlow() {
       try {
         await AnalyticsClientService.submitFeedback({
           receiptId,
-          userId: authUser.id.toString(),
           feedback: {
             overall_accuracy: type === 'accurate' ? 'thumbs_up' : 'thumbs_down',
             additional_notes: type === 'accurate' ? 'Receipt extraction was accurate' : 'Receipt extraction needs improvement'
@@ -1087,7 +1081,7 @@ function BillSplitterFlow() {
           <div className="mb-10">
             <h1 className="text-5xl md:text-6xl font-black tracking-tight text-foreground mb-6">
               <span className="font-black">Split</span><span className="bg-clip-text text-transparent bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700">Scan</span>
-          </h1>
+            </h1>
             <div className="flex items-center justify-center gap-4">
               <div className="h-[1px] w-6 bg-border"></div>
               <p className="text-muted-foreground font-bold uppercase tracking-[0.4em] text-[10px] whitespace-nowrap">
@@ -1110,8 +1104,8 @@ function BillSplitterFlow() {
 
   return (
     <div className="min-h-screen max-w-md mx-auto bg-background flex flex-col relative pb-32">
-      <StepProgress 
-        currentStep={currentStep} 
+      <StepProgress
+        currentStep={currentStep}
         onHomeClick={handleGoHome}
       />
 
@@ -1136,135 +1130,135 @@ function BillSplitterFlow() {
           </div>
         ) : (
           <>
-        {currentStep === Step.FLOW_SELECTION && (
-          <DashboardView
-            user={authUser}
-            greeting={getGreeting()}
-            analytics={analytics}
-            history={history}
-            onProfileClick={() => setShowProfile(true)}
-            onScanClick={() => {
-              setFlow(AppFlow.SCAN);
-              setCurrentStep(Step.UPLOAD);
-              setPreviewImage(null);
-              setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9) });
-              setOriginalExtraction(null);
-              setReceiptId(null);
-              setEditingExpenseId(null);
-            }}
-            onManualClick={() => {
-              setFlow(AppFlow.MANUAL);
-              setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9), source: AppFlow.MANUAL });
-              setCurrentStep(Step.GROUP_SELECTION);
-              setOriginalExtraction(null);
-              setReceiptId(null);
-              setEditingExpenseId(null); // Clear editing state
-            }}
-            onHistoryItemClick={handleEditHistorical}
-            drafts={drafts}
-            savedFlowState={savedFlowState}
-            onDraftClick={handleResumeFromDraft}
-            onDeleteDraft={handleDeleteDraft}
-            onResumeClick={handleResumeFromSaved}
-            onDismissResume={handleDismissResume}
-          />
-        )}
+            {currentStep === Step.FLOW_SELECTION && (
+              <DashboardView
+                user={authUser}
+                greeting={getGreeting()}
+                analytics={analytics}
+                history={history}
+                onProfileClick={() => setShowProfile(true)}
+                onScanClick={() => {
+                  setFlow(AppFlow.SCAN);
+                  setCurrentStep(Step.UPLOAD);
+                  setPreviewImage(null);
+                  setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9) });
+                  setOriginalExtraction(null);
+                  setReceiptId(null);
+                  setEditingExpenseId(null);
+                }}
+                onManualClick={() => {
+                  setFlow(AppFlow.MANUAL);
+                  setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9), source: AppFlow.MANUAL });
+                  setCurrentStep(Step.GROUP_SELECTION);
+                  setOriginalExtraction(null);
+                  setReceiptId(null);
+                  setEditingExpenseId(null); // Clear editing state
+                }}
+                onHistoryItemClick={handleEditHistorical}
+                drafts={drafts}
+                savedFlowState={savedFlowState}
+                onDraftClick={handleResumeFromDraft}
+                onDeleteDraft={handleDeleteDraft}
+                onResumeClick={handleResumeFromSaved}
+                onDismissResume={handleDismissResume}
+              />
+            )}
 
-        {/* Removed Floating Pill */}
+            {/* Removed Floating Pill */}
 
-        {currentStep === Step.UPLOAD && (
-          <div className="flex flex-col items-center gap-8 p-8 animate-slide-up h-full">
-            <div className="text-center">
-              <h2 className="text-3xl font-black text-foreground">Digitize Bill</h2>
-              <p className="text-sm font-medium text-muted-foreground mt-2">AI will extract items automatically</p>
-            </div>
+            {currentStep === Step.UPLOAD && (
+              <div className="flex flex-col items-center gap-8 p-8 animate-slide-up h-full">
+                <div className="text-center">
+                  <h2 className="text-3xl font-black text-foreground">Digitize Bill</h2>
+                  <p className="text-sm font-medium text-muted-foreground mt-2">AI will extract items automatically</p>
+                </div>
 
-            <div className="w-full max-w-sm aspect-[4/5] bg-card border-2 border-dashed border-border rounded-[3rem] flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl transition-all">
-              {isProcessing && <div className="scanner-line"></div>}
+                <div className="w-full max-w-sm aspect-[4/5] bg-card border-2 border-dashed border-border rounded-[3rem] flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl transition-all">
+                  {isProcessing && <div className="scanner-line"></div>}
 
-              {previewImage ? (
-                <div className="w-full h-full flex flex-col items-center justify-center p-6 relative">
-                  {isProcessing && (
-                    <div className="absolute inset-0 z-10 pointer-events-none opacity-30 mix-blend-overlay"
-                      style={{ backgroundImage: `radial-gradient(hsl(var(--primary)) 1px, transparent 1px)`, backgroundSize: '15px 15px' }}></div>
-                  )}
+                  {previewImage ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-6 relative">
+                      {isProcessing && (
+                        <div className="absolute inset-0 z-10 pointer-events-none opacity-30 mix-blend-overlay"
+                          style={{ backgroundImage: `radial-gradient(hsl(var(--primary)) 1px, transparent 1px)`, backgroundSize: '15px 15px' }}></div>
+                      )}
 
-                  <img src={previewImage} className={`max-w-full max-h-full object-contain rounded-2xl transition-all duration-1000 ${isProcessing ? 'opacity-40 blur-[3px] scale-95 brightness-50' : 'opacity-100'}`} />
+                      <img src={previewImage} className={`max-w-full max-h-full object-contain rounded-2xl transition-all duration-1000 ${isProcessing ? 'opacity-40 blur-[3px] scale-95 brightness-50' : 'opacity-100'}`} />
 
-                  {isProcessing && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-30">
-                      <div className="relative">
-                        <Logo className="w-24 h-24 animate-pulse" />
-                        <div className="absolute inset-0 rounded-full bg-primary/30 blur-2xl animate-pulse"></div>
-                      </div>
-                      <div className="bg-background/95 backdrop-blur-xl px-10 py-3 rounded-full shadow-2xl border border-primary/20">
-                        <p className="font-black text-primary uppercase tracking-[0.4em] text-[10px] animate-pulse">Analyzing...</p>
-                      </div>
+                      {isProcessing && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-30">
+                          <div className="relative">
+                            <Logo className="w-24 h-24 animate-pulse" />
+                            <div className="absolute inset-0 rounded-full bg-primary/30 blur-2xl animate-pulse"></div>
+                          </div>
+                          <div className="bg-background/95 backdrop-blur-xl px-10 py-3 rounded-full shadow-2xl border border-primary/20">
+                            <p className="font-black text-primary uppercase tracking-[0.4em] text-[10px] animate-pulse">Analyzing...</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <label className="flex flex-col items-center cursor-pointer p-12 text-center w-full h-full justify-center">
+                      <div className="w-24 h-24 bg-primary/10 rounded-[2.5rem] flex items-center justify-center text-primary mb-6 transition-transform group-hover:scale-110 shadow-inner">
+                        <i className="fas fa-file-invoice-dollar text-4xl"></i>
+                      </div>
+                      <span className="font-black text-foreground text-xl">Upload Receipt</span>
+                      <p className="text-xs text-muted-foreground font-bold mt-2 uppercase tracking-widest max-w-[150px]">Supports Images & PDF</p>
+                      <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleFileSelect} />
+                    </label>
                   )}
                 </div>
-              ) : (
-                <label className="flex flex-col items-center cursor-pointer p-12 text-center w-full h-full justify-center">
-                  <div className="w-24 h-24 bg-primary/10 rounded-[2.5rem] flex items-center justify-center text-primary mb-6 transition-transform group-hover:scale-110 shadow-inner">
-                    <i className="fas fa-file-invoice-dollar text-4xl"></i>
-                  </div>
-                  <span className="font-black text-foreground text-xl">Upload Receipt</span>
-                  <p className="text-xs text-muted-foreground font-bold mt-2 uppercase tracking-widest max-w-[150px]">Supports Images & PDF</p>
-                  <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleFileSelect} />
-                </label>
-              )}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
 
-        {currentStep === Step.GROUP_SELECTION && (
-          <div className="p-8 animate-slide-up">
-            <GroupSelector
-              selectedGroupId={billData.groupId}
-              selectedMemberIds={billData.selectedMemberIds}
-              onChange={(g, m) => setBillData(prev => ({ ...prev, groupId: g, selectedMemberIds: m }))}
-              groups={groups}
-              friends={uniqueAllUsers}
-            />
-          </div>
-        )}
+            {currentStep === Step.GROUP_SELECTION && (
+              <div className="p-8 animate-slide-up">
+                <GroupSelector
+                  selectedGroupId={billData.groupId}
+                  selectedMemberIds={billData.selectedMemberIds}
+                  onChange={(g, m) => setBillData(prev => ({ ...prev, groupId: g, selectedMemberIds: m }))}
+                  groups={groups}
+                  friends={uniqueAllUsers}
+                />
+              </div>
+            )}
 
-        {currentStep === Step.ITEM_SPLITTING && (
-          <div className="p-8 animate-slide-up">
-            <ItemSplitter
-              items={billData.items}
-              selectedMembers={uniqueAllUsers.filter(u => billData.selectedMemberIds.includes(u.id))}
-              tax={billData.tax}
-              discount={billData.discount}
-              otherCharges={billData.otherCharges}
-              flow={flow}
-              onChange={(items, tax, discount, other) => setBillData(prev => ({ ...prev, items, tax, discount, otherCharges: other }))}
-            />
-          </div>
-        )}
+            {currentStep === Step.ITEM_SPLITTING && (
+              <div className="p-8 animate-slide-up">
+                <ItemSplitter
+                  items={billData.items}
+                  selectedMembers={uniqueAllUsers.filter(u => billData.selectedMemberIds.includes(u.id))}
+                  tax={billData.tax}
+                  discount={billData.discount}
+                  otherCharges={billData.otherCharges}
+                  flow={flow}
+                  onChange={(items, tax, discount, other) => setBillData(prev => ({ ...prev, items, tax, discount, otherCharges: other }))}
+                />
+              </div>
+            )}
 
-        {currentStep === Step.REVIEW && (
-          <div className="p-8 animate-slide-up">
-            <ReviewScreen
-              billData={billData}
-              onUpdate={(updates) => setBillData(prev => ({ ...prev, ...updates }))}
-              members={uniqueAllUsers}
-              groups={groups}
-              authUserId={authUser?.id}
-            />
-          </div>
-        )}
+            {currentStep === Step.REVIEW && (
+              <div className="p-8 animate-slide-up">
+                <ReviewScreen
+                  billData={billData}
+                  onUpdate={(updates) => setBillData(prev => ({ ...prev, ...updates }))}
+                  members={uniqueAllUsers}
+                  groups={groups}
+                  authUserId={authUser?.id}
+                />
+              </div>
+            )}
 
-        {currentStep === Step.SUCCESS && (
-          <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center p-12">
-            <div className="w-28 h-28 bg-emerald-500/10 rounded-[2.5rem] flex items-center justify-center text-emerald-500 text-5xl mb-8 relative">
-              <i className="fas fa-check"></i>
-              <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping"></div>
-            </div>
-            <h2 className="text-4xl font-black text-foreground tracking-tight">Split Synced!</h2>
-            <p className="text-center text-muted-foreground mt-4 max-w-[240px]">Expenses and group balances have been updated in Splitwise.</p>
-            <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-primary text-primary-foreground rounded-[2.5rem] font-black text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform">Start New Split</button>
-          </div>
+            {currentStep === Step.SUCCESS && (
+              <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center p-12">
+                <div className="w-28 h-28 bg-emerald-500/10 rounded-[2.5rem] flex items-center justify-center text-emerald-500 text-5xl mb-8 relative">
+                  <i className="fas fa-check"></i>
+                  <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping"></div>
+                </div>
+                <h2 className="text-4xl font-black text-foreground tracking-tight">Split Synced!</h2>
+                <p className="text-center text-muted-foreground mt-4 max-w-[240px]">Expenses and group balances have been updated in Splitwise.</p>
+                <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-primary text-primary-foreground rounded-[2.5rem] font-black text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform">Start New Split</button>
+              </div>
             )}
           </>
         )}

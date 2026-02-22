@@ -157,11 +157,11 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
       )}
 
       {flow === AppFlow.MANUAL && (
-        <div className="flex p-1.5 bg-gray-50 dark:bg-slate-700/50 rounded-2xl">
+        <div className="flex p-1.5 bg-muted rounded-2xl">
           <button
             onClick={() => handleModeChange('quick')}
             style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-            className={`flex-1 py-2 text-[10px] font-bold rounded-xl transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 h-auto ${entryMode === 'quick' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400 dark:text-slate-400'
+            className={`flex-1 py-2 text-[10px] font-bold rounded-xl transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 h-auto ${entryMode === 'quick' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'
               }`}
           >
             Quick Total
@@ -169,7 +169,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
           <button
             onClick={() => handleModeChange('itemized')}
             style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-            className={`flex-1 py-2 text-[10px] font-bold rounded-xl transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 h-auto ${entryMode === 'itemized' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400 dark:text-slate-400'
+            className={`flex-1 py-2 text-[10px] font-bold rounded-xl transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 h-auto ${entryMode === 'itemized' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'
               }`}
           >
             Itemized
@@ -179,9 +179,9 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
 
       <div className="space-y-4">
         {items.map((item) => (
-          <div key={item.id} className={`group bg-white dark:bg-slate-800 rounded-3xl border transition-all duration-300 ${expandedId === item.id
+          <div key={item.id} className={`group bg-card text-card-foreground rounded-3xl border transition-all duration-300 ${expandedId === item.id
             ? 'border-transparent'
-            : 'border-gray-100 dark:border-slate-700 hover:border-gray-200 dark:hover:border-slate-600 shadow-sm'
+            : 'border-border hover:border-primary/20 shadow-sm'
             }`}>
             <div
               className="p-5 flex items-center justify-between cursor-pointer focus:outline-none"
@@ -196,7 +196,7 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                       onChange={(e) => updateItem(item.id, { name: e.target.value })}
                       onClick={(e) => e.stopPropagation()}
                       placeholder="Item name..."
-                      className="font-bold text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 w-full text-base !min-h-0 !p-0 resize-none break-words"
+                      className="font-bold text-foreground bg-transparent border-none focus:ring-0 w-full text-base !min-h-0 !p-0 resize-none break-words"
                       title={item.name}
                       rows={1}
                       style={{
@@ -231,38 +231,38 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                       onChange={(e) => updateItem(item.id, { name: e.target.value })}
                       onClick={(e) => e.stopPropagation()}
                       placeholder="Item name..."
-                      className="font-bold text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 w-full truncate text-base !min-h-0 !p-0"
+                      className="font-bold text-foreground bg-transparent border-none focus:ring-0 w-full truncate text-base !min-h-0 !p-0"
                       title={item.name}
                     />
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${item.splitType === 'quantity'
-                    ? 'bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400'
+                    ? 'bg-violet-500/10 text-violet-500'
                     : item.splitMemberIds.length === selectedMembers.length
-                      ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-primary/10 text-primary'
                     }`}>
                     {item.splitType === 'quantity' ? 'Split by Qty' : item.splitMemberIds.length === selectedMembers.length ? 'Split All' : `${item.splitMemberIds.length} members`}
                   </span>
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter">
                     Qty: {item.quantity || 1}
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <div className="flex items-center bg-gray-50/80 dark:bg-slate-700/50 px-2 py-2 rounded-xl border border-gray-100 dark:border-slate-700 group-hover:bg-white dark:group-hover:bg-slate-700 transition-colors">
-                  <span className="text-gray-400 dark:text-slate-500 text-xs font-bold mr-1">$</span>
+                <div className="flex items-center bg-muted/50 px-2 py-2 rounded-xl border border-border group-hover:bg-muted transition-colors">
+                  <span className="text-muted-foreground text-xs font-bold mr-1">$</span>
                   <input
                     type="number"
                     step="0.01"
                     value={item.price || ''}
                     onChange={(e) => updateItem(item.id, { price: parseFloat(e.target.value) || 0 })}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-14 font-black text-gray-900 dark:text-white border-none focus:ring-0 text-right bg-transparent !min-h-0 !p-0"
+                    className="w-14 font-black text-foreground border-none focus:ring-0 text-right bg-transparent !min-h-0 !p-0"
                   />
                 </div>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${expandedId === item.id ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rotate-180' : 'text-gray-300 dark:text-slate-600'
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${expandedId === item.id ? 'bg-primary/10 text-primary rotate-180' : 'text-muted-foreground/50'
                   }`}>
                   <i className="fas fa-chevron-down text-[10px]"></i>
                 </div>
@@ -270,44 +270,44 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
             </div>
 
             {expandedId === item.id && (
-              <div className="px-5 pb-5 border-t border-gray-50 dark:border-slate-700 pt-5 animate-slide-up">
+              <div className="px-5 pb-5 border-t border-border pt-5 animate-slide-up">
                 <div className="flex flex-col gap-6">
                   {/* Top Bar: Settings */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-slate-700/50 p-1.5 rounded-2xl">
+                    <div className="flex items-center gap-3 bg-muted p-1.5 rounded-2xl">
                       <button
                         onClick={() => updateItem(item.id, { splitType: 'equally', splitMemberIds: selectedMembers.map(m => m.id) })}
                         style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-                        className={`text-[10px] px-3 py-2 rounded-xl font-bold transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 ${item.splitType === 'equally' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400'}`}
+                        className={`text-[10px] px-3 py-2 rounded-xl font-bold transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 ${item.splitType === 'equally' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'}`}
                       >
                         Equal
                       </button>
                       <button
                         onClick={() => updateItem(item.id, { splitType: 'quantity', quantityAssignments: item.quantityAssignments || {} })}
                         style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-                        className={`text-[10px] px-3 py-2 rounded-xl font-bold transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 ${item.splitType === 'quantity' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400'}`}
+                        className={`text-[10px] px-3 py-2 rounded-xl font-bold transition-all focus:outline-none focus:ring-0 outline-none ring-0 !min-h-0 ${item.splitType === 'quantity' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'}`}
                       >
                         By Qty
                       </button>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-900/50 px-3 py-1 rounded-xl">
-                        <span className="text-[9px] font-black text-gray-400 uppercase">Qty</span>
+                      <div className="flex items-center gap-2 bg-muted/50 px-3 py-1 rounded-xl">
+                        <span className="text-[9px] font-black text-muted-foreground uppercase">Qty</span>
                         <input
                           type="number"
                           min="1"
                           value={item.quantity}
                           onChange={(e) => updateItem(item.id, { quantity: parseInt(e.target.value) || 1 })}
                           style={{ outline: 'none', boxShadow: 'none' }}
-                          className="w-8 text-center text-xs font-black bg-transparent border-none focus:ring-0 dark:text-white !min-h-0 !p-0"
+                          className="w-8 text-center text-xs font-black bg-transparent border-none focus:ring-0 text-foreground !min-h-0 !p-0"
                         />
                       </div>
                       {entryMode === 'itemized' && (
                         <button
                           onClick={(e) => { e.stopPropagation(); removeItem(item.id); }}
                           style={{ WebkitTapHighlightColor: 'transparent' }}
-                          className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0"
+                          className="w-9 h-9 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive/20 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0"
                         >
                           <i className="fas fa-trash-alt text-xs"></i>
                         </button>
@@ -319,25 +319,25 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                   {item.splitType === 'quantity' ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between flex-wrap gap-1">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Assign Units</span>
-                        <span className="text-[9px] font-bold text-indigo-500">Total: {(Object.values(item.quantityAssignments || {}) as number[]).reduce((a, b) => a + b, 0).toFixed(2)} / {item.quantity}</span>
+                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Assign Units</span>
+                        <span className="text-[9px] font-bold text-primary">Total: {(Object.values(item.quantityAssignments || {}) as number[]).reduce((a, b) => a + b, 0).toFixed(2)} / {item.quantity}</span>
                       </div>
-                      <p className="text-[10px] text-gray-500 dark:text-slate-400">Use decimals to share a unit (e.g. 0.5 each for two people).</p>
+                      <p className="text-[10px] text-muted-foreground">Use decimals to share a unit (e.g. 0.5 each for two people).</p>
                       <div className="grid grid-cols-1 gap-2">
                         {selectedMembers.map(member => {
                           const assigned = item.quantityAssignments?.[member.id] ?? 0;
                           return (
-                            <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-slate-900/30 rounded-2xl border border-gray-100/50 dark:border-slate-800">
+                            <div key={member.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl border border-border/50">
                               <div className="flex items-center gap-3 min-w-0">
                                 <img src={member.avatar} className="w-8 h-8 rounded-lg shrink-0" alt="" />
-                                <span className="text-xs font-bold text-gray-700 dark:text-slate-300 truncate">{member.name}</span>
+                                <span className="text-xs font-bold text-foreground truncate">{member.name}</span>
                               </div>
-                              <div className="flex items-center gap-2 bg-gray-50/80 dark:bg-slate-700/50 px-2 py-2 rounded-xl border border-gray-100 dark:border-slate-700 shrink-0">
+                              <div className="flex items-center gap-2 bg-muted/50 px-2 py-2 rounded-xl border border-border shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => updateQuantityAssignment(item.id, member.id, Math.max(0, assigned - 1))}
                                   style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-                                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-indigo-500 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700"
+                                  className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0 rounded-lg hover:bg-muted"
                                 >
                                   <i className="fas fa-minus text-[10px]" aria-hidden />
                                 </button>
@@ -358,14 +358,14 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                                   onBlur={(e) => {
                                     if (e.target.value === '') updateQuantityAssignment(item.id, member.id, 0);
                                   }}
-                                  className="w-8 text-xs font-black text-center text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 !min-h-0 !p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  className="w-8 text-xs font-black text-center text-foreground bg-transparent border-none focus:ring-0 !min-h-0 !p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   aria-label={`Units for ${member.name}`}
                                 />
                                 <button
                                   type="button"
                                   onClick={() => updateQuantityAssignment(item.id, member.id, assigned + 1)}
                                   style={{ WebkitTapHighlightColor: 'transparent', outline: 'none', boxShadow: 'none' }}
-                                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-indigo-500 transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700"
+                                  className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors focus:outline-none focus:ring-0 !min-h-0 !p-0 rounded-lg hover:bg-muted"
                                 >
                                   <i className="fas fa-plus text-[10px]" aria-hidden />
                                 </button>
@@ -378,11 +378,11 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                   ) : (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-extrabold text-gray-400 dark:text-slate-400 uppercase tracking-widest">Assign to members</span>
+                        <span className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest">Assign to members</span>
                         <button
                           onClick={(e) => { e.stopPropagation(); updateItem(item.id, { splitMemberIds: selectedMembers.map(m => m.id), splitType: 'equally' }); }}
                           style={{ WebkitTapHighlightColor: 'transparent' }}
-                          className="text-[10px] text-indigo-500 dark:text-indigo-400 font-black uppercase tracking-widest focus:outline-none focus:ring-0 !min-h-0"
+                          className="text-[10px] text-primary font-black uppercase tracking-widest focus:outline-none focus:ring-0 !min-h-0"
                         >
                           Select All
                         </button>
@@ -399,12 +399,12 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
                               className="group flex flex-col items-center gap-2 cursor-pointer h-auto w-full justify-start outline-none focus:outline-none"
                             >
                               <div className={`relative w-12 h-12 rounded-2xl transition-all duration-200 overflow-hidden ${isSelected
-                                ? 'bg-indigo-100 dark:bg-indigo-900/40'
-                                : 'grayscale opacity-40 hover:grayscale-0 hover:opacity-100 border border-gray-100 dark:border-slate-700'
+                                ? 'bg-primary/20'
+                                : 'grayscale opacity-40 hover:grayscale-0 hover:opacity-100 border border-border'
                                 }`}>
                                 <img src={member.avatar} className="w-full h-full object-cover" />
                               </div>
-                              <span className={`text-[11px] font-bold w-full text-center leading-tight ${isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'
+                              <span className={`text-[11px] font-bold w-full text-center leading-tight ${isSelected ? 'text-primary' : 'text-muted-foreground'
                                 }`}>
                                 {member.name.split(' ')[0]}
                               </span>
@@ -426,9 +426,9 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
           <button
             onClick={addItem}
             style={{ WebkitTapHighlightColor: 'transparent' }}
-            className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-[2rem] text-gray-400 dark:text-slate-500 font-bold hover:border-indigo-200 dark:hover:border-indigo-900 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-3 focus:outline-none focus:ring-0"
+            className="w-full py-4 border-2 border-dashed border-border rounded-[2rem] text-muted-foreground font-bold hover:border-primary/20 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-3 focus:outline-none focus:ring-0"
           >
-            <div className="w-8 h-8 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-xs">
+            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs">
               <i className="fas fa-plus"></i>
             </div>
             <span>Add item</span>
@@ -436,69 +436,69 @@ export const ItemSplitter: React.FC<ItemSplitterProps> = ({
         )
       }
 
-      <section className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-gray-100 dark:border-slate-700 p-8 shadow-xl shadow-gray-200/20 dark:shadow-none space-y-6">
-        <h4 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest border-b border-gray-50 dark:border-slate-700 pb-4">Bill Summary</h4>
+      <section className="bg-card text-card-foreground rounded-[2.5rem] border border-border p-8 shadow-xl shadow-primary/5 space-y-6">
+        <h4 className="text-sm font-black text-foreground uppercase tracking-widest border-b border-border pb-4">Bill Summary</h4>
 
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500 dark:text-slate-400 font-bold">Subtotal</span>
+            <span className="text-sm text-muted-foreground font-bold">Subtotal</span>
             <div className="flex items-center gap-2 px-3 py-1.5">
-              <span className="text-gray-400 dark:text-slate-500 text-xs font-bold">$</span>
-              <span className="w-16 text-right text-sm font-black text-gray-900 dark:text-white">{subtotal.toFixed(2)}</span>
+              <span className="text-muted-foreground text-xs font-bold">$</span>
+              <span className="w-16 text-right text-sm font-black text-foreground">{subtotal.toFixed(2)}</span>
             </div>
           </div>
 
           <div className="flex justify-between items-center group/input">
-            <span className="text-sm text-gray-500 dark:text-slate-400 font-bold">Tax</span>
-            <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-700/50 px-3 py-1.5 rounded-xl border border-transparent focus-within:border-indigo-100 dark:focus-within:border-indigo-900 transition-all">
-              <span className="text-gray-400 dark:text-slate-500 text-xs font-bold">$</span>
+            <span className="text-sm text-muted-foreground font-bold">Tax</span>
+            <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-xl border border-transparent focus-within:border-primary/20 transition-all">
+              <span className="text-muted-foreground text-xs font-bold">$</span>
               <input
                 type="number"
                 step="0.01"
                 value={tax || ''}
                 onChange={(e) => onChange(items, parseFloat(e.target.value) || 0, discount, otherCharges)}
-                className="w-16 text-right text-sm font-black text-gray-900 dark:text-white border-none focus:ring-0 bg-transparent !min-h-0 !p-0"
+                className="w-16 text-right text-sm font-black text-foreground border-none focus:ring-0 bg-transparent !min-h-0 !p-0"
                 placeholder="0.00"
               />
             </div>
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500 dark:text-slate-400 font-bold">Extra Fees</span>
-            <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-700/50 px-3 py-1.5 rounded-xl border border-transparent focus-within:border-indigo-100 dark:focus-within:border-indigo-900 transition-all">
-              <span className="text-gray-400 dark:text-slate-500 text-xs font-bold">$</span>
+            <span className="text-sm text-muted-foreground font-bold">Extra Fees</span>
+            <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-xl border border-transparent focus-within:border-primary/20 transition-all">
+              <span className="text-muted-foreground text-xs font-bold">$</span>
               <input
                 type="number"
                 step="0.01"
                 value={otherCharges || ''}
                 onChange={(e) => onChange(items, tax, discount, parseFloat(e.target.value) || 0)}
-                className="w-16 text-right text-sm font-black text-gray-900 dark:text-white border-none focus:ring-0 bg-transparent !min-h-0 !p-0"
+                className="w-16 text-right text-sm font-black text-foreground border-none focus:ring-0 bg-transparent !min-h-0 !p-0"
                 placeholder="0.00"
               />
             </div>
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-sm text-emerald-500 dark:text-emerald-400 font-bold">Discount</span>
-            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/10 px-3 py-1.5 rounded-xl border border-transparent focus-within:border-emerald-100 dark:focus-within:border-emerald-900/50 transition-all">
-              <span className="text-emerald-400 dark:text-emerald-500/50 text-xs font-bold">- $</span>
+            <span className="text-sm text-emerald-500 font-bold">Discount</span>
+            <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-transparent focus-within:border-emerald-500/30 transition-all">
+              <span className="text-emerald-500/50 text-xs font-bold">- $</span>
               <input
                 type="number"
                 step="0.01"
                 value={discount || ''}
                 onChange={(e) => onChange(items, tax, parseFloat(e.target.value) || 0, otherCharges)}
-                className="w-16 text-right text-sm font-black border-none focus:ring-0 text-emerald-600 dark:text-emerald-400 bg-transparent !min-h-0 !p-0"
+                className="w-16 text-right text-sm font-black border-none focus:ring-0 text-emerald-600 bg-transparent !min-h-0 !p-0"
                 placeholder="0.00"
               />
             </div>
           </div>
 
-          <div className="pt-6 border-t border-gray-100 dark:border-slate-700 flex justify-between items-center">
+          <div className="pt-6 border-t border-border flex justify-between items-center">
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-tighter">Settlement Total</span>
-              <span className="text-xs text-gray-400 dark:text-slate-600 font-medium">Verified Split</span>
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter">Settlement Total</span>
+              <span className="text-xs text-muted-foreground/60 font-medium">Verified Split</span>
             </div>
-            <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">${calculatedTotal.toFixed(2)}</span>
+            <span className="text-2xl font-black text-primary tracking-tight">${calculatedTotal.toFixed(2)}</span>
           </div>
         </div>
       </section>

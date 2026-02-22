@@ -26,7 +26,7 @@ import { extractReceiptData } from '@/ai/extract-receipt-data';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Play, X } from 'lucide-react';
 import { AnalyticsClientService } from '@/services/analytics-client';
-import { getFlowState, saveFlowState, type FlowStateSnapshot } from '@/services/flow-state-service';
+import { getFlowState, saveFlowState, getAllDrafts, type FlowStateSnapshot } from '@/services/flow-state-service';
 import { supabase, generateImageHash } from '@/lib/supabase';
 
 // MOCK CONSTANTS (Fallbacks)
@@ -75,6 +75,7 @@ function BillSplitterFlow() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [friends, setFriends] = useState<User[]>([]);
   const [history, setHistory] = useState<any[]>([]); // Using any for history items for now to match structure
+  const [drafts, setDrafts] = useState<FlowStateSnapshot[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -172,11 +173,25 @@ function BillSplitterFlow() {
   useEffect(() => {
     if (!isAuthenticated || !authUser?.id || currentStep !== Step.FLOW_SELECTION) return;
     let cancelled = false;
-    getFlowState(authUser.id.toString()).then((state) => {
-      if (cancelled || !state) return;
-      const step = state.currentStep;
-      const hasProgress = step > Step.FLOW_SELECTION && step < Step.SUCCESS && state.billData != null;
-      if (hasProgress) setSavedFlowState(state);
+    
+    // Fetch last active and all drafts
+    Promise.all([
+      getFlowState(authUser.id.toString()),
+      getAllDrafts(authUser.id.toString())
+    ]).then(([state, allDrafts]) => {
+      if (cancelled) return;
+      
+      // Handle last active pill
+      if (state) {
+        const step = state.currentStep;
+        const hasProgress = step > Step.FLOW_SELECTION && step < Step.SUCCESS && state.billData != null;
+        if (hasProgress) setSavedFlowState(state);
+      }
+      
+      // Handle other drafts list
+      if (allDrafts) {
+        setDrafts(allDrafts.filter(d => !d.isLastActive && (d.currentStep || 0) < Step.SUCCESS));
+      }
     });
     return () => { cancelled = true; };
   }, [isAuthenticated, authUser?.id, currentStep]);
@@ -354,7 +369,32 @@ function BillSplitterFlow() {
     toast({ title: 'Resumed', description: 'Continue where you left off.' });
   };
 
-  const handleDismissResume = () => setSavedFlowState(null);
+  const handleResumeFromDraft = (draft: FlowStateSnapshot) => {
+    const flowEnum = draft.flow === AppFlow.SCAN ? AppFlow.SCAN : draft.flow === AppFlow.MANUAL ? AppFlow.MANUAL : AppFlow.NONE;
+    setFlow(flowEnum);
+    setCurrentStep(draft.currentStep as Step);
+    const restored = draft.billData as unknown as BillData;
+    if (restored && typeof restored === 'object') {
+      setBillData({
+        ...restored,
+        id: restored.id || Math.random().toString(36).substr(2, 9),
+      });
+    }
+    setPreviewImage(draft.previewImageUrl || null);
+    toast({ title: 'Draft Restored', description: `Resumed session for ${draft.storeName || 'Untitled Split'}` });
+  };
+
+  const handleDismissResume = () => {
+    setSavedFlowState(null);
+    if (authUser?.id && savedFlowState?.billId) {
+      // Mark as not last active in backend
+      saveFlowState(authUser.id.toString(), {
+        flow: 'NONE', // This will set is_last_active: false in the API
+        currentStep: savedFlowState.currentStep,
+        billData: savedFlowState.billData as any,
+      }).catch(() => {});
+    }
+  };
 
   const handleEditHistorical = async (item: any) => {
     if (!authUser?.id) {
@@ -963,15 +1003,15 @@ function BillSplitterFlow() {
             <Logo className="w-32 h-32" />
           </div>
           <div className="mb-10">
-            <h1 className="text-5xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-6">
+            <h1 className="text-5xl md:text-6xl font-black tracking-tight text-foreground mb-6">
               <span className="font-black">Split</span><span className="bg-clip-text text-transparent bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700">Scan</span>
           </h1>
             <div className="flex items-center justify-center gap-4">
-              <div className="h-[1px] w-6 bg-gray-100 dark:bg-slate-800"></div>
-              <p className="text-gray-400 dark:text-slate-500 font-bold uppercase tracking-[0.4em] text-[10px] whitespace-nowrap">
+              <div className="h-[1px] w-6 bg-border"></div>
+              <p className="text-muted-foreground font-bold uppercase tracking-[0.4em] text-[10px] whitespace-nowrap">
                 Splitting made intelligent
               </p>
-              <div className="h-[1px] w-6 bg-gray-100 dark:bg-slate-800"></div>
+              <div className="h-[1px] w-6 bg-border"></div>
             </div>
           </div>
           <button
@@ -987,7 +1027,7 @@ function BillSplitterFlow() {
   }
 
   return (
-    <div className="min-h-screen max-w-md mx-auto bg-[#fcfcfd] dark:bg-slate-900 flex flex-col relative pb-32">
+    <div className="min-h-screen max-w-md mx-auto bg-background flex flex-col relative pb-32">
       <StepProgress currentStep={currentStep} />
 
       {/* Profile Overlay */}
@@ -1012,50 +1052,14 @@ function BillSplitterFlow() {
         ) : (
           <>
         {currentStep === Step.FLOW_SELECTION && (
-          <>
-            {savedFlowState && (
-              <div className="px-4 pt-4 pb-2">
-                <div className="bg-white dark:bg-slate-800 border border-indigo-100 dark:border-indigo-900/50 rounded-[2rem] p-4 shadow-xl shadow-indigo-100/20 dark:shadow-none flex items-center gap-4 animate-fade-in">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
-                      <p className="text-sm font-black text-gray-900 dark:text-white tracking-tight">Continue Split</p>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">
-                      {savedFlowState.updatedAt
-                        ? `Last active ${new Date(savedFlowState.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
-                        : 'Resume progress from another device'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleResumeFromSaved}
-                      className="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200/50 dark:shadow-none transition-all active:scale-90"
-                      title="Resume"
-                    >
-                      <Play className="w-4 h-4 shrink-0 fill-white ml-0.5" strokeWidth={2} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDismissResume}
-                      className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-50 dark:bg-slate-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-all active:scale-90"
-                      title="Dismiss"
-                    >
-                      <X className="w-4 h-4 shrink-0" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            <DashboardView
+          <DashboardView
             user={authUser}
             greeting={getGreeting()}
             analytics={analytics}
             history={history}
             onProfileClick={() => setShowProfile(true)}
-                onScanClick={() => { 
-              setFlow(AppFlow.SCAN); 
+            onScanClick={() => {
+              setFlow(AppFlow.SCAN);
               setCurrentStep(Step.UPLOAD);
               setPreviewImage(null);
               setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9) });
@@ -1063,34 +1067,72 @@ function BillSplitterFlow() {
               setReceiptId(null);
               setEditingExpenseId(null);
             }}
-            onManualClick={() => { 
-              setFlow(AppFlow.MANUAL); 
-              setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9), source: AppFlow.MANUAL }); 
+            onManualClick={() => {
+              setFlow(AppFlow.MANUAL);
+              setBillData({ ...DEFAULT_BILL, id: Math.random().toString(36).substr(2, 9), source: AppFlow.MANUAL });
               setCurrentStep(Step.GROUP_SELECTION);
               setOriginalExtraction(null);
               setReceiptId(null);
               setEditingExpenseId(null); // Clear editing state
             }}
             onHistoryItemClick={handleEditHistorical}
-            />
-          </>
+            drafts={drafts}
+            onDraftClick={handleResumeFromDraft}
+          />
+        )}
+
+        {/* Floating "Continue Split" Pill (Repositioned to bottom) */}
+        {currentStep === Step.FLOW_SELECTION && savedFlowState && (
+          <div className="fixed bottom-10 left-0 right-0 px-6 z-50 animate-slide-up flex justify-center pointer-events-none">
+            <div className="bg-card/90 backdrop-blur-xl border border-primary/20 rounded-full py-3 px-5 shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-none flex items-center gap-4 pointer-events-auto max-w-sm w-full">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                  <p className="text-xs font-black text-foreground tracking-tight">Active Split Found</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider truncate">
+                  {savedFlowState.updatedAt
+                    ? `Saved ${new Date(savedFlowState.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                    : 'Resume session'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleResumeFromSaved}
+                  className="bg-primary text-primary-foreground py-2 px-4 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center gap-2"
+                >
+                  <i className="fas fa-play text-[8px]"></i>
+                  Resume
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDismissResume}
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-muted text-muted-foreground/60 hover:text-foreground transition-all active:scale-90"
+                  title="Dismiss"
+                >
+                  <i className="fas fa-times text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {currentStep === Step.UPLOAD && (
           <div className="flex flex-col items-center gap-8 p-8 animate-slide-up h-full">
             <div className="text-center">
-              <h2 className="text-3xl font-black text-gray-900 dark:text-white">Digitize Bill</h2>
-              <p className="text-sm font-medium text-gray-400 mt-2">AI will extract items automatically</p>
+              <h2 className="text-3xl font-black text-foreground">Digitize Bill</h2>
+              <p className="text-sm font-medium text-muted-foreground mt-2">AI will extract items automatically</p>
             </div>
 
-            <div className="w-full max-w-sm aspect-[4/5] bg-white dark:bg-slate-800 border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-[3rem] flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl transition-all">
+            <div className="w-full max-w-sm aspect-[4/5] bg-card border-2 border-dashed border-border rounded-[3rem] flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl transition-all">
               {isProcessing && <div className="scanner-line"></div>}
 
               {previewImage ? (
                 <div className="w-full h-full flex flex-col items-center justify-center p-6 relative">
                   {isProcessing && (
                     <div className="absolute inset-0 z-10 pointer-events-none opacity-30 mix-blend-overlay"
-                      style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '15px 15px' }}></div>
+                      style={{ backgroundImage: `radial-gradient(hsl(var(--primary)) 1px, transparent 1px)`, backgroundSize: '15px 15px' }}></div>
                   )}
 
                   <img src={previewImage} className={`max-w-full max-h-full object-contain rounded-2xl transition-all duration-1000 ${isProcessing ? 'opacity-40 blur-[3px] scale-95 brightness-50' : 'opacity-100'}`} />
@@ -1099,21 +1141,21 @@ function BillSplitterFlow() {
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-30">
                       <div className="relative">
                         <Logo className="w-24 h-24 animate-pulse" />
-                        <div className="absolute inset-0 rounded-full bg-indigo-500/30 blur-2xl animate-pulse"></div>
+                        <div className="absolute inset-0 rounded-full bg-primary/30 blur-2xl animate-pulse"></div>
                       </div>
-                      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-10 py-3 rounded-full shadow-2xl border border-indigo-100 dark:border-indigo-900">
-                        <p className="font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.4em] text-[10px] animate-pulse">Analyzing...</p>
+                      <div className="bg-background/95 backdrop-blur-xl px-10 py-3 rounded-full shadow-2xl border border-primary/20">
+                        <p className="font-black text-primary uppercase tracking-[0.4em] text-[10px] animate-pulse">Analyzing...</p>
                       </div>
                     </div>
                   )}
                 </div>
               ) : (
                 <label className="flex flex-col items-center cursor-pointer p-12 text-center w-full h-full justify-center">
-                  <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-900/30 rounded-[2.5rem] flex items-center justify-center text-indigo-500 mb-6 transition-transform group-hover:scale-110 shadow-inner">
+                  <div className="w-24 h-24 bg-primary/10 rounded-[2.5rem] flex items-center justify-center text-primary mb-6 transition-transform group-hover:scale-110 shadow-inner">
                     <i className="fas fa-file-invoice-dollar text-4xl"></i>
                   </div>
-                  <span className="font-black text-gray-900 dark:text-white text-xl">Upload Receipt</span>
-                  <p className="text-xs text-gray-400 font-bold mt-2 uppercase tracking-widest max-w-[150px]">Supports Images & PDF</p>
+                  <span className="font-black text-foreground text-xl">Upload Receipt</span>
+                  <p className="text-xs text-muted-foreground font-bold mt-2 uppercase tracking-widest max-w-[150px]">Supports Images & PDF</p>
                   <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleFileSelect} />
                 </label>
               )}
@@ -1160,14 +1202,14 @@ function BillSplitterFlow() {
         )}
 
         {currentStep === Step.SUCCESS && (
-          <div className="fixed inset-0 bg-white dark:bg-slate-900 z-50 flex flex-col items-center justify-center p-12">
-            <div className="w-28 h-28 bg-emerald-50 dark:bg-emerald-900/20 rounded-[2.5rem] flex items-center justify-center text-emerald-500 text-5xl mb-8 relative">
+          <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center p-12">
+            <div className="w-28 h-28 bg-emerald-500/10 rounded-[2.5rem] flex items-center justify-center text-emerald-500 text-5xl mb-8 relative">
               <i className="fas fa-check"></i>
               <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping"></div>
             </div>
-            <h2 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">Split Synced!</h2>
-            <p className="text-center text-gray-400 mt-4 max-w-[240px]">Expenses and group balances have been updated in Splitwise.</p>
-            <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black text-lg shadow-xl shadow-indigo-100 dark:shadow-none active:scale-95 transition-transform">Start New Split</button>
+            <h2 className="text-4xl font-black text-foreground tracking-tight">Split Synced!</h2>
+            <p className="text-center text-muted-foreground mt-4 max-w-[240px]">Expenses and group balances have been updated in Splitwise.</p>
+            <button onClick={startNewSplit} className="mt-14 w-full py-5 bg-primary text-primary-foreground rounded-[2rem] font-black text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform">Start New Split</button>
           </div>
             )}
           </>
@@ -1176,7 +1218,7 @@ function BillSplitterFlow() {
 
       {/* Footer Navigation */}
       {currentStep > Step.FLOW_SELECTION && currentStep < Step.SUCCESS && (
-        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[#fcfcfd] dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 p-6 safe-bottom flex gap-4 z-40 shadow-[0_-20px_40px_rgba(0,0,0,0.12)]">
+        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-background border-t border-border p-6 safe-bottom flex gap-4 z-40 shadow-[0_-20px_40px_rgba(0,0,0,0.12)]">
           <button
             disabled={isProcessing}
             onClick={() => {
@@ -1200,7 +1242,7 @@ function BillSplitterFlow() {
               setCurrentStep(prev => prev - 1);
             }}
             style={{ outline: 'none', boxShadow: 'none', WebkitTapHighlightColor: 'transparent' }}
-            className="flex-1 py-4 bg-gray-50 dark:bg-slate-800 text-gray-500 font-bold rounded-2xl disabled:opacity-50 transition-all active:scale-95 focus:outline-none focus:ring-0"
+            className="flex-1 py-4 bg-muted text-muted-foreground font-bold rounded-2xl disabled:opacity-50 transition-all active:scale-95 focus:outline-none focus:ring-0"
           >
             {editingExpenseId ? 'Cancel' : (currentStep === Step.UPLOAD || (currentStep === Step.GROUP_SELECTION && flow === AppFlow.MANUAL)) ? 'Cancel' : 'Back'}
           </button>
@@ -1224,7 +1266,7 @@ function BillSplitterFlow() {
               }
             }}
             style={{ outline: 'none', boxShadow: 'none', WebkitTapHighlightColor: 'transparent' }}
-            className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus:ring-0"
+            className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-black shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus:ring-0"
           >
             {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
             {currentStep === Step.REVIEW ? 'Sync & Finish' : 'Continue'}

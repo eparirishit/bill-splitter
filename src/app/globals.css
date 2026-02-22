@@ -25,6 +25,63 @@ body {
 
 @layer base {
   :root {
+    /* Background: Off-white */
+    --background-h: 240;
+    --background-s: 14%;
+    --background-l: 99%;
+    /* Foreground: Slate-950 */
+    --foreground-h: 222;
+    --foreground-s: 47%;
+    --foreground-l: 11%;
+
+    /* Card & Popover: White */
+    --card-h: 0;
+    --card-s: 0%;
+    --card-l: 100%;
+    --card-foreground-h: 222;
+    --card-foreground-s: 47%;
+    --card-foreground-l: 11%;
+
+    /* Primary: Indigo-600 */
+    --primary-h: 243;
+    --primary-s: 75%;
+    --primary-l: 59%;
+    --primary-foreground-h: 210;
+    --primary-foreground-s: 40%;
+    --primary-foreground-l: 98%;
+
+    /* Secondary: Slate-100 */
+    --secondary-h: 210;
+    --secondary-s: 40%;
+    --secondary-l: 96%;
+    --secondary-foreground-h: 222;
+    --secondary-foreground-s: 47%;
+    --secondary-foreground-l: 11%;
+
+    /* Muted: Slate-100 */
+    --muted-h: 210;
+    --muted-s: 40%;
+    --muted-l: 96%;
+    --muted-foreground-h: 215;
+    --muted-foreground-s: 16%;
+    --muted-foreground-l: 47%;
+
+    /* Accent: Slate-100 */
+    --accent-h: 210;
+    --accent-s: 40%;
+    --accent-l: 96%;
+    --accent-foreground-h: 222;
+    --accent-foreground-s: 47%;
+    --accent-foreground-l: 11%;
+
+    /* Destructive: Rose-600 */
+    --destructive-h: 346;
+    --destructive-s: 84%;
+    --destructive-l: 50%;
+    --destructive-foreground-h: 210;
+    --destructive-foreground-s: 40%;
+    --destructive-foreground-l: 98%;
+
     /* Border: Light gray */
     --border-h: 220;
     --border-s: 10%;
@@ -94,29 +151,75 @@ body {
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    /* Use slate-900 (approx 222 47% 11%) for background to match our slate-900 uses */
+    /* Background: Slate-950 */
     --background-h: 222;
     --background-s: 47%;
     --background-l: 11%;
+    /* Foreground: Slate-50 */
+    --foreground-h: 210;
+    --foreground-s: 40%;
+    --foreground-l: 98%;
+
+    /* Card & Popover: Slate-950 */
+    --card-h: 222;
+    --card-s: 47%;
+    --card-l: 11%;
+    --card-foreground-h: 210;
+    --card-foreground-s: 40%;
+    --card-foreground-l: 98%;
+
+    /* Primary: Indigo-500 (Maintain brand color in dark mode) */
+    --primary-h: 243;
+    --primary-s: 75%;
+    --primary-l: 65%;
+    --primary-foreground-h: 0;
+    --primary-foreground-s: 0%;
+    --primary-foreground-l: 100%;
+
+    /* Secondary: Slate-800 */
+    --secondary-h: 217;
+    --secondary-s: 32%;
+    --secondary-l: 17%;
+    --secondary-foreground-h: 210;
+    --secondary-foreground-s: 40%;
+    --secondary-foreground-l: 98%;
+
+    /* Muted: Slate-800 */
+    --muted-h: 217;
+    --muted-s: 32%;
+    --muted-l: 17%;
+    --muted-foreground-h: 215;
+    --muted-foreground-s: 20%;
+    --muted-foreground-l: 65%;
+
+    /* Accent: Slate-800 */
+    --accent-h: 217;
+    --accent-s: 32%;
+    --accent-l: 17%;
+    --accent-foreground-h: 210;
+    --accent-foreground-s: 40%;
+    --accent-foreground-l: 98%;
+
+    /* Destructive: Red-900 */
+    --destructive-h: 0;
+    --destructive-s: 63%;
+    --destructive-l: 31%;
+    --destructive-foreground-h: 210;
+    --destructive-foreground-s: 40%;
+    --destructive-foreground-l: 98%;
+
+    /* Border: Slate-800 */
+    --border-h: 217;
+    --border-s: 32%;
+    --border-l: 17%;
+    /* Input: Slate-800 */
+    --input-h: 217;
+    --input-s: 32%;
+    --input-l: 17%;
+    /* Ring: Slate-300 */
+    --ring-h: 212;
+    --ring-s: 26%;
+    --ring-l: 83%;
   }
 }
 
@@ -126,17 +229,17 @@ body {
   }
 
   html {
-    background-color: #fcfcfd;
+    background-color: var(--background);
     transition: background-color 0.3s ease;
   }
 
   html.dark {
-    background-color: #0f172a;
+    background-color: var(--background);
   }
 
   body {
     /* Use the new background color */
-    @apply bg-[#fcfcfd] dark:bg-slate-900 text-foreground;
+    @apply bg-background text-foreground;
     /* Ensure smooth scrolling */
     scroll-behavior: smooth;
     /* Improve text rendering */
@@ -249,8 +352,8 @@ body {
     position: absolute;
     width: 100%;
     height: 3px;
-    background: linear-gradient(90deg, transparent, #4f46e5, transparent);
-    box-shadow: 0 0 12px #4f46e5;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    box-shadow: 0 0 12px var(--primary);
     animation: scanner 2.5s ease-in-out infinite;
     z-index: 20;
   }
@@ -314,11 +417,11 @@ body {
 }
 
 .dropdownItem:focus {
-  background-color: #f2edfc !important;
+  background-color: var(--accent) !important;
 }
 
 .dropdownItem:focus span {
-  color: #8152e1 !important;
+  color: var(--primary) !important;
 }
 
 .scrollArea {

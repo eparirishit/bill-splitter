@@ -142,44 +142,44 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
 
   return (
     <div className="space-y-8 animate-slide-up pb-24 w-full max-w-full overflow-hidden">
-      <section className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/20 dark:shadow-none border border-gray-100 dark:border-slate-800 space-y-6 w-full max-w-full overflow-hidden">
-        <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest border-b border-gray-50 dark:border-slate-800 pb-4">General Info</h3>
+      <section className="bg-card text-card-foreground rounded-[2.5rem] p-8 shadow-xl shadow-primary/5 border border-border space-y-6 w-full max-w-full overflow-hidden">
+        <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-4">General Info</h3>
 
         <div className="space-y-6">
           <div className="group">
-            <label className="block text-[10px] font-black text-indigo-400 dark:text-indigo-300 uppercase mb-2 tracking-tighter">Business Name</label>
+            <label className="block text-[10px] font-black text-primary uppercase mb-2 tracking-tighter">Business Name</label>
             <input
               type="text"
               value={billData.storeName}
               onChange={(e) => onUpdate({ storeName: e.target.value })}
-              className="w-full text-2xl font-black text-gray-900 dark:text-white border-none focus:ring-0 placeholder:text-gray-200 dark:placeholder:text-slate-700 bg-transparent focus:bg-transparent shadow-none !min-h-0 !p-0"
+              className="w-full text-2xl font-black text-foreground border-none focus:ring-0 placeholder:text-muted-foreground/30 bg-transparent focus:bg-transparent shadow-none !min-h-0 !p-0"
               placeholder="Starbucks Coffee..."
             />
           </div>
 
-          <div className="pt-4 border-t border-gray-50 dark:border-slate-800">
-            <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase mb-2">Billing Date</label>
+          <div className="pt-4 border-t border-border">
+            <label className="block text-[10px] font-black text-muted-foreground uppercase mb-2">Billing Date</label>
             <div className="relative min-w-0 w-full max-w-full overflow-hidden">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500 dark:text-indigo-400 z-10">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary z-10">
                 <i className="fas fa-calendar-alt"></i>
               </div>
               <input
                 type="date"
                 value={billData.date}
                 onChange={(e) => onUpdate({ date: e.target.value })}
-                className="w-full max-w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 pl-10 pr-3 focus:outline-none focus:ring-0 cursor-pointer !min-h-0 min-w-0 box-border [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-inner-spin-button]:hidden"
+                className="w-full max-w-full text-sm font-bold text-foreground border-none bg-muted/50 rounded-xl py-3 pl-10 pr-3 focus:outline-none focus:ring-0 cursor-pointer !min-h-0 min-w-0 box-border [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-inner-spin-button]:hidden"
                 style={{ width: '100%', maxWidth: '100%' }}
               />
             </div>
           </div>
 
-          <div className="pt-4 border-t border-gray-50 dark:border-slate-800">
-            <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase mb-2">Who paid?</label>
+          <div className="pt-4 border-t border-border">
+            <label className="block text-[10px] font-black text-muted-foreground uppercase mb-2">Who paid?</label>
             <div className="relative min-w-0 w-full max-w-full overflow-hidden">
               <select
                 value={whoPaidDropdownValue}
                 onChange={(e) => handleWhoPaidChange(e.target.value)}
-                className="w-full max-w-full text-sm font-bold text-gray-800 dark:text-indigo-200 border-none bg-slate-50 dark:bg-slate-700/50 rounded-xl py-3 px-3 focus:outline-none focus:ring-0 appearance-none cursor-pointer !min-h-0 min-w-0 box-border"
+                className="w-full max-w-full text-sm font-bold text-foreground border-none bg-muted/50 rounded-xl py-3 px-3 focus:outline-none focus:ring-0 appearance-none cursor-pointer !min-h-0 min-w-0 box-border"
                 style={{ width: '100%', maxWidth: '100%' }}
               >
                 <option value="">Select who paid</option>
@@ -188,25 +188,25 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
                 ))}
                 <option value={MULTIPLE_PAYERS_VALUE}>Multiple people</option>
               </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-300 z-10">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/50 z-10">
                 <i className="fas fa-chevron-down text-[10px]"></i>
               </div>
             </div>
 
             {isMultiplePayers && (
               <>
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-3 mb-2">Enter the amount each person paid. Total paid should equal the bill total.</p>
+                <p className="text-xs text-muted-foreground mt-3 mb-2">Enter the amount each person paid. Total paid should equal the bill total.</p>
                 <div className="space-y-3">
                   {payerList.map(m => (
-                    <div key={m.id} className="flex items-center justify-between gap-4 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                    <div key={m.id} className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-xl">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-lg overflow-hidden border border-white dark:border-slate-600 shrink-0">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden border border-border shrink-0">
                           <img src={m.avatar} className="w-full h-full object-cover" alt="" />
                         </div>
-                        <span className="text-sm font-bold text-gray-800 dark:text-slate-200 truncate">{m.name === 'Me' ? 'Me' : m.name}</span>
+                        <span className="text-sm font-bold text-foreground truncate">{m.name === 'Me' ? 'Me' : m.name}</span>
                       </div>
-                      <div className="flex items-center bg-gray-50/80 dark:bg-slate-700/50 px-2 py-2 rounded-xl border border-gray-100 dark:border-slate-700 group-hover:bg-white dark:group-hover:bg-slate-700 transition-colors shrink-0">
-                        <span className="text-gray-400 dark:text-slate-500 text-xs font-bold mr-1">$</span>
+                      <div className="flex items-center bg-muted/80 px-2 py-2 rounded-xl border border-border group-hover:bg-muted transition-colors shrink-0">
+                        <span className="text-muted-foreground text-xs font-bold mr-1">$</span>
                         <input
                           type="number"
                           min={0}
@@ -217,25 +217,25 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
                             setPaidAmount(m.id, Number.isNaN(v) ? 0 : v);
                           }}
                           placeholder="0"
-                          className="w-14 font-black text-gray-900 dark:text-white border-none focus:ring-0 text-right bg-transparent !min-h-0 !p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-14 font-black text-foreground border-none focus:ring-0 text-right bg-transparent !min-h-0 !p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className={`mt-2 text-xs font-bold ${paidValid ? 'text-gray-500 dark:text-slate-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                <div className={`mt-2 text-xs font-bold ${paidValid ? 'text-muted-foreground' : 'text-amber-600'}`}>
                   Total paid: ${totalPaid.toFixed(2)} {!paidValid && `(should be $${totalBill.toFixed(2)})`}
                 </div>
               </>
             )}
           </div>
 
-          <div className="pt-4 border-t border-gray-50 dark:border-slate-800">
+          <div className="pt-4 border-t border-border">
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase">Description</label>
+              <label className="block text-[10px] font-black text-muted-foreground uppercase">Description</label>
               <button
                 onClick={generateSummary}
-                className="text-xs font-bold text-indigo-500 dark:text-indigo-400 underline hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+                className="text-xs font-bold text-primary underline hover:text-primary/80 transition-colors"
               >
                 Auto-Fill Details
               </button>
@@ -243,38 +243,38 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ billData, onUpdate, 
             <textarea
               value={billData.notes}
               onChange={(e) => onUpdate({ notes: e.target.value })}
-              className="w-full text-sm font-bold text-gray-700 dark:text-indigo-100/70 border-none bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-4 focus:outline-none focus:ring-0 min-h-[120px] resize-none"
+              className="w-full text-sm font-bold text-foreground/70 border-none bg-muted/50 rounded-2xl p-4 focus:outline-none focus:ring-0 min-h-[120px] resize-none"
               placeholder="Split details will appear here..."
             />
           </div>
         </div>
       </section>
 
-      <section className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-indigo-100/20 dark:shadow-none border border-gray-50 dark:border-slate-800 space-y-6">
-        <h3 className="text-[10px] font-black text-indigo-400 dark:text-indigo-300 uppercase tracking-widest border-b border-gray-50 dark:border-slate-800 pb-4">Each payee’s share (owed)</h3>
+      <section className="bg-card text-card-foreground rounded-[2.5rem] p-8 shadow-xl shadow-primary/5 border border-border space-y-6">
+        <h3 className="text-[10px] font-black text-primary uppercase tracking-widest border-b border-border pb-4">Each payee’s share (owed)</h3>
 
         <div className="space-y-4">
           {selectedMembers.map(member => (
-            <div key={member.id} className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-700 hover:shadow-lg transition-all duration-300">
+            <div key={member.id} className="flex items-center justify-between p-4 rounded-2xl border border-border bg-muted/30 hover:bg-accent hover:shadow-lg transition-all duration-300">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl overflow-hidden border border-white dark:border-slate-600 shadow-sm bg-indigo-50 dark:bg-indigo-900/30">
+                <div className="w-10 h-10 rounded-xl overflow-hidden border border-border shadow-sm bg-primary/10">
                   <img src={member.avatar} className="w-full h-full object-cover" alt="" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">{member.name}</span>
-                  <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 uppercase">Owes this amount</span>
+                  <span className="text-sm font-bold text-foreground">{member.name}</span>
+                  <span className="text-[9px] font-bold text-emerald-500 uppercase">Owes this amount</span>
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-base font-black text-indigo-600 dark:text-indigo-400 tracking-tight">${splits[member.id].toFixed(2)}</span>
+                <span className="text-base font-black text-primary tracking-tight">${splits[member.id].toFixed(2)}</span>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="pt-8 flex flex-col items-center border-t border-gray-50 dark:border-slate-800">
-          <span className="text-[10px] font-black text-gray-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-1">Total Bill Amount</span>
-          <span className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter">${(subtotal + overhead).toFixed(2)}</span>
+        <div className="pt-8 flex flex-col items-center border-t border-border">
+          <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.2em] mb-1">Total Bill Amount</span>
+          <span className="text-4xl font-black text-foreground tracking-tighter">${(subtotal + overhead).toFixed(2)}</span>
         </div>
       </section>
     </div>

@@ -10,53 +10,66 @@ export interface FlowStatePayload {
   previewImageUrl?: string | null;
 }
 
-/** GET: Fetch the user's saved flow state for cross-device resume */
+/** GET: Fetch the user's saved flow state(s) */
 export async function GET(request: NextRequest) {
   try {
     const userId = request.nextUrl.searchParams.get('userId');
+    const type = request.nextUrl.searchParams.get('type') || 'last'; // 'last' or 'all'
+    
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
 
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
+    let query = supabase
       .from('user_flow_state')
-      .select('flow, current_step, bill_data, preview_image_url, updated_at')
-      .eq('user_id', userId)
-      .single();
+      .select('flow, current_step, bill_data, preview_image_url, updated_at, bill_id, is_last_active, store_name, total_amount')
+      .eq('user_id', userId);
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({ data: null });
-      }
-      console.error('Flow state GET error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch flow state', details: error.message },
-        { status: 500 }
-      );
+    if (type === 'last') {
+      const { data, error } = await query.eq('is_last_active', true).maybeSingle();
+      if (error) throw error;
+      
+      return NextResponse.json({
+        data: data
+          ? {
+              flow: data.flow,
+              currentStep: data.current_step,
+              billData: data.bill_data,
+              previewImageUrl: data.preview_image_url ?? null,
+              updatedAt: data.updated_at,
+              billId: data.bill_id,
+            }
+          : null,
+      });
+    } else {
+      const { data, error } = await query.order('updated_at', { ascending: false });
+      if (error) throw error;
+
+      return NextResponse.json({
+        data: data.map(item => ({
+          flow: item.flow,
+          currentStep: item.current_step,
+          billData: item.bill_data,
+          previewImageUrl: item.preview_image_url ?? null,
+          updatedAt: item.updated_at,
+          billId: item.bill_id,
+          isLastActive: item.is_last_active,
+          storeName: item.store_name,
+          totalAmount: item.total_amount
+        }))
+      });
     }
-
-    return NextResponse.json({
-      data: data
-        ? {
-            flow: data.flow,
-            currentStep: data.current_step,
-            billData: data.bill_data,
-            previewImageUrl: data.preview_image_url ?? null,
-            updatedAt: data.updated_at,
-          }
-        : null,
-    });
   } catch (err) {
     console.error('Flow state GET:', err);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: (err as Error).message },
       { status: 500 }
     );
   }
 }
 
-/** PUT: Save the user's current flow state (upsert by user_id) */
+/** PUT: Save the user's current flow state */
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -64,7 +77,7 @@ export async function PUT(request: NextRequest) {
       userId: string;
       flow: string;
       currentStep: number;
-      billData: Record<string, unknown> | null;
+      billData: Record<string, any> | null;
       previewImageUrl?: string | null;
     };
 
@@ -75,19 +88,38 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const billId = billData?.id as string || 'default';
+    const storeName = billData?.storeName as string || 'New Split';
+    const totalAmount = billData?.total as number || 0;
+
     const supabase = getSupabaseClient();
+
+    // 1. If this is a valid active flow, mark all other flows for this user as NOT last active
+    if (flow !== 'NONE' && currentStep > 0) {
+      await supabase
+        .from('user_flow_state')
+        .update({ is_last_active: false })
+        .eq('user_id', userId)
+        .neq('bill_id', billId);
+    }
+
+    // 2. Upsert the current flow state
     const { error } = await supabase
       .from('user_flow_state')
       .upsert(
         {
           user_id: userId,
+          bill_id: billId,
           flow: String(flow),
           current_step: Number(currentStep),
           bill_data: billData ?? null,
           preview_image_url: previewImageUrl ?? null,
           updated_at: new Date().toISOString(),
+          is_last_active: flow !== 'NONE', // If flow is NONE, it's not the last active split
+          store_name: storeName,
+          total_amount: totalAmount
         },
-        { onConflict: 'user_id' }
+        { onConflict: 'user_id, bill_id' }
       );
 
     if (error) {

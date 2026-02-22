@@ -5,16 +5,27 @@
 export interface FlowStateSnapshot {
   flow: string;
   currentStep: number;
-  billData: Record<string, unknown> | null;
+  billData: Record<string, any> | null;
   previewImageUrl: string | null;
   updatedAt: string;
+  billId?: string;
+  isLastActive?: boolean;
+  storeName?: string;
+  totalAmount?: number;
 }
 
 export async function getFlowState(userId: string): Promise<FlowStateSnapshot | null> {
-  const res = await fetch(`/api/user/flow-state?userId=${encodeURIComponent(userId)}`);
+  const res = await fetch(`/api/user/flow-state?userId=${encodeURIComponent(userId)}&type=last`);
   if (!res.ok) return null;
   const json = await res.json();
   return json.data ?? null;
+}
+
+export async function getAllDrafts(userId: string): Promise<FlowStateSnapshot[]> {
+  const res = await fetch(`/api/user/flow-state?userId=${encodeURIComponent(userId)}&type=all`);
+  if (!res.ok) return [];
+  const json = await res.json();
+  return json.data || [];
 }
 
 export async function saveFlowState(
@@ -22,7 +33,7 @@ export async function saveFlowState(
   payload: {
     flow: string;
     currentStep: number;
-    billData: Record<string, unknown> | null;
+    billData: Record<string, any> | null;
     previewImageUrl?: string | null;
   }
 ): Promise<boolean> {

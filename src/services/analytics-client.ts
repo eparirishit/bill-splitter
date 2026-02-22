@@ -73,6 +73,9 @@ interface AggregatedAnalytics {
   average_accuracy_rating: number;
   active_users_last_30_days: number;
   total_volume: number;
+  manual_expenses_count: number;
+  ocr_scans_count: number;
+  accuracy_rate: number;
 }
 
 interface ExpenseHistoryResponse {

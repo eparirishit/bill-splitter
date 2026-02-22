@@ -108,7 +108,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="bg-[#fcfcfd] dark:bg-slate-900">
+    <html lang="en" className="bg-background">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <title>SplitScan</title>
@@ -151,12 +151,12 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="384x384" href="/icons/icon-384x384.png" />
         <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png" />
       </head>
-      <body className="antialiased min-h-dvh flex flex-col bg-[#fcfcfd] dark:bg-slate-900 transition-colors" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif" }}>
+      <body className="antialiased min-h-dvh flex flex-col bg-background transition-colors" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif" }}>
         <ThemeProvider>
           <AuthProvider>
             <BillSplittingProvider>
               <Header />
-              <main className="flex-1 w-full max-w-md mx-auto bg-[#fcfcfd] dark:bg-slate-900 transition-colors">
+              <main className="flex-1 w-full max-w-md mx-auto bg-background transition-colors">
                 {children}
               </main>
               <InstallPrompt />

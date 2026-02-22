@@ -20,13 +20,13 @@ export class ExpensePayloadService {
     // Adjust final splits to ensure exact total match
     const adjustedSplits = [...finalSplits];
     let totalOwedSoFar = 0;
-    
+
     // Calculate all but the last split normally
     for (let i = 0; i < adjustedSplits.length - 1; i++) {
       adjustedSplits[i].amountOwed = Math.round(adjustedSplits[i].amountOwed * 100) / 100;
       totalOwedSoFar += adjustedSplits[i].amountOwed;
     }
-    
+
     // Last person gets the remainder to ensure exact total
     if (adjustedSplits.length > 0) {
       adjustedSplits[adjustedSplits.length - 1].amountOwed = totalCost - totalOwedSoFar;
@@ -46,7 +46,7 @@ export class ExpensePayloadService {
     adjustedSplits.forEach((split, index) => {
       const paidShare = parseInt(split.userId) === numericPayerId ? totalCost.toFixed(2) : '0.00';
       const owedShare = split.amountOwed.toFixed(2);
-      
+
       expensePayload[`users__${index}__user_id`] = parseInt(split.userId);
       expensePayload[`users__${index}__paid_share`] = paidShare;
       expensePayload[`users__${index}__owed_share`] = owedShare;
@@ -62,7 +62,7 @@ export class ExpensePayloadService {
   ): string {
     const subtotal = billData.items.reduce((sum, item) => sum + item.price, 0);
     let notes = `Store: ${storeName}\nDate: ${this.formatToLocalDateString(date)}\n\nItems Subtotal: ${this.formatCurrency(subtotal)}\n`;
-    
+
     billData.items.forEach(item => {
       notes += `- ${item.name}: ${this.formatCurrency(item.price)}\n`;
     });
@@ -103,13 +103,9 @@ export class ExpensePayloadService {
     if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
       return dateInput;
     }
+    // Use toLocaleDateString with 'en-CA' locale which produces YYYY-MM-DD in local timezone
     const date = new Date(dateInput);
-    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-    const localDate = new Date(date.getTime() + userTimezoneOffset);
-    const year = localDate.getFullYear();
-    const month = (localDate.getMonth() + 1).toString().padStart(2, '0');
-    const day = (localDate.getDate() + 1).toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return date.toLocaleDateString('en-CA');
   }
 
   private static formatCurrency(amount: number | undefined): string {

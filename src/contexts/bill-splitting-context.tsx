@@ -9,7 +9,7 @@ interface BillSplittingState {
   currentStep: number;
   isLoading: boolean;
   isComplete: boolean;
-  
+
   // Receipt scanning flow state
   billData: ExtractReceiptDataOutput | null;
   updatedBillData: ExtractReceiptDataOutput | undefined;
@@ -23,18 +23,18 @@ interface BillSplittingState {
     type: string;
     url?: string;
   } | null;
-  
+
   // Review step state
   storeName: string;
   date: string;
   expenseNotes: string;
   payerId: string | undefined;
-  
+
   // Manual expense flow state
   manualExpenseData: ManualExpenseData | null;
   customAmounts: Record<string, number> | undefined;
   splitType: 'equal' | 'custom';
-  
+
   // Manual expense form data (for persistence)
   manualExpenseForm: {
     title: string;
@@ -42,7 +42,7 @@ interface BillSplittingState {
     notes: string;
     date: string;
   };
-  
+
   // Shared state
   selectedGroupId: string | null;
   selectedMembers: SplitwiseUser[];
@@ -56,7 +56,7 @@ interface BillSplittingContextType extends BillSplittingState {
   setCurrentStep: (step: number) => void;
   setLoading: (loading: boolean) => void;
   setComplete: (complete: boolean) => void;
-  
+
   // Receipt scanning actions
   setBillData: (data: ExtractReceiptDataOutput) => void;
   setUpdatedBillData: (data: ExtractReceiptDataOutput | undefined) => void;
@@ -65,37 +65,37 @@ interface BillSplittingContextType extends BillSplittingState {
   setOtherChargesSplit: (split: string[]) => void;
   setReceiptId: (id: string | undefined) => void;
   setLastUploadedFile: (file: BillSplittingState["lastUploadedFile"]) => void;
-  
+
   // Review step actions
   setStoreName: (name: string) => void;
   setDate: (date: string) => void;
   setExpenseNotes: (notes: string) => void;
   setPayerId: (id: string | undefined) => void;
-  
+
   // Manual expense actions
   setManualExpenseData: (data: ManualExpenseData | null) => void;
   setCustomAmounts: (amounts: Record<string, number> | undefined) => void;
   setSplitType: (type: 'equal' | 'custom') => void;
-  
+
   // Manual expense form actions
   setManualExpenseFormTitle: (title: string) => void;
   setManualExpenseFormAmount: (amount: string) => void;
   setManualExpenseFormNotes: (notes: string) => void;
   setManualExpenseFormDate: (date: string) => void;
   clearManualExpenseForm: () => void;
-  
+
   // Shared actions
   setSelectedGroupId: (groupId: string | null) => void;
   setSelectedMembers: (members: SplitwiseUser[]) => void;
   setSelectionType: (type: SelectionType | null) => void;
   setSelectedFriends: (friends: SplitwiseFriend[]) => void;
-  
+
   // Utility actions
   reset: () => void;
   goToNextStep: () => void;
   goToPreviousStep: () => void;
   handleEditStep: (step: number) => void;
-  
+
   // Computed values
   canGoToNextStep: boolean;
   canGoToPreviousStep: boolean;
@@ -150,7 +150,7 @@ const isLocalStorageAvailable = (): boolean => {
 // Helper function to save state to localStorage
 const saveStateToStorage = (state: BillSplittingState) => {
   if (!isLocalStorageAvailable()) return;
-  
+
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
@@ -161,7 +161,7 @@ const saveStateToStorage = (state: BillSplittingState) => {
 // Helper function to load state from localStorage
 const loadStateFromStorage = (): BillSplittingState | null => {
   if (!isLocalStorageAvailable()) return null;
-  
+
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : null;
@@ -185,8 +185,8 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Flow actions
   const setExpenseType = useCallback((type: 'scan' | 'manual' | null) => {
-    setState(prev => ({ 
-      ...prev, 
+    setState(prev => ({
+      ...prev,
       expenseType: type,
       // Clear form data when starting a new manual expense
       ...(type === 'manual' && {
@@ -277,41 +277,41 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Manual expense form actions
   const setManualExpenseFormTitle = useCallback((title: string) => {
-    setState(prev => ({ 
-      ...prev, 
-      manualExpenseForm: { ...prev.manualExpenseForm, title } 
+    setState(prev => ({
+      ...prev,
+      manualExpenseForm: { ...prev.manualExpenseForm, title }
     }));
   }, []);
 
   const setManualExpenseFormAmount = useCallback((amount: string) => {
-    setState(prev => ({ 
-      ...prev, 
-      manualExpenseForm: { ...prev.manualExpenseForm, amount } 
+    setState(prev => ({
+      ...prev,
+      manualExpenseForm: { ...prev.manualExpenseForm, amount }
     }));
   }, []);
 
   const setManualExpenseFormNotes = useCallback((notes: string) => {
-    setState(prev => ({ 
-      ...prev, 
-      manualExpenseForm: { ...prev.manualExpenseForm, notes } 
+    setState(prev => ({
+      ...prev,
+      manualExpenseForm: { ...prev.manualExpenseForm, notes }
     }));
   }, []);
 
   const setManualExpenseFormDate = useCallback((date: string) => {
-    setState(prev => ({ 
-      ...prev, 
-      manualExpenseForm: { ...prev.manualExpenseForm, date } 
+    setState(prev => ({
+      ...prev,
+      manualExpenseForm: { ...prev.manualExpenseForm, date }
     }));
   }, []);
 
   const clearManualExpenseForm = useCallback(() => {
-    setState(prev => ({ 
-      ...prev, 
+    setState(prev => ({
+      ...prev,
       manualExpenseForm: {
         title: '',
         amount: '',
         notes: '',
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toLocaleDateString('en-CA')
       }
     }));
   }, []);
@@ -353,7 +353,7 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
   const goToPreviousStep = useCallback(() => {
     setState(prev => {
       let newStep = prev.currentStep - 1;
-      
+
       // Handle manual flow navigation
       if (prev.expenseType === 'manual') {
         if (prev.currentStep === 5) {
@@ -380,7 +380,7 @@ export const BillSplittingProvider: React.FC<{ children: React.ReactNode }> = ({
           newStep = 3;
         }
       }
-      
+
       return { ...prev, currentStep: Math.max(0, newStep) };
     });
   }, []);

@@ -34,12 +34,12 @@ class Logger {
 
   private parseLogLevel(level: string | undefined): LogLevel | null {
     if (!level) return null;
-    
+
     const upperLevel = level.toUpperCase();
     if (upperLevel in LogLevel) {
       return LogLevel[upperLevel as keyof typeof LogLevel];
     }
-    
+
     return null;
   }
 
@@ -63,16 +63,11 @@ class Logger {
 
     const logMethod = this.getLogMethod(entry.level);
     const formattedMessage = this.formatMessage(entry);
-    
+
     if (entry.error) {
       logMethod(formattedMessage, entry.error);
     } else {
       logMethod(formattedMessage);
-    }
-
-    // In development, also log to console with colors
-    if (this.isDevelopment) {
-      this.logToConsole(entry);
     }
   }
 
@@ -121,7 +116,7 @@ class Logger {
 
     const reset = '\x1b[0m';
     const color = colors[entry.level] || '';
-    
+
     console.log(`${color}${this.formatMessage(entry)}${reset}`);
   }
 

@@ -33,7 +33,7 @@ import { supabase, generateImageHash } from '@/lib/supabase';
 const DEFAULT_BILL: BillData = {
   id: '',
   storeName: '',
-  date: new Date().toISOString().split('T')[0],
+  date: new Date().toLocaleDateString('en-CA'),
   items: [],
   tax: 0,
   discount: 0,
@@ -959,7 +959,7 @@ function BillSplitterFlow() {
         setBillData(prev => ({
           ...prev,
           storeName: extracted.storeName || 'New Expense',
-          date: extracted.date || new Date().toISOString().split('T')[0],
+          date: extracted.date || new Date().toLocaleDateString('en-CA'),
           tax: extracted.taxes || 0,
           total: extracted.totalCost || 0,
           items: extracted.items.map(item => ({

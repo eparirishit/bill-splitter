@@ -12,7 +12,7 @@ export const SPLITWISE_CONFIG = {
 
 // App Configuration
 export const APP_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000',
+  BASE_URL: process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'),
   AUTH_COOKIE_NAME: 'sw_access_token',
   OAUTH_STATE_COOKIE_NAME: 'oauth_state',
 } as const;
